@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS (Swift ${{ matrix.swift }})
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        # The package requires swift-tools-version 6.2 (defaultIsolation,
+        # NonisolatedNonsendingByDefault). latest-stable Xcode on the macos-26 image
+        # provides Swift 6.2+. The library uses os.log, so it is Apple-only: there is
+        # no Linux job.
+        swift: ["latest-stable"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.swift }}
+      - name: Swift version
+        run: swift --version
+      - name: Build
+        run: swift build --build-tests
+      - name: Test
+        run: swift test
