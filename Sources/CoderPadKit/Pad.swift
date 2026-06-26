@@ -140,6 +140,18 @@ public nonisolated struct PadEvent: Decodable, Identifiable, Hashable, Sendable 
     public let userEmail: String?
     public let createdAt: Date?
 
+    public init(
+        message: String, kind: String, metadata: String? = nil,
+        userName: String? = nil, userEmail: String? = nil, createdAt: Date? = nil
+    ) {
+        self.message = message
+        self.kind = kind
+        self.metadata = metadata
+        self.userName = userName
+        self.userEmail = userEmail
+        self.createdAt = createdAt
+    }
+
     enum CodingKeys: String, CodingKey {
         case message, kind, metadata
         case userName = "user_name"
