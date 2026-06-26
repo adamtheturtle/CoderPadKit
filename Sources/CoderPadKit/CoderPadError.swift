@@ -15,7 +15,7 @@ import Foundation
 ///
 /// The ``CoderPadClient`` retries idempotent GET requests on the transient cases
 /// before surfacing one; see ``CoderPadClient``.
-public enum CoderPadError: Error, CustomStringConvertible, Sendable {
+public nonisolated enum CoderPadError: Error, CustomStringConvertible, Sendable {
     /// No API key was configured for the request.
     case missingAPIKey
     /// The server returned a non-success HTTP status, with the response body.

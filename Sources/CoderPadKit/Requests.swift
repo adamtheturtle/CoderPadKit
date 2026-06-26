@@ -9,7 +9,7 @@ import Foundation
 
 /// The request body for modifying a pad (`PUT /api/pads/:id`). Only the non-nil
 /// fields are sent. The `id` travels in the URL path as well as the body.
-public struct PadUpdate: Codable, Sendable {
+public nonisolated struct PadUpdate: Codable, Sendable {
     public var id: String
     public var title: String?
     public var language: String?
@@ -60,7 +60,7 @@ public struct PadUpdate: Codable, Sendable {
 /// nested under a `question` object to match the API's documented `question[title]` /
 /// `question[language]` parameters; the remaining fields are sent flat, as the API
 /// documents them. Encode-only: these are never decoded.
-public struct QuestionCreate: Encodable, Sendable {
+public nonisolated struct QuestionCreate: Encodable, Sendable {
     public var title: String
     public var language: String?
     public var description: String?
@@ -114,7 +114,7 @@ public struct QuestionCreate: Encodable, Sendable {
 /// The request body for modifying a question. Like ``QuestionCreate``,
 /// `title`/`language` are nested under `question`. The `id` travels in the URL path;
 /// it is also encoded flat here for parity with the create payload. Encode-only.
-public struct QuestionUpdate: Encodable, Sendable {
+public nonisolated struct QuestionUpdate: Encodable, Sendable {
     public var id: Int
     public var title: String?
     public var language: String?
@@ -171,7 +171,7 @@ public struct QuestionUpdate: Encodable, Sendable {
 }
 
 /// One block of candidate instructions, as sent in a create/update request body.
-public struct CandidateInstructionPayload: Codable, Sendable {
+public nonisolated struct CandidateInstructionPayload: Codable, Sendable {
     public var instructions: String
     public var defaultVisible: Bool
 
