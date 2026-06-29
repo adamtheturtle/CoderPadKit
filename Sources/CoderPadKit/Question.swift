@@ -84,10 +84,12 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
 }
 
 /// Whether a pad or question is a real-time **live** interview or an async
-/// **take-home**. CoderPad models this inconsistently across resources: pads
-/// expose a free-form `type` string, while questions expose a `take_home`
-/// boolean (and, on newer records, a `pad_type` string). ``InterviewType``
-/// normalizes all of these so callers can present one consistent notion of type.
+/// **take-home**. This is the pad's *format*, a different axis from ``PadState``
+/// (its lifecycle); "live" here means live-vs-take-home, never "currently running".
+/// CoderPad models this inconsistently across resources: pads expose a free-form
+/// `type` string, while questions expose a `take_home` boolean (and, on newer
+/// records, a `pad_type` string). ``InterviewType`` normalizes all of these so
+/// callers can present one consistent notion of type.
 public enum InterviewType: String, CaseIterable, Identifiable, Hashable, Sendable {
     case live
     case takeHome = "take-home"
@@ -108,14 +110,19 @@ public enum InterviewType: String, CaseIterable, Identifiable, Hashable, Sendabl
     }
 }
 
-/// A pad's lifecycle state, normalized from the API's free-form `state` string.
-/// CoderPad reports states like "started"/"ended"/"pending"; older or future
-/// records may use synonyms ("active", "finished", "draft"). ``PadState`` folds the
-/// known spellings into typed cases and preserves anything unrecognized as
-/// ``PadState/other(_:)``, so callers can switch over states without scattering
-/// string literals. Like ``InterviewType`` it round-trips through a stable lowercase
-/// `rawValue`, which keeps persistence wire-compatible with snapshots that stored the
-/// raw state string.
+/// A pad's lifecycle *state* — where it is in the interview's life (currently running,
+/// finished, not yet started, deleted). This is a different axis from ``InterviewType``,
+/// which is the pad's *format* (live vs take-home); a single pad has both. In
+/// particular "live" is an ``InterviewType``, not a ``PadState``: a pad can be a live
+/// interview that is ``PadState/pending`` (scheduled, not started) or ``PadState/ended``.
+///
+/// Normalized from the API's free-form `state` string. CoderPad reports states like
+/// "started"/"ended"/"pending"; older or future records may use synonyms
+/// ("running", "finished", "draft"). ``PadState`` folds the known spellings into typed
+/// cases and preserves anything unrecognized as ``PadState/other(_:)``, so callers can
+/// switch over states without scattering string literals. Like ``InterviewType`` it
+/// round-trips through a stable lowercase `rawValue`, which keeps persistence
+/// wire-compatible with snapshots that stored the raw state string.
 public enum PadState: Hashable, Identifiable, Codable, RawRepresentable, Sendable {
     case active
     case ended
@@ -126,9 +133,15 @@ public enum PadState: Hashable, Identifiable, Codable, RawRepresentable, Sendabl
     case other(String)
 
     /// Normalize a raw API `state` string, folding known synonyms into typed cases.
+    ///
+    /// Note the deliberate omission of `"live"` here: "live" is the vocabulary of
+    /// ``InterviewType`` (a live vs take-home *format*), not of a pad's *lifecycle*.
+    /// CoderPad never reports `state == "live"`, so mapping it here would only invite
+    /// the two axes to be confused; an unexpected `"live"` state instead falls through
+    /// to ``PadState/other(_:)`` like any other unrecognized value.
     public init(apiState raw: String) {
         switch raw.lowercased() {
-        case "started", "active", "live", "running": self = .active
+        case "started", "active", "running": self = .active
         case "ended", "finished", "completed": self = .ended
         case "pending", "draft": self = .pending
         case "deleted": self = .deleted
@@ -157,7 +170,8 @@ public enum PadState: Hashable, Identifiable, Codable, RawRepresentable, Sendabl
         rawValue
     }
 
-    /// Whether this is a terminal state.
+    /// Whether the interview ran and finished. True only for ``PadState/ended`` -
+    /// deliberately *not* ``PadState/deleted``, which is removal, not completion.
     public var isEnded: Bool {
         self == .ended
     }

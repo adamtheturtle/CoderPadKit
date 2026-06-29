@@ -28,6 +28,13 @@ struct PadStateTests {
     }
 
     @Test
+    func `live is an interview type not a lifecycle state`() {
+        // "live" belongs to InterviewType (format), not PadState (lifecycle), so it
+        // must not fold into .active; it falls through like any unrecognized state.
+        #expect(PadState(apiState: "live") == .other("live"))
+    }
+
+    @Test
     func `rawValue round-trips through RawRepresentable`() {
         for state in [PadState.active, .ended, .pending, .deleted, .other("custom")] {
             #expect(PadState(rawValue: state.rawValue) == state)
