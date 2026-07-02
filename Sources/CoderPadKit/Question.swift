@@ -110,7 +110,7 @@ public enum InterviewType: String, CaseIterable, Identifiable, Hashable, Sendabl
     }
 }
 
-/// A pad's lifecycle *state* — where it is in the interview's life (currently running,
+/// A pad's lifecycle *state* - where it is in the interview's life (currently running,
 /// finished, not yet started, deleted). This is a different axis from ``InterviewType``,
 /// which is the pad's *format* (live vs take-home); a single pad has both. In
 /// particular "live" is an ``InterviewType``, not a ``PadState``: a pad can be a live

@@ -102,7 +102,7 @@ extension CoderPadError: @retroactive LocalizedError {
 ## Documentation
 
 Full API documentation is hosted on the
-[Swift Package Index](https://swiftpackageindex.com/adamtheturtle/CoderPadKit/documentation).
+[Swift Package Index](https://swiftpackageindex.com/adamtheturtle/CoderPadKit/documentation/coderpadkit).
 
 ## License
 

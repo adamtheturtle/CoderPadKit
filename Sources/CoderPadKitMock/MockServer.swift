@@ -83,8 +83,8 @@ final nonisolated class MockURLProtocol: URLProtocol {
             .reduce(into: [String: String]()) { $0[$1.name] = $1.value } ?? [:]
 
         // Route to the per-API-key state (carried in the Authorization header the
-        // client sets on every request), so each client — the app's demo account,
-        // and each test — sees an isolated store.
+        // client sets on every request), so each client - the app's demo account,
+        // and each test - sees an isolated store.
         let state = MockStateRegistry.state(forKey: Self.apiKey(from: request))
         let (status, body) = MockResponses.respond(state: state,
                                                    method: method,

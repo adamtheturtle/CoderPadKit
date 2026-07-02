@@ -5,7 +5,7 @@
 //  Per-client mutable state for the fake API. The session edits (pads/questions
 //  created, updated, deleted) are layered over the immutable seed data in
 //  `MockFixtures`. Each API key gets its own `MockState` (see `MockStateRegistry`),
-//  so the app's demo account and every test have an isolated store — letting the
+//  so the app's demo account and every test have an isolated store - letting the
 //  test suite run in parallel without racing on shared pad/question counts.
 //
 

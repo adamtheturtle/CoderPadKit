@@ -52,20 +52,20 @@ nonisolated extension MockFixtures {
         Person(email: "andre@fawltytowers.co.uk", name: "André", teamID: "team-dining", padsCreated: 0)
     ]
 
-    /// Email and display name of the signed-in demo user — Polly, the one member of
+    /// Email and display name of the signed-in demo user - Polly, the one member of
     /// staff who reliably gets anything done. Kept here next to the org directory so
     /// the member, their pads, and their questions all line up.
     public static let demoUserEmail = "polly@fawltytowers.co.uk"
     public static let demoUserName = "Polly Sherman"
 
     /// Directory shape: `/api/organization` and `/api/organization/users` return
-    /// `{email, name, teams}` — no `pads_created`.
+    /// `{email, name, teams}` - no `pads_created`.
     static func users() -> [[String: Any]] {
         people.map { ["email": $0.email, "name": $0.name, "teams": [$0.teamID]] }
     }
 
     /// Stats shape: `/api/organization/stats` returns `{email, name, pads_created}`
-    /// per user — no `teams`.
+    /// per user - no `teams`.
     static func statsUsers() -> [[String: Any]] {
         people.map { ["email": $0.email, "name": $0.name, "pads_created": $0.padsCreated] }
     }

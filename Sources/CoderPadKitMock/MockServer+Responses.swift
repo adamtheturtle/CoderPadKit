@@ -30,7 +30,7 @@ nonisolated enum MockResponses {
 
     /// The request handler proper. Always invoked while `state.lock` is held, so it
     /// (and the `MockState` accessors it calls) may touch the mutable state without
-    /// further synchronization. Must not re-enter `respond` — `Mutex` is not reentrant.
+    /// further synchronization. Must not re-enter `respond` - `Mutex` is not reentrant.
     private static func respondLocked(
         state: MockState,
         method: String,
@@ -277,7 +277,7 @@ nonisolated enum MockResponses {
 
     /// The question create/modify API nests `title`/`language` under a `question`
     /// object (`question[title]`). Lift those back to top level so the fixtures,
-    /// which store flat keys, can read them — with a flat fallback for older callers.
+    /// which store flat keys, can read them - with a flat fallback for older callers.
     private static func flattenQuestionParams(_ dict: [String: Any]) -> [String: Any] {
         guard let nested = dict["question"] as? [String: Any] else { return dict }
 

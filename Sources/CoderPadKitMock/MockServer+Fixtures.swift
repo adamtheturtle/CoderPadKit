@@ -174,7 +174,7 @@ public nonisolated enum MockFixtures {
     }
 
     /// The active onsite: a question added, the candidate joining, then editing
-    /// and running twice — the grouped "×2" run path.
+    /// and running twice - the grouped "×2" run path.
     private static func onsiteEvents() -> [[String: Any]] {
         [
             event("Pad started", "started", "Basil Fawlty", "basil@fawltytowers.co.uk", "2026-06-08T15:00:00Z"),
@@ -198,7 +198,7 @@ public nonisolated enum MockFixtures {
         ]
     }
 
-    /// The active distributed-systems pad has execution disabled, so no runs —
+    /// The active distributed-systems pad has execution disabled, so no runs -
     /// instead it shows a spectator joining (via `metadata`) alongside the candidate.
     private static func backendEvents() -> [[String: Any]] {
         [

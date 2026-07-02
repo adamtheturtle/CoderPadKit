@@ -122,7 +122,7 @@ nonisolated extension MockFixtures {
 
         1. Custom vanity domains
         2. Analytics dashboards
-        3. Multi-region replication — keep it **single node**
+        3. Multi-region replication - keep it **single node**
 
         See the [design rubric](https://example.com/rubric) before you start.
         """
@@ -162,7 +162,7 @@ nonisolated extension MockFixtures {
         """
     }
 
-    /// A second candidate-instruction part — hidden from the candidate by default —
+    /// A second candidate-instruction part - hidden from the candidate by default -
     /// so the demo exercises both multi-part instruction separation and the
     /// "Hidden by default" badge.
     private static func urlShortenerHint() -> String {
@@ -210,7 +210,7 @@ nonisolated extension MockFixtures {
 
         - *Collision handling* when codes are generated randomly
         - Read-vs-write ratio and why a cache helps
-        - What happens at `2^63` ids — see [overflow notes][1]
+        - What happens at `2^63` ids - see [overflow notes][1]
 
         [1]: https://example.com/overflow
         """
@@ -235,7 +235,7 @@ nonisolated extension MockFixtures {
 
     /// The starter code a candidate begins from. The plain `contents` prints its
     /// output, while the test-cases variant returns a value so the harness can
-    /// assert on it — exercising both "Starter Code" cards in the question detail.
+    /// assert on it - exercising both "Starter Code" cards in the question detail.
     private static func fizzBuzzContents() -> String {
         """
         def fizzbuzz(n):
