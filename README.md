@@ -17,7 +17,8 @@ run without the network.
 
 ## Products
 
-- `CoderPadKit`: Typed API client for pads, questions, organizations, and quota data.
+- `CoderPadKit`: Typed API client for pads (including editor-history replay), questions,
+  organizations, and quota data.
 - `CoderPadKitMock`: In-process fake API seeded with canned data.
 
 ## Requirements

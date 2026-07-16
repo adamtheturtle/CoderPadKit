@@ -53,6 +53,13 @@ nonisolated enum MockResponses {
     // MARK: - Pad routes
 
     private static func padRoute(state: MockState, method: String, path: String, body: Data?) -> (Int, Data)? {
+        if method == "GET", let (environmentID, fileIndex) = historyLocation(path) {
+            guard let history = MockFixtures.padHistory(environmentID: environmentID, fileIndex: fileIndex) else {
+                return (404, jsonString(["error": "history not found"]))
+            }
+            return ok(history)
+        }
+
         // Modify a pad: the live API carries the pad id in the URL path
         // (`PUT /api/pads/:id`), with the changed attributes in the body.
         if method == "PUT", let id = match(path, pattern: #"^/api/pads/([^/]+)/?$"#), !id.isEmpty {
@@ -298,5 +305,19 @@ nonisolated enum MockResponses {
               let captured = Range(match.range(at: 1), in: path) else { return nil }
 
         return String(path[captured])
+    }
+
+    private static func historyLocation(_ path: String) -> (environmentID: Int, fileIndex: Int)? {
+        let parts = path.split(separator: "/")
+        guard parts.count == 6,
+              parts[0] == "mock",
+              parts[1] == "pad-environments",
+              let environmentID = Int(parts[2]),
+              parts[3] == "files",
+              let fileIndex = Int(parts[4]),
+              parts[5] == "history.json"
+        else { return nil }
+
+        return (environmentID, fileIndex)
     }
 }

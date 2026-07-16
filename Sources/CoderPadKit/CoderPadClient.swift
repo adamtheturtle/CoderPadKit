@@ -262,6 +262,24 @@ public struct CoderPadClient {
         try await rest.fetch(PadEnvironment.self, path: "/api/pad_environments/\(id)")
     }
 
+    /// Fetches and chronologically orders a pad file's editor history from Firebase.
+    ///
+    /// Pass the `history` value from ``PadEnvironmentFile``. The CoderPad API key is
+    /// deliberately not sent to this external URL. A Firebase `null` response is
+    /// returned as an empty history.
+    public func padHistory(historyURL: String) async throws -> PadHistory {
+        guard let url = URL(string: historyURL), url.scheme != nil, url.host != nil else {
+            throw CoderPadError.http(0, "Invalid history URL")
+        }
+
+        let request = RESTRequest(
+            url: url,
+            method: "GET",
+            headers: ["Accept": "application/json"]
+        )
+        return try await rest.performWithRetry(PadHistory?.self, request: request) ?? PadHistory()
+    }
+
     /// Creates a pad and returns it.
     public func createPad(_ body: PadCreate) async throws -> Pad {
         // Single-resource pad endpoints (this POST and GET /api/pads/:id) return the

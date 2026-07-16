@@ -28,40 +28,57 @@ nonisolated extension MockFixtures {
         ]
     }
 
-    private static func file(_ path: String, _ contents: String) -> [String: Any] {
-        ["path": path, "contents": contents, "history": NSNull()]
+    static func padHistory(environmentID: Int, fileIndex: Int) -> [String: Any]? {
+        let files = environmentFiles(id: environmentID).files
+        guard files.indices.contains(fileIndex), let contents = files[fileIndex]["contents"] as? String else {
+            return nil
+        }
+
+        return [
+            "initial": ["a": "candidate@example.com", "o": [contents], "t": Int64(1_700_000_000_000)]
+        ]
+    }
+
+    private static func file(
+        environmentID: Int, index: Int, path: String, contents: String
+    ) -> [String: Any] {
+        [
+            "path": path,
+            "contents": contents,
+            "history": "https://coderpad-1.firebaseio.com/mock/pad-environments/\(environmentID)/files/\(index)/history.json"
+        ]
     }
 
     private static func environmentFiles(id: Int) -> (language: String, files: [[String: Any]]) {
         switch id {
         case 1:
             return ("python3", [
-                file("coderpad/main.py",
-                     "def greet(name):\n    return f\"Hello, {name}!\"\n\nprint(greet(\"CoderPad\"))\n")
+                file(environmentID: id, index: 0, path: "coderpad/main.py",
+                     contents: "def greet(name):\n    return f\"Hello, {name}!\"\n\nprint(greet(\"CoderPad\"))\n")
             ])
 
         case 3:
             let swift = "import Foundation\n\nfunc greet(_ name: String) -> String {\n"
                 + "    \"Hello, \\(name)!\"\n}\n\nprint(greet(\"CoderPad\"))\n"
-            return ("swift", [file("main.swift", swift)])
+            return ("swift", [file(environmentID: id, index: 0, path: "main.swift", contents: swift)])
 
         case 4:
             // A small mixed-language web project: each file is highlighted in its
             // own language (HTML, CSS, JavaScript) from its extension, even though
             // the environment reports a single language.
-            return ("javascript", webProjectFiles())
+            return ("javascript", webProjectFiles(environmentID: id))
 
         default: // 2 and any other id
             return ("javascript", [
-                file("src/index.js",
-                     "import { greet } from './greet.js';\n\nconsole.log(greet('CoderPad'));\n"),
-                file("src/greet.js",
-                     "export function greet(name) {\n  return `Hello, ${name}!`;\n}\n")
+                file(environmentID: id, index: 0, path: "src/index.js",
+                     contents: "import { greet } from './greet.js';\n\nconsole.log(greet('CoderPad'));\n"),
+                file(environmentID: id, index: 1, path: "src/greet.js",
+                     contents: "export function greet(name) {\n  return `Hello, ${name}!`;\n}\n")
             ])
         }
     }
 
-    private static func webProjectFiles() -> [[String: Any]] {
+    private static func webProjectFiles(environmentID: Int) -> [[String: Any]] {
         let html = """
         <!DOCTYPE html>
         <html lang="en">
@@ -98,9 +115,9 @@ nonisolated extension MockFixtures {
 
         """
         return [
-            file("index.html", html),
-            file("styles.css", css),
-            file("app.js", javascript)
+            file(environmentID: environmentID, index: 0, path: "index.html", contents: html),
+            file(environmentID: environmentID, index: 1, path: "styles.css", contents: css),
+            file(environmentID: environmentID, index: 2, path: "app.js", contents: javascript)
         ]
     }
 }
