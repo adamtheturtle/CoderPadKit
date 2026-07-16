@@ -14,6 +14,12 @@ import Synchronization
 /// network. Pair it with ``CoderPadKit/CoderPadClient/mock(unauthorized:key:)``.
 public nonisolated enum MockServer {
     static let host = "app.coderpad.io"
+    static let historyHost = "coderpad-1.firebaseio.com"
+
+    static func handles(_ request: URLRequest) -> Bool {
+        guard let host = request.url?.host else { return false }
+        return host == Self.host || host == Self.historyHost
+    }
 
     /// A session backed by the in-process fake API. When `unauthorized` is true the
     /// server answers every request with 401, which drives the "bad key" demo:
@@ -30,7 +36,7 @@ public nonisolated enum MockServer {
 /// invalid API key. Backs the "bad key" demo account.
 final nonisolated class MockUnauthorizedURLProtocol: URLProtocol {
     override static func canInit(with request: URLRequest) -> Bool {
-        request.url?.host == MockServer.host
+        MockServer.handles(request)
     }
 
     override static func canonicalRequest(for request: URLRequest) -> URLRequest {
@@ -62,7 +68,7 @@ final nonisolated class MockUnauthorizedURLProtocol: URLProtocol {
 
 final nonisolated class MockURLProtocol: URLProtocol {
     override static func canInit(with request: URLRequest) -> Bool {
-        request.url?.host == MockServer.host
+        MockServer.handles(request)
     }
 
     override static func canonicalRequest(for request: URLRequest) -> URLRequest {

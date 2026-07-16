@@ -31,6 +31,16 @@ let created = try await client.createPad(PadCreate(title: "Phone screen", langua
 let org = try await client.organization()
 ```
 
+Fetch and replay a file's editor history using the URL returned by its pad environment:
+
+```swift
+let environment = try await client.padEnvironment(id: 123)
+if let file = environment.fileContents.first, let historyURL = file.history {
+    let history = try await client.padHistory(historyURL: historyURL)
+    let latestContents = history.replay()
+}
+```
+
 For self-hosted or regional deployments, pass a custom `baseURL`.
 
 ### Progressive loading
@@ -71,6 +81,9 @@ let badKey = CoderPadClient.mock(unauthorized: true) // every request answers 40
 - ``PadEvent``
 - ``PadEnvironment``
 - ``PadEnvironmentFile``
+- ``PadHistory``
+- ``PadHistoryEntry``
+- ``PadHistoryOperation``
 - ``PadCreate``
 - ``PadUpdate``
 

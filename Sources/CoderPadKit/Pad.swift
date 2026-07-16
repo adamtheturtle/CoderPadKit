@@ -160,11 +160,139 @@ public nonisolated struct PadEvent: Decodable, Identifiable, Hashable, Sendable 
     }
 }
 
+/// One operation in a pad editor history entry.
+///
+/// CoderPad stores editor changes as an operational-transform sequence: positive
+/// integers retain UTF-16 code units, negative integers delete them, and strings
+/// insert text. The semantic cases below expose that compact wire format safely.
+public nonisolated enum PadHistoryOperation: Hashable, Sendable {
+    case retain(Int)
+    case delete(Int)
+    case insert(String)
+}
+
+extension PadHistoryOperation: Decodable {
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let text = try? container.decode(String.self) {
+            self = .insert(text)
+            return
+        }
+
+        let count = try container.decode(Int.self)
+        if count >= 0 {
+            self = .retain(count)
+        } else {
+            guard count != .min else {
+                throw DecodingError.dataCorruptedError(
+                    in: container, debugDescription: "History delete count is out of range"
+                )
+            }
+            self = .delete(-count)
+        }
+    }
+}
+
+/// One editor operation from a pad file's Firebase history.
+public nonisolated struct PadHistoryEntry: Identifiable, Hashable, Sendable {
+    public let id: String
+    public let author: String
+    public let operations: [PadHistoryOperation]
+    /// Milliseconds since the Unix epoch, as supplied by Firebase.
+    public let timestamp: Int64
+
+    public init(id: String, author: String, operations: [PadHistoryOperation], timestamp: Int64) {
+        self.id = id
+        self.author = author
+        self.operations = operations
+        self.timestamp = timestamp
+    }
+
+    /// Applies this entry to the contents immediately preceding it.
+    ///
+    /// Counts operate on UTF-16 code units because the history is produced by the
+    /// JavaScript editor. Oversized retains/deletes are clamped like string slicing,
+    /// keeping malformed or truncated histories from crashing a replay.
+    public func applying(to contents: String) -> String {
+        let source = Array(contents.utf16)
+        var cursor = 0
+        var updated: [UInt16] = []
+
+        for operation in operations {
+            switch operation {
+            case let .insert(text):
+                updated.append(contentsOf: text.utf16)
+            case let .retain(requested):
+                let count = min(max(0, requested), source.count - cursor)
+                updated.append(contentsOf: source[cursor ..< cursor + count])
+                cursor += count
+            case let .delete(requested):
+                cursor += min(max(0, requested), source.count - cursor)
+            }
+        }
+        updated.append(contentsOf: source[cursor...])
+        return String(decoding: updated, as: UTF16.self)
+    }
+}
+
+/// Chronologically ordered editor history for one pad file.
+public nonisolated struct PadHistory: Decodable, Hashable, Sendable, RandomAccessCollection {
+    public typealias Element = PadHistoryEntry
+    public typealias Index = Array<PadHistoryEntry>.Index
+
+    public let entries: [PadHistoryEntry]
+
+    public init(entries: [PadHistoryEntry] = []) {
+        self.entries = entries.sorted {
+            ($0.timestamp, $0.id) < ($1.timestamp, $1.id)
+        }
+    }
+
+    public var startIndex: Index { entries.startIndex }
+    public var endIndex: Index { entries.endIndex }
+    public subscript(position: Index) -> Element { entries[position] }
+    public func index(after index: Index) -> Index { entries.index(after: index) }
+    public func index(before index: Index) -> Index { entries.index(before: index) }
+
+    private struct WireEntry: Decodable {
+        let author: String
+        let operations: [PadHistoryOperation]
+        let timestamp: Int64
+
+        enum CodingKeys: String, CodingKey {
+            case author = "a"
+            case operations = "o"
+            case timestamp = "t"
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let values = try container.decode([String: WireEntry].self)
+        self.init(entries: values.map { id, value in
+            PadHistoryEntry(
+                id: id,
+                author: value.author,
+                operations: value.operations,
+                timestamp: value.timestamp
+            )
+        })
+    }
+
+    /// Replays every entry and returns the final file contents.
+    public func replay(initialContents: String = "") -> String {
+        entries.reduce(initialContents) { contents, entry in
+            entry.applying(to: contents)
+        }
+    }
+}
+
 /// One file within a pad environment. Single-file languages return one of these;
 /// multi-file frameworks/projects return one per file in the project.
 public nonisolated struct PadEnvironmentFile: Decodable, Hashable, Sendable {
     public let path: String?
     public let contents: String?
+    /// Firebase URL for this file's editor history, when history is available.
     public let history: String?
 }
 
