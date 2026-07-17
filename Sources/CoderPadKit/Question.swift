@@ -36,6 +36,11 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
     public let createdAt: Date?
     public let updatedAt: Date?
     public let candidateInstructions: [CandidateInstruction]
+    /// A database attached to the question, when present.
+    ///
+    /// This metadata has been observed in live API responses but is not part of
+    /// the published CoderPad Interview API contract.
+    public let customDatabase: QuestionCustomDatabase?
 
     enum CodingKeys: String, CodingKey {
         case id, title, language, description, shared, used, solution, contents
@@ -53,6 +58,7 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case candidateInstructions = "candidate_instructions"
+        case customDatabase = "custom_database"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -80,6 +86,8 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
         updatedAt = container.loggedDecodeIfPresent(Date.self, forKey: .updatedAt)
         candidateInstructions = container
             .loggedDecodeIfPresent([CandidateInstruction].self, forKey: .candidateInstructions) ?? []
+        customDatabase = container
+            .loggedDecodeIfPresent(QuestionCustomDatabase.self, forKey: .customDatabase)
     }
 }
 
@@ -224,6 +232,72 @@ public nonisolated struct QuestionCustomFile: Codable, Hashable, Identifiable, S
     public let description: String?
     public let filename: String?
     public let filesize: String?
+}
+
+/// A custom database attached to a question.
+///
+/// This is empirically modelled from live responses rather than the published API
+/// contract, so all descriptive fields remain optional except the database id.
+public nonisolated struct QuestionCustomDatabase: Codable, Hashable, Identifiable, Sendable {
+    public let id: Int
+    public let title: String?
+    public let description: String?
+    public let language: String?
+    public let schema: String?
+    public let schemaJSON: QuestionCustomDatabaseSchema?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, description, language, schema
+        case schemaJSON = "schema_json"
+    }
+}
+
+/// The structured schema metadata for a question's custom database.
+public nonisolated struct QuestionCustomDatabaseSchema: Codable, Hashable, Sendable {
+    /// The database tables and their order in the schema designer. The decoder
+    /// accepts both the observed array form and a nested `{ "tables": [...] }`
+    /// form so a representation-only service change does not discard the database.
+    public let arrangement: [QuestionCustomDatabaseTable]
+
+    private struct ArrangementContainer: Decodable {
+        let tables: [QuestionCustomDatabaseTable]
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case arrangement, tables
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let tables = try? container.decode([QuestionCustomDatabaseTable].self, forKey: .arrangement) {
+            arrangement = tables
+        } else if let nested = try? container.decode(ArrangementContainer.self, forKey: .arrangement) {
+            arrangement = nested.tables
+        } else {
+            arrangement = (try? container.decode([QuestionCustomDatabaseTable].self, forKey: .tables)) ?? []
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(arrangement, forKey: .arrangement)
+    }
+}
+
+/// One table in a question custom-database schema.
+public nonisolated struct QuestionCustomDatabaseTable: Codable, Hashable, Sendable {
+    public let name: String
+    public let columns: [QuestionCustomDatabaseColumn]
+}
+
+/// One column in a question custom-database table.
+public nonisolated struct QuestionCustomDatabaseColumn: Codable, Hashable, Sendable {
+    public let name: String
+    public let type: String
+    /// Whether the column is part of the primary key.
+    public let pk: Bool
+    /// Whether the column has a NOT NULL constraint.
+    public let nn: Bool
 }
 
 /// One test case for a question, with its arguments and expected return value.

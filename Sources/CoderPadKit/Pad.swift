@@ -34,6 +34,14 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
     public let type: String?
     public let executionEnabled: Bool?
     public let isPrivate: Bool?
+    /// Whether access is limited to the pad's assigned interviewers.
+    ///
+    /// This field is present in live API responses but is not part of the
+    /// published CoderPad Interview API contract.
+    public let restrictInterviewerAccess: Bool?
+    /// Interviewer-facing alerts recorded for the pad, such as suspicious
+    /// candidate activity. Empirically observed; not in the published contract.
+    public let padInterviewerNotifications: [PadInterviewerNotification]
     public let activeEnvironmentID: Int?
     public let padEnvironmentIDs: [Int]
     /// The pad-level list of attached question ids. The detail loads questions via
@@ -52,6 +60,8 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         case endedAt = "ended_at"
         case executionEnabled = "execution_enabled"
         case isPrivate = "private"
+        case restrictInterviewerAccess = "restrict_interviewer_access"
+        case padInterviewerNotifications = "pad_interviewer_notifications"
         case activeEnvironmentID = "active_environment_id"
         case padEnvironmentIDs = "pad_environment_ids"
         case questionIDs = "question_ids"
@@ -82,6 +92,12 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         type = container.loggedDecodeIfPresent(String.self, forKey: .type)
         executionEnabled = container.loggedDecodeIfPresent(Bool.self, forKey: .executionEnabled)
         isPrivate = container.loggedDecodeIfPresent(Bool.self, forKey: .isPrivate)
+        restrictInterviewerAccess = container
+            .loggedDecodeIfPresent(Bool.self, forKey: .restrictInterviewerAccess)
+        padInterviewerNotifications = container
+            .loggedDecodeIfPresent(
+                [PadInterviewerNotification].self, forKey: .padInterviewerNotifications
+            ) ?? []
         activeEnvironmentID = container.loggedDecodeIfPresent(Int.self, forKey: .activeEnvironmentID)
         padEnvironmentIDs = container.loggedDecodeIfPresent([Int].self, forKey: .padEnvironmentIDs) ?? []
         questionIDs = container.loggedDecodeIfPresent([Int].self, forKey: .questionIDs) ?? []
@@ -123,6 +139,46 @@ extension Pad {
 public nonisolated struct PadTeam: Codable, Hashable, Sendable {
     public let id: String
     public let name: String
+}
+
+/// An interviewer-facing alert recorded during a pad session.
+///
+/// CoderPadKit models this empirically observed live-response metadata even though
+/// it is not currently described by the published CoderPad Interview API contract.
+public nonisolated struct PadInterviewerNotification: Codable, Identifiable, Hashable, Sendable {
+    public let id: Int
+    public let title: String
+    public let message: String
+    public let priority: Int?
+    public let requestID: String?
+    public let autoDismissed: Bool
+    public let dismissedAt: Date?
+    public let useful: Bool?
+    public let createdAt: Date?
+    public let updatedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, message, priority, useful
+        case requestID = "request_id"
+        case autoDismissed = "auto_dismissed"
+        case dismissedAt = "dismissed_at"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        title = container.loggedDecodeIfPresent(String.self, forKey: .title) ?? ""
+        message = container.loggedDecodeIfPresent(String.self, forKey: .message) ?? ""
+        priority = container.loggedDecodeIfPresent(Int.self, forKey: .priority)
+        requestID = container.loggedDecodeIfPresent(String.self, forKey: .requestID)
+        autoDismissed = container.loggedDecodeIfPresent(Bool.self, forKey: .autoDismissed) ?? false
+        dismissedAt = container.loggedDecodeIfPresent(Date.self, forKey: .dismissedAt)
+        useful = container.loggedDecodeIfPresent(Bool.self, forKey: .useful)
+        createdAt = container.loggedDecodeIfPresent(Date.self, forKey: .createdAt)
+        updatedAt = container.loggedDecodeIfPresent(Date.self, forKey: .updatedAt)
+    }
 }
 
 /// One entry in a pad's event log: a join, a code run, a question being added, and so on.
@@ -294,6 +350,9 @@ public nonisolated struct PadEnvironmentFile: Decodable, Hashable, Sendable {
     public let contents: String?
     /// Firebase URL for this file's editor history, when history is available.
     public let history: String?
+    /// Whether the file is binary. A binary file commonly has `nil` ``contents``;
+    /// this empirically observed flag distinguishes that from an empty text file.
+    public let binary: Bool?
 }
 
 /// A single execution environment within a pad: a language, its files, and the

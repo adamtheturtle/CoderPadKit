@@ -134,6 +134,10 @@ public nonisolated enum MockFixtures {
             "execution_enabled": executionEnabled,
             // The live API exposes the interviewer-access lock on every pad.
             "restrict_interviewer_access": false,
+            // These alerts are empirically present in live responses, but are not
+            // documented by the published API. Keep the values synthetic.
+            "pad_interviewer_notifications": id == "DEMOABC1"
+                ? [interviewerNotification()] : [],
             "participants": participants,
             "url": "https://app.coderpad.io/\(id)",
             "playback": "https://app.coderpad.io/\(id)/playback",
@@ -155,6 +159,21 @@ public nonisolated enum MockFixtures {
         if let endedAt { dict["ended_at"] = endedAt } else { dict["ended_at"] = NSNull() }
         if let notes { dict["notes"] = notes } else { dict["notes"] = NSNull() }
         return dict
+    }
+
+    private static func interviewerNotification() -> [String: Any] {
+        [
+            "id": 9_001,
+            "title": "Candidate left the pad",
+            "message": "The candidate switched away from the interview tab.",
+            "priority": 2,
+            "request_id": "mock-request-9001",
+            "auto_dismissed": false,
+            "dismissed_at": NSNull(),
+            "useful": NSNull(),
+            "created_at": "2026-06-08T15:22:00Z",
+            "updated_at": "2026-06-08T15:22:00Z"
+        ]
     }
 
     /// A distinct, plausible timeline per seed pad, so the demo shows histories

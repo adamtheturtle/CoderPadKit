@@ -17,6 +17,15 @@ fixtures, for demo modes and tests with no network.
 
 > Note: This is an unofficial client and is not affiliated with or endorsed by CoderPad.
 
+### Empirically observed metadata
+
+Some read-only fields exposed by the live service are absent from the published API
+contract. CoderPadKit retains the observed `PadEnvironmentFile.binary`,
+`Pad.restrictInterviewerAccess`, `Pad.padInterviewerNotifications`, and
+`Question.customDatabase` metadata with typed models. These fields may evolve without
+the guarantees of the published contract. `Organization.child_organizations` remains
+deliberately unmodelled until a non-empty response confirms its item shape.
+
 ## Getting started
 
 Construct a client with an API key, then call the typed endpoint methods:
@@ -78,6 +87,7 @@ let badKey = CoderPadClient.mock(unauthorized: true) // every request answers 40
 - ``Pad``
 - ``PadState``
 - ``PadTeam``
+- ``PadInterviewerNotification``
 - ``PadEvent``
 - ``PadEnvironment``
 - ``PadEnvironmentFile``
@@ -92,6 +102,10 @@ let badKey = CoderPadClient.mock(unauthorized: true) // every request answers 40
 - ``Question``
 - ``InterviewType``
 - ``QuestionCustomFile``
+- ``QuestionCustomDatabase``
+- ``QuestionCustomDatabaseSchema``
+- ``QuestionCustomDatabaseTable``
+- ``QuestionCustomDatabaseColumn``
 - ``QuestionTestCase``
 - ``CandidateInstruction``
 - ``CandidateInstructionPayload``

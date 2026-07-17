@@ -21,7 +21,9 @@ extension Pad {
         participants: [String], url: String, playback: String?, events: String?, notes: String?,
         drawing: String?, contents: String?, history: String?, createdAt: Date?, updatedAt: Date?,
         endedAt: Date?, type: String?, executionEnabled: Bool?, isPrivate: Bool?,
-        activeEnvironmentID: Int?, padEnvironmentIDs: [Int], questionIDs: [Int], team: PadTeam?
+        activeEnvironmentID: Int?, padEnvironmentIDs: [Int], questionIDs: [Int], team: PadTeam?,
+        restrictInterviewerAccess: Bool? = nil,
+        padInterviewerNotifications: [PadInterviewerNotification] = []
     ) {
         self.id = id
         self.title = title
@@ -42,6 +44,8 @@ extension Pad {
         self.type = type
         self.executionEnabled = executionEnabled
         self.isPrivate = isPrivate
+        self.restrictInterviewerAccess = restrictInterviewerAccess
+        self.padInterviewerNotifications = padInterviewerNotifications
         self.activeEnvironmentID = activeEnvironmentID
         self.padEnvironmentIDs = padEnvironmentIDs
         self.questionIDs = questionIDs
@@ -64,7 +68,9 @@ extension Pad {
             contents: contents, history: history, createdAt: createdAt, updatedAt: updatedAt,
             endedAt: endedAt, type: type, executionEnabled: executionEnabled ?? self.executionEnabled,
             isPrivate: isPrivate ?? self.isPrivate, activeEnvironmentID: activeEnvironmentID,
-            padEnvironmentIDs: padEnvironmentIDs, questionIDs: questionIDs, team: team
+            padEnvironmentIDs: padEnvironmentIDs, questionIDs: questionIDs, team: team,
+            restrictInterviewerAccess: restrictInterviewerAccess,
+            padInterviewerNotifications: padInterviewerNotifications
         )
     }
 }
@@ -77,7 +83,8 @@ extension Question {
         padType: String?, isDraft: Bool?, authorName: String?, organizationName: String?,
         contents: String?, contentsForTestCases: String?, publicTakeHomeSettingID: Int?,
         customFiles: [QuestionCustomFile], testCases: [QuestionTestCase], createdAt: Date?,
-        updatedAt: Date?, candidateInstructions: [CandidateInstruction]
+        updatedAt: Date?, candidateInstructions: [CandidateInstruction],
+        customDatabase: QuestionCustomDatabase? = nil
     ) {
         self.id = id
         self.title = title
@@ -101,6 +108,7 @@ extension Question {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.candidateInstructions = candidateInstructions
+        self.customDatabase = customDatabase
     }
 
     /// A copy with the inline-editable metadata and long-form content overridden
@@ -126,7 +134,8 @@ extension Question {
                 payloads.map {
                     CandidateInstruction(instructions: $0.instructions, defaultVisible: $0.defaultVisible)
                 }
-            } ?? candidateInstructions
+            } ?? candidateInstructions,
+            customDatabase: customDatabase
         )
     }
 }
