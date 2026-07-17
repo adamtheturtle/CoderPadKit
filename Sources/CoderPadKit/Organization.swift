@@ -9,6 +9,9 @@ import Foundation
 
 /// A CoderPad organization: its users, teams, and SSO configuration.
 public nonisolated struct Organization: Decodable, Hashable, Sendable {
+    // The live response also carries `child_organizations`, but its sampled value
+    // was empty. Deliberately defer a public property until a non-empty response
+    // establishes the item shape instead of publishing a speculative wire model.
     public let id: Int
     public let organizationName: String
     public let userCount: Int?

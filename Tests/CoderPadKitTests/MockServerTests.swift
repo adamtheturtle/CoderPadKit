@@ -45,6 +45,9 @@ struct MockServerTests {
         #expect(pad.title == "Onsite: Senior Backend Engineer")
         #expect(pad.ownerEmail == "basil@fawltytowers.co.uk")
         #expect(pad.participants == ["Lord Melbury", "Basil Fawlty"])
+        #expect(pad.restrictInterviewerAccess == false)
+        let notification = try #require(pad.padInterviewerNotifications.first)
+        #expect(notification.requestID == "mock-request-9001")
     }
 
     @Test
@@ -89,6 +92,14 @@ struct MockServerTests {
     }
 
     @Test
+    func `padEnvironment distinguishes a binary file with unavailable contents`() async throws {
+        let environment = try await client.padEnvironment(id: 4)
+        let binaryFile = try #require(environment.fileContents.first { $0.binary == true })
+        #expect(binaryFile.path == "logo.png")
+        #expect(binaryFile.contents == nil)
+    }
+
+    @Test
     func `listQuestions returns the seeded questions`() async throws {
         let questions = try await client.listQuestions()
         #expect(questions.count == 7)
@@ -105,6 +116,18 @@ struct MockServerTests {
         #expect(!testContents.isEmpty)
         // The two variants differ, so the question detail shows both starter-code cards.
         #expect(contents != testContents)
+    }
+
+    @Test
+    func `the seeded URL shortener carries a typed custom database`() async throws {
+        let questions = try await client.listQuestions()
+        let question = try #require(questions.first { $0.id == 102 })
+        let database = try #require(question.customDatabase)
+        let table = try #require(database.schemaJSON?.arrangement.first)
+
+        #expect(database.title == "URL mappings")
+        #expect(table.name == "links")
+        #expect(table.columns.map(\.name) == ["id", "url"])
     }
 
     @Test

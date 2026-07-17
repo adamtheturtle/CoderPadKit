@@ -40,11 +40,12 @@ nonisolated extension MockFixtures {
     }
 
     private static func file(
-        environmentID: Int, index: Int, path: String, contents: String
+        environmentID: Int, index: Int, path: String, contents: String?, binary: Bool = false
     ) -> [String: Any] {
         [
             "path": path,
-            "contents": contents,
+            "contents": contents as Any? ?? NSNull(),
+            "binary": binary,
             "history": "https://coderpad-1.firebaseio.com/mock/pad-environments/\(environmentID)/files/\(index)/history.json"
         ]
     }
@@ -117,7 +118,11 @@ nonisolated extension MockFixtures {
         return [
             file(environmentID: environmentID, index: 0, path: "index.html", contents: html),
             file(environmentID: environmentID, index: 1, path: "styles.css", contents: css),
-            file(environmentID: environmentID, index: 2, path: "app.js", contents: javascript)
+            file(environmentID: environmentID, index: 2, path: "app.js", contents: javascript),
+            // Binary payloads arrive without text contents; the flag lets clients
+            // distinguish them from empty text files.
+            file(environmentID: environmentID, index: 3, path: "logo.png",
+                 contents: nil, binary: true)
         ]
     }
 }

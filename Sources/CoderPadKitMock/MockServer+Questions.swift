@@ -101,8 +101,30 @@ nonisolated extension MockFixtures {
             "pad_type": "take-home", "is_draft": false,
             "public_take_home_setting_id": 7421,
             "contents": urlShortenerContents(), "custom_files": [],
+            "custom_database": customDatabase(),
             "author_name": "Manuel", "organization_name": MockFixtures.orgName,
             "created_at": "2025-11-12T14:00:00Z", "updated_at": "2026-05-30T09:00:00Z"
+        ]
+    }
+
+    private static func customDatabase() -> [String: Any] {
+        [
+            "id": 501,
+            "title": "URL mappings",
+            "description": "Synthetic schema for the mock URL-shortener exercise.",
+            "language": "sqlite",
+            "schema": "CREATE TABLE links (id INTEGER PRIMARY KEY, url TEXT NOT NULL);",
+            "schema_json": [
+                "arrangement": [
+                    [
+                        "name": "links",
+                        "columns": [
+                            ["name": "id", "type": "INTEGER", "pk": true, "nn": true],
+                            ["name": "url", "type": "TEXT", "pk": false, "nn": true]
+                        ]
+                    ]
+                ]
+            ]
         ]
     }
 

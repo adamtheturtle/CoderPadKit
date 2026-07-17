@@ -129,6 +129,120 @@ struct DecodeToleranceTests {
         )
         #expect(whole.createdAt != nil)
     }
+
+    @Test
+    func `Pad retains empirically observed access and notification metadata`() throws {
+        let json = Data(
+            #"""
+            {
+              "id": "P5",
+              "restrict_interviewer_access": true,
+              "pad_interviewer_notifications": [{
+                "id": 42,
+                "title": "Code pasted",
+                "message": "The candidate pasted code from outside the pad.",
+                "priority": 2,
+                "request_id": "request-42",
+                "auto_dismissed": false,
+                "dismissed_at": null,
+                "useful": null,
+                "created_at": "2026-07-16T10:00:00Z",
+                "updated_at": "2026-07-16T10:01:00Z"
+              }]
+            }
+            """#.utf8
+        )
+        let pad = try CoderPadClient.decoder.decode(Pad.self, from: json)
+        let notification = try #require(pad.padInterviewerNotifications.first)
+
+        #expect(pad.restrictInterviewerAccess == true)
+        #expect(notification.id == 42)
+        #expect(notification.title == "Code pasted")
+        #expect(notification.message.contains("outside the pad"))
+        #expect(notification.priority == 2)
+        #expect(notification.requestID == "request-42")
+        #expect(!notification.autoDismissed)
+        #expect(notification.dismissedAt == nil)
+        #expect(notification.useful == nil)
+        #expect(notification.createdAt != nil)
+        #expect(notification.updatedAt != nil)
+    }
+
+    @Test
+    func `environment file retains binary when contents are unavailable`() throws {
+        let json = Data(
+            #"{"id":7,"file_contents":[{"path":"image.png","contents":null,"binary":true}]}"#.utf8
+        )
+        let environment = try CoderPadClient.decoder.decode(PadEnvironment.self, from: json)
+        let file = try #require(environment.fileContents.first)
+
+        #expect(file.path == "image.png")
+        #expect(file.contents == nil)
+        #expect(file.binary == true)
+    }
+
+    @Test
+    func `Question retains an empirically observed custom database schema`() throws {
+        let json = Data(
+            #"""
+            {
+              "id": 9,
+              "custom_database": {
+                "id": 71,
+                "title": "Orders",
+                "description": "Synthetic order data",
+                "language": "postgresql",
+                "schema": "CREATE TABLE orders (id INTEGER PRIMARY KEY);",
+                "schema_json": {
+                  "arrangement": [{
+                    "name": "orders",
+                    "columns": [
+                      {"name":"id","type":"INTEGER","pk":true,"nn":true},
+                      {"name":"note","type":"TEXT","pk":false,"nn":false}
+                    ]
+                  }]
+                }
+              }
+            }
+            """#.utf8
+        )
+        let question = try CoderPadClient.decoder.decode(Question.self, from: json)
+        let database = try #require(question.customDatabase)
+        let table = try #require(database.schemaJSON?.arrangement.first)
+
+        #expect(database.id == 71)
+        #expect(database.title == "Orders")
+        #expect(database.language == "postgresql")
+        #expect(database.schema?.hasPrefix("CREATE TABLE") == true)
+        #expect(table.name == "orders")
+        #expect(table.columns.map(\.name) == ["id", "note"])
+        #expect(table.columns.first?.pk == true)
+        #expect(table.columns.last?.nn == false)
+    }
+
+    @Test
+    func `custom database schema accepts arrangement wrapped in tables`() throws {
+        let json = Data(
+            #"""
+            {
+              "id": 10,
+              "custom_database": {
+                "id": 72,
+                "schema_json": {
+                  "arrangement": {
+                    "tables": [{
+                      "name": "users",
+                      "columns": [{"name":"id","type":"INTEGER","pk":true,"nn":true}]
+                    }]
+                  }
+                }
+              }
+            }
+            """#.utf8
+        )
+        let question = try CoderPadClient.decoder.decode(Question.self, from: json)
+        #expect(question.customDatabase?.schemaJSON?.arrangement.first?.name == "users")
+    }
 }
 
 @Suite("CoderPadError")
