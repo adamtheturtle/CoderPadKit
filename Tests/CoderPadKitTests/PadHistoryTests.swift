@@ -12,9 +12,10 @@ import Testing
 struct PadHistoryModelTests {
     @Test
     func `history decodes in timestamp and id order then replays`() throws {
-        let data = Data(
-            #"{"later":{"a":"author-2","o":[2,"!"],"t":2},"same-time-b":{"a":"author-3","o":[3],"t":3},"earlier":{"a":"author-1","o":[1,"i"],"t":1},"same-time-a":{"a":"author-3","o":[3],"t":3}}"#.utf8
-        )
+        // A single-line JSON fixture: kept verbatim so it reads as the wire format does.
+        // swiftlint:disable:next line_length
+        let json = #"{"later":{"a":"author-2","o":[2,"!"],"t":2},"same-time-b":{"a":"author-3","o":[3],"t":3},"earlier":{"a":"author-1","o":[1,"i"],"t":1},"same-time-a":{"a":"author-3","o":[3],"t":3}}"#
+        let data = Data(json.utf8)
 
         let history = try CoderPadClient.decoder.decode(PadHistory.self, from: data)
 

@@ -46,6 +46,7 @@ nonisolated extension MockFixtures {
             "path": path,
             "contents": contents as Any? ?? NSNull(),
             "binary": binary,
+            // swiftlint:disable:next line_length
             "history": "https://coderpad-1.firebaseio.com/mock/pad-environments/\(environmentID)/files/\(index)/history.json"
         ]
     }

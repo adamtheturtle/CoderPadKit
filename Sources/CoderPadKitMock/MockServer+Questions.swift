@@ -33,6 +33,10 @@ nonisolated extension MockFixtures {
         ]
     }
 
+    // A wide parameter list is the point here: this builds one canned API payload, and
+    // every parameter maps to a distinct field in it. A parameter object would just be
+    // the same list one indirection away.
+    // swiftlint:disable function_parameter_count
     /// A compact, fully-formed question for the extra seed entries. The three
     /// richer questions below stay hand-written so the demo still shows multi-part
     /// instructions, test cases, custom files, and Markdown rendering.
@@ -54,6 +58,7 @@ nonisolated extension MockFixtures {
             "created_at": createdAt, "updated_at": updatedAt
         ]
     }
+    // swiftlint:enable function_parameter_count
 
     private static func fizzBuzzQuestion() -> [String: Any] {
         let instructions = "Print numbers 1-100 with Fizz/Buzz rules."
