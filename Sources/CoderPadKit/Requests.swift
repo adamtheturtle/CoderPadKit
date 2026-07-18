@@ -263,12 +263,36 @@ private nonisolated func encodeExecutionEnabled<K: CodingKey>(
 
 /// Decodes `execution_enabled` tolerantly, accepting either the string form we now
 /// send or a plain boolean (older payloads / the published-docs shape).
-private nonisolated func decodeExecutionEnabled<K: CodingKey>(
+///
+/// Internal rather than file-private because every type that reads this key has to
+/// use it: ``Pad`` is the type that reads back what ``PadCreate``/``PadUpdate`` wrote,
+/// so a strict `Bool` decode there means the package cannot read its own writes.
+nonisolated func decodeExecutionEnabled<K: CodingKey>(
     from container: KeyedDecodingContainer<K>,
     forKey key: K
 ) throws -> Bool? {
     if let string = try? container.decode(String.self, forKey: key) { return string == "true" }
     return try container.decodeIfPresent(Bool.self, forKey: key)
+}
+
+extension KeyedDecodingContainer {
+    /// The tolerant `execution_enabled` decode in the logging, never-throwing style the
+    /// response models use (see `loggedDecodeIfPresent`), so a response model can read
+    /// back the string form the request bodies send without a strict `Bool` decode
+    /// turning the flag into "unknown".
+    nonisolated func loggedDecodeExecutionEnabled(forKey key: Key) -> Bool? {
+        do {
+            return try decodeExecutionEnabled(from: self, forKey: key)
+        } catch {
+            apiLogger.debug(
+                """
+                decode '\(key.stringValue, privacy: .public)' as execution_enabled \
+                failed: \(error.localizedDescription, privacy: .public)
+                """
+            )
+            return nil
+        }
+    }
 }
 
 extension PadCreate {
