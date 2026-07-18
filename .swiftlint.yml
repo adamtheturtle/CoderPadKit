@@ -1,0 +1,49 @@
+# SwiftLint configuration for CoderPadKit.
+# Lints the hand-written sources and tests; the SwiftPM build directory holds
+# generated code (e.g. the test entry point) that we never want to lint.
+
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - .build
+
+disabled_rules:
+  # `String(decoding:as:)` is deliberate. Every Data -> String conversion here is on
+  # bytes we just produced ourselves via JSONEncoder, so UTF-8 validity is guaranteed;
+  # the failable `String(bytes:encoding:)` would add a dead error path that could only
+  # be handled by inventing a failure case that cannot occur.
+  - optional_data_string_conversion
+
+# Unlike the single-file packages, CoderPadKit is split by API area, so the rule is
+# kept — but one file per area lands a little over the 400-line default. 500 reflects
+# the actual shape; the 1000-line error ceiling still catches genuine sprawl.
+file_length:
+  warning: 500
+  error: 1000
+
+# `MockServer+Fixtures` builds canned API payloads as one large dictionary literal.
+# That is a single expression, not branching logic, so the default 50-line body limit
+# does not measure anything useful here.
+function_body_length:
+  warning: 100
+  error: 150
+
+# `WireEntry` nests its own `CodingKeys`, which is the standard shape for a private
+# Codable helper. Two levels is normal Swift, not a smell.
+nesting:
+  type_level: 2
+
+identifier_name:
+  # Two-letter names here mirror the CoderPad wire format exactly — `pk` (primary key)
+  # and `nn` (not null) are the field names the API itself uses, and both carry doc
+  # comments. Renaming them would mean adding CodingKeys to say the same thing twice.
+  min_length:
+    warning: 1
+    error: 1
+  # Swift Testing's natural-language test names are written as backticked identifiers,
+  # and they legitimately begin with a type name or a number — `PadCreate encodes ...`,
+  # `401 and 403 are unauthorized ...`. Requiring a lowercase first character would
+  # force those to be reworded into something that reads worse in test output.
+  validates_start_with_lowercase: off
