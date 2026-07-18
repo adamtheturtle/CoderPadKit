@@ -38,6 +38,9 @@ nonisolated enum MockResponses {
         query: [String: String] = [:],
         body: Data? = nil
     ) -> (Int, Data) {
+        if let result = historyRoute(state: state, method: method, path: path) {
+            return result
+        }
         if let result = padRoute(state: state, method: method, path: path, body: body) {
             return result
         }
@@ -53,13 +56,6 @@ nonisolated enum MockResponses {
     // MARK: - Pad routes
 
     private static func padRoute(state: MockState, method: String, path: String, body: Data?) -> (Int, Data)? {
-        if method == "GET", let (environmentID, fileIndex) = historyLocation(path) {
-            guard let history = MockFixtures.padHistory(environmentID: environmentID, fileIndex: fileIndex) else {
-                return (404, jsonString(["error": "history not found"]))
-            }
-            return ok(history)
-        }
-
         // Modify a pad: the live API carries the pad id in the URL path
         // (`PUT /api/pads/:id`), with the changed attributes in the body.
         if method == "PUT", let id = match(path, pattern: #"^/api/pads/([^/]+)/?$"#), !id.isEmpty {
@@ -123,7 +119,11 @@ nonisolated enum MockResponses {
         if let questionID = dict.removeValue(forKey: "question_id") {
             dict["question_ids"] = [questionID]
         }
-        state.updatedPads[id] = dict
+        // Merge per-field rather than replacing the overlay. `PadUpdate` encodes only
+        // its non-nil fields, so each PUT carries just the field being changed; the
+        // live API applies that as a partial update, leaving every other field alone.
+        // Replacing the overlay instead made a second PUT revert the first one's edit.
+        state.updatedPads[id, default: [:]].merge(dict) { _, new in new }
         // Mirror the live API: PUT returns only a status, not the pad body.
         if state.allPads().contains(where: { ($0["id"] as? String) == id }) {
             return ok(["status": "OK"])
@@ -133,7 +133,7 @@ nonisolated enum MockResponses {
 
     private static func createPad(state: MockState, body: Data?) -> (Int, Data) {
         let create = (try? JSONDecoder().decode(PadCreate.self, from: body ?? Data())) ?? PadCreate()
-        let id = "DEMO\(Int.random(in: 1000 ... 9999))"
+        let id = newPadID(state: state)
         var pad = MockFixtures.pad(
             id: id,
             title: create.title ?? "Demo Pad \(id)",
@@ -153,6 +153,25 @@ nonisolated enum MockResponses {
         var response = pad
         response["status"] = "OK"
         return ok(response)
+    }
+
+    /// A pad id no pad in this state already holds. The random suffix alone could
+    /// collide with a seeded or previously created pad, and a collision made the new
+    /// pad vanish from `listPads()` (the client de-duplicates by id). Deleted ids stay
+    /// reserved, because the live API never recycles an id it has handed out. The
+    /// counter suffix makes termination unconditional once the random space is
+    /// exhausted, rather than looping forever.
+    private static func newPadID(state: MockState) -> String {
+        let taken = Set(
+            (MockFixtures.seedPads() + state.createdPads).compactMap { $0["id"] as? String }
+        ).union(state.deletedPadIDs)
+        for _ in 0 ..< 100 {
+            let candidate = "DEMO\(Int.random(in: 1000 ... 9999))"
+            if !taken.contains(candidate) { return candidate }
+        }
+        var counter = 0
+        while taken.contains("DEMO\(counter)") { counter += 1 }
+        return "DEMO\(counter)"
     }
 
     // MARK: - Question routes
@@ -193,7 +212,14 @@ nonisolated enum MockResponses {
         let bodyDict = flattenQuestionParams(
             (try? JSONSerialization.jsonObject(with: body ?? Data()) as? [String: Any]) ?? [:]
         )
-        let newID = (MockFixtures.questions().compactMap { $0["id"] as? Int }.max() ?? 100) + 1
+        // Derive the id from the seeds *and* this session's creations. Consulting only
+        // the immutable seeds handed every created question the same id, and the
+        // client's identity-based de-duplication then silently dropped all but the
+        // first. Deleted ids are deliberately included, because the live API never
+        // recycles an id that has been handed out.
+        let existingIDs = (MockFixtures.questions() + state.createdQuestions)
+            .compactMap { $0["id"] as? Int }
+        let newID = (existingIDs.max() ?? 100) + 1
         var question: [String: Any] = [
             "id": newID,
             "title": bodyDict["title"] as? String ?? "Untitled",
@@ -222,7 +248,10 @@ nonisolated enum MockResponses {
             return (400, jsonString(["status": "error"]))
         }
 
-        state.updatedQuestions[idInt] = flattenQuestionParams(dict)
+        // Merge per-field, for the same reason as `modifyPad`: `QuestionUpdate` sends
+        // only the changed fields, and the live API treats that as a partial update.
+        state.updatedQuestions[idInt, default: [:]]
+            .merge(flattenQuestionParams(dict)) { _, new in new }
         // Mirror the live API: PUT returns only a status, not the question body.
         if state.allQuestions().contains(where: { ($0["id"] as? Int) == idInt }) {
             return ok(["status": "OK"])
@@ -271,11 +300,11 @@ nonisolated enum MockResponses {
 
     // MARK: - Helpers
 
-    private static func ok(_ value: Any) -> (Int, Data) {
+    static func ok(_ value: Any) -> (Int, Data) {
         (200, jsonString(value))
     }
 
-    private static func jsonString(_ value: Any) -> Data {
+    static func jsonString(_ value: Any) -> Data {
         if let data = try? JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted]) {
             return data
         }
@@ -305,19 +334,5 @@ nonisolated enum MockResponses {
               let captured = Range(match.range(at: 1), in: path) else { return nil }
 
         return String(path[captured])
-    }
-
-    private static func historyLocation(_ path: String) -> (environmentID: Int, fileIndex: Int)? {
-        let parts = path.split(separator: "/")
-        guard parts.count == 6,
-              parts[0] == "mock",
-              parts[1] == "pad-environments",
-              let environmentID = Int(parts[2]),
-              parts[3] == "files",
-              let fileIndex = Int(parts[4]),
-              parts[5] == "history.json"
-        else { return nil }
-
-        return (environmentID, fileIndex)
     }
 }

@@ -115,12 +115,19 @@ extension Question {
     /// (`nil` keeps the current value). `updatedAt` is left as-is and reconciled on the
     /// next refresh. `candidateInstructions` is supplied as the encode-only payload the
     /// editor already builds, mapped onto the decoded model shape.
+    ///
+    /// `takeHome` and `padType` are the same fact on two fields, and ``interviewType``
+    /// reads `padType` in preference to `takeHome`. Flipping `takeHome` alone therefore
+    /// has to carry `padType` with it, or the derived type keeps reporting the
+    /// pre-edit value until the next refresh. An explicit `padType` still wins, so a
+    /// caller that knows the exact spelling the server will store can pass both.
     public func applying(
         title: String? = nil, language: String? = nil, takeHome: Bool? = nil, padType: String? = nil,
         description: String? = nil, solution: String? = nil,
         candidateInstructions newInstructions: [CandidateInstructionPayload]? = nil
     ) -> Question {
-        Question(
+        let padType = padType ?? takeHome.map { $0 ? InterviewType.takeHome.rawValue : InterviewType.live.rawValue }
+        return Question(
             id: id, title: title ?? self.title, ownerEmail: ownerEmail,
             language: language ?? self.language, description: description ?? self.description,
             shared: shared, used: used, takeHome: takeHome ?? self.takeHome,

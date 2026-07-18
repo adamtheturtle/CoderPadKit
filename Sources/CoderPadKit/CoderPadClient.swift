@@ -17,6 +17,22 @@ import PaginatedRESTClient
 // live in the `PaginatedRESTClient` package. The page envelopes below are
 // CoderPad-specific, so they stay here and conform to that protocol.
 
+/// CoderPad's list endpoints page at a fixed 50 records: "The method also returns
+/// paginated results - no more than 50 per request", per the published Interview API
+/// documentation for `GET /api/pads/` and `GET /api/questions/`. The organization
+/// list endpoints and `GET /api/pads/:id/events` document themselves as paginating
+/// identically, so every envelope here shares this size.
+///
+/// The API exposes no way to request a different size, so this is not merely the
+/// default but the only page size. Declaring it keeps the lists on the transport's
+/// parallel path; leaving the library's conservative default of 100 would silently
+/// demote every list to the sequential `next_page` walk.
+///
+/// `nonisolated` like the envelopes that read it: `PagedResponse.pageSize` is a
+/// `nonisolated` requirement, so under the module's `MainActor` default isolation a
+/// plain `let` here would be main-actor-isolated and unreadable from it.
+private nonisolated let coderPadPageSize = 50
+
 private nonisolated struct PadsPage: PagedResponse {
     let pads: [Pad]
     let nextPage: String?
@@ -24,6 +40,8 @@ private nonisolated struct PadsPage: PagedResponse {
     var pageItems: [Pad] {
         pads
     }
+
+    static var pageSize: Int { coderPadPageSize }
 
     static func identity(of item: Pad) -> AnyHashable? {
         item.id
@@ -40,6 +58,8 @@ private nonisolated struct QuestionsPage: PagedResponse {
         questions
     }
 
+    static var pageSize: Int { coderPadPageSize }
+
     static func identity(of item: Question) -> AnyHashable? {
         item.id
     }
@@ -54,6 +74,16 @@ private nonisolated struct EventsPage: PagedResponse {
     var pageItems: [PadEvent] {
         events
     }
+
+    static var pageSize: Int { coderPadPageSize }
+
+    // `identity(of:)` is deliberately not implemented, so the event log takes the
+    // sequential `next_page` walk rather than the parallel path. An event carries no
+    // server-assigned id - ``PadEvent`` derives one from its timestamp, kind, actor, and
+    // message - and de-duplicating on a *derived* key would silently drop a second
+    // genuine event that happened to match an earlier one on all four. A timeline that
+    // quietly loses a row is a worse failure than one that loads a little slower, and the
+    // sequential path never requests a page speculatively, so it needs no de-duplication.
 
     enum CodingKeys: String, CodingKey { case events; case nextPage = "next_page"; case total }
 }

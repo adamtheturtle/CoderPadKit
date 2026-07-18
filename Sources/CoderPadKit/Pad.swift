@@ -90,7 +90,10 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         updatedAt = container.loggedDecodeIfPresent(Date.self, forKey: .updatedAt)
         endedAt = container.loggedDecodeIfPresent(Date.self, forKey: .endedAt)
         type = container.loggedDecodeIfPresent(String.self, forKey: .type)
-        executionEnabled = container.loggedDecodeIfPresent(Bool.self, forKey: .executionEnabled)
+        // The pad endpoints take `execution_enabled` as the JSON *string* "true"/"false"
+        // (see `encodeExecutionEnabled`), and echo that back. Decode it tolerantly, as
+        // `PadCreate`/`PadUpdate` do, so the package can read back what it writes.
+        executionEnabled = container.loggedDecodeExecutionEnabled(forKey: .executionEnabled)
         isPrivate = container.loggedDecodeIfPresent(Bool.self, forKey: .isPrivate)
         restrictInterviewerAccess = container
             .loggedDecodeIfPresent(Bool.self, forKey: .restrictInterviewerAccess)

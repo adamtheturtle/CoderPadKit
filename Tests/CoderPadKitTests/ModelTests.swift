@@ -96,6 +96,32 @@ struct ExecutionEnabledTests {
         let data = try CoderPadClient.encoder.encode(PadCreate(title: "No flag"))
         #expect(!String(decoding: data, as: UTF8.self).contains("execution_enabled"))
     }
+
+    /// The package writes `execution_enabled` as a JSON string, so the response model
+    /// has to read that shape back. A strict `Bool` decode silently produced `nil`,
+    /// making the flag the package had just set read as "unknown".
+    @Test
+    func `Pad decodes execution_enabled in the string form the package sends`() throws {
+        let fromString = try CoderPadClient.decoder.decode(
+            Pad.self, from: Data(#"{"id":"X1","execution_enabled":"true"}"#.utf8)
+        )
+        #expect(fromString.executionEnabled == true)
+
+        let fromFalseString = try CoderPadClient.decoder.decode(
+            Pad.self, from: Data(#"{"id":"X1","execution_enabled":"false"}"#.utf8)
+        )
+        #expect(fromFalseString.executionEnabled == false)
+
+        // The published-docs boolean shape keeps working.
+        let fromBool = try CoderPadClient.decoder.decode(
+            Pad.self, from: Data(#"{"id":"X1","execution_enabled":true}"#.utf8)
+        )
+        #expect(fromBool.executionEnabled == true)
+
+        // An absent flag is still "unknown", not a fabricated false.
+        let absent = try CoderPadClient.decoder.decode(Pad.self, from: Data(#"{"id":"X1"}"#.utf8))
+        #expect(absent.executionEnabled == nil)
+    }
 }
 
 @Suite("Decode tolerance")
