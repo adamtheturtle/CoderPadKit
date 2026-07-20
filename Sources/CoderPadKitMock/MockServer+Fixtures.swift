@@ -40,7 +40,7 @@ public nonisolated enum MockFixtures {
                 // Stand-in whiteboard image so the demo can show the Whiteboard
                 // card; a real pad's `drawing` is a CoderPad-hosted PNG URL.
                 drawing: "https://placehold.co/900x560/png?text=System+design+sketch",
-                environmentIDs: [1, 2], activeEnvironmentID: 2),
+                environmentIDs: [21, 22], activeEnvironmentID: 22),
             // Three environments with the active one in the middle, so the Active
             // flag is clearly not just "the first card". Execution disabled.
             pad(id: "DEMOPLY3", title: "Live coding: Distributed Systems",
@@ -48,14 +48,14 @@ public nonisolated enum MockFixtures {
                 state: "started", isPrivate: false, executionEnabled: false,
                 participants: ["Mrs Richards", "Manuel"],
                 createdAt: "2026-06-09T18:00:00Z", updatedAt: "2026-06-09T18:20:00Z",
-                environmentIDs: [1, 4, 2], activeEnvironmentID: 4),
+                environmentIDs: [31, 34, 32], activeEnvironmentID: 34),
             // An untouched, private take-home draft, with a deliberately thin history.
             pad(id: "DEMOOLD4", title: "Take-home draft: Concurrency",
                 language: "rust", ownerEmail: "terry@fawltytowers.co.uk", teamID: "team-kitchen",
                 state: "pending", isPrivate: true, executionEnabled: true,
                 participants: [],
                 createdAt: "2026-05-12T10:00:00Z", updatedAt: "2026-05-12T10:00:00Z",
-                environmentIDs: [1, 2], activeEnvironmentID: 1),
+                environmentIDs: [41, 42], activeEnvironmentID: 41),
             // A single environment, so its language chip alone names it and the
             // lone Code card carries no active badge. Owned by the signed-in user,
             // so "My Pads" isn't empty.
@@ -64,7 +64,7 @@ public nonisolated enum MockFixtures {
                 state: "started", isPrivate: false, executionEnabled: true,
                 participants: ["Mr Johnson", demoUserName],
                 createdAt: "2026-06-09T09:00:00Z", updatedAt: "2026-06-10T08:00:00Z",
-                environmentIDs: [3], activeEnvironmentID: 3),
+                environmentIDs: [53], activeEnvironmentID: 53),
             // The rest fill out a believable interview queue across teams, states,
             // and languages, so the list, filters, and stats have real data to show.
             pad(id: "DEMOMS12", title: "Live coding: Microservices",

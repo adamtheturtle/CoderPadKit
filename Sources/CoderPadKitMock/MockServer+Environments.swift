@@ -34,9 +34,47 @@ nonisolated extension MockFixtures {
             return nil
         }
 
+        // One real-looking text file deliberately advertises a history URL that
+        // returns 404, matching the partial-history responses clients must tolerate.
+        guard !(environmentID == 34 && fileIndex == 1) else { return nil }
+
+        let timestamp = historyStartTimestamp(environmentID: environmentID)
+        if [41, 42].contains(environmentID) {
+            return ["seed": ["a": "CoderPad", "o": [contents], "t": timestamp]]
+        }
+
+        let units = Array(contents.utf16)
+        let split = units.count / 2
+        let prefix = String(decoding: units[..<split], as: UTF16.self)
+        let suffix = String(decoding: units[split...], as: UTF16.self)
+        let seedAuthor = fileIndex == 0 ? "CoderPad" : "-MockUploadHistory01"
+
         return [
-            "initial": ["a": "candidate@example.com", "o": [contents], "t": Int64(1_700_000_000_000)]
+            "seed": ["a": seedAuthor, "o": [prefix], "t": timestamp],
+            "candidate-edit": [
+                "a": "4503601411610331", "o": [split, suffix], "t": timestamp + 1_204_000
+            ],
+            // Same-millisecond edits exercise deterministic id ordering. The
+            // temporary trailing space is then deleted, leaving current contents.
+            "interviewer-1-insert": [
+                "a": "9988776655443322", "o": [units.count, " "], "t": timestamp + 2_515_000
+            ],
+            "interviewer-2-delete": [
+                "a": "9988776655443322", "o": [units.count, -1], "t": timestamp + 2_515_000
+            ]
         ]
+    }
+
+    /// Align each seeded pad's editor history with its event-log dates so run
+    /// markers fall inside the playback track instead of days outside it.
+    private static func historyStartTimestamp(environmentID: Int) -> Int64 {
+        switch environmentID {
+        case 21, 22: 1_780_680_600_000 // 2026-06-05T17:30:00Z
+        case 31, 32, 34: 1_781_028_000_000 // 2026-06-09T18:00:00Z
+        case 41, 42: 1_778_580_000_000 // 2026-05-12T10:00:00Z
+        case 53: 1_780_995_600_000 // 2026-06-09T09:00:00Z
+        default: 1_780_930_800_000 // 2026-06-08T15:00:00Z
+        }
     }
 
     private static func file(
@@ -53,24 +91,24 @@ nonisolated extension MockFixtures {
 
     private static func environmentFiles(id: Int) -> (language: String, files: [[String: Any]]) {
         switch id {
-        case 1:
+        case 1, 21, 31, 41:
             return ("python3", [
                 file(environmentID: id, index: 0, path: "coderpad/main.py",
                      contents: "def greet(name):\n    return f\"Hello, {name}!\"\n\nprint(greet(\"CoderPad\"))\n")
             ])
 
-        case 3:
+        case 3, 53:
             let swift = "import Foundation\n\nfunc greet(_ name: String) -> String {\n"
                 + "    \"Hello, \\(name)!\"\n}\n\nprint(greet(\"CoderPad\"))\n"
             return ("swift", [file(environmentID: id, index: 0, path: "main.swift", contents: swift)])
 
-        case 4:
+        case 4, 34:
             // A small mixed-language web project: each file is highlighted in its
             // own language (HTML, CSS, JavaScript) from its extension, even though
             // the environment reports a single language.
             return ("javascript", webProjectFiles(environmentID: id))
 
-        default: // 2 and any other id
+        default: // JavaScript environments (2, 22, 32, 42, and any other id)
             return ("javascript", [
                 file(environmentID: id, index: 0, path: "src/index.js",
                      contents: "import { greet } from './greet.js';\n\nconsole.log(greet('CoderPad'));\n"),

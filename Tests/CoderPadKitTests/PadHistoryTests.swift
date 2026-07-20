@@ -107,6 +107,48 @@ struct PadHistoryClientTests {
 
         #expect(history.replay() == file.contents)
     }
+
+    @Test
+    func `mock history resembles anonymous multi-editor playback`() async throws {
+        let client = CoderPadClient.mock(key: "history-shape-\(UUID().uuidString)")
+        let pad = try await client.getPad(id: "DEMOABC1")
+        let environment = try await client.padEnvironment(id: #require(pad.activeEnvironmentID))
+        let file = try #require(environment.fileContents.first)
+        let history = try await client.padHistory(historyURL: #require(file.history))
+
+        #expect(history.count == 4)
+        #expect(history.map(\.author) == ["CoderPad", "4503601411610331",
+                                          "9988776655443322", "9988776655443322"])
+        #expect(history[2].timestamp == history[3].timestamp)
+        #expect(history[2].operations.contains(.insert(" ")))
+        #expect(history[3].operations.contains(.delete(1)))
+        #expect(history.replay() == file.contents)
+        #expect(history.dropFirst().allSatisfy { !pad.participants.contains($0.author) })
+
+        let runDates = try await client.padEvents(padID: pad.id)
+            .filter { $0.kind == "ran" }
+            .compactMap(\.createdAt)
+            .map { Int64($0.timeIntervalSince1970 * 1000) }
+        let firstTimestamp = try #require(history.first?.timestamp)
+        let lastTimestamp = try #require(history.last?.timestamp)
+        #expect(runDates.allSatisfy { firstTimestamp ... lastTimestamp ~= $0 })
+    }
+
+    @Test
+    func `mock can advertise one unavailable text-file history`() async throws {
+        let client = CoderPadClient.mock(key: "partial-history-\(UUID().uuidString)")
+        let environment = try await client.padEnvironment(id: 34)
+        let file = try #require(environment.fileContents.dropFirst().first)
+
+        let error = await #expect(throws: CoderPadError.self) {
+            _ = try await client.padHistory(historyURL: #require(file.history))
+        }
+        guard case let .http(status, _) = error else {
+            Issue.record("Expected a .http error, got \(String(describing: error))")
+            return
+        }
+        #expect(status == 404)
+    }
 }
 
 /// A Firebase stand-in that rejects accidental API-key leakage and serves success,
