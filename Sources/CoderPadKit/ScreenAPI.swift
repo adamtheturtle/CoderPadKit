@@ -18,7 +18,7 @@ import Foundation
 
 /// A test campaign (a reusable assessment template) you can send to candidates.
 /// Returned by `GET /campaigns`.
-public nonisolated struct ScreenCampaign: Decodable, Identifiable, Hashable {
+public nonisolated struct ScreenCampaign: Decodable, Identifiable, Hashable, Sendable {
     public let id: Int
     public let name: String
     /// Programming languages the candidate may answer in.
@@ -64,7 +64,7 @@ public nonisolated struct ScreenCampaign: Decodable, Identifiable, Hashable {
 /// The request body for `POST /campaigns/:id/actions/send`. All fields are
 /// optional; omitting `candidateEmail` creates a test the recruiter can hand to
 /// a candidate manually rather than emailing an invitation.
-public nonisolated struct ScreenInvitation: Encodable, Hashable {
+public nonisolated struct ScreenInvitation: Encodable, Hashable, Sendable {
     public var candidateEmail: String?
     public var candidateName: String?
     /// Recruiter who receives the result notification.
@@ -100,7 +100,7 @@ public nonisolated struct ScreenInvitation: Encodable, Hashable {
 
 /// The result of sending an invitation: the URL the candidate uses to take it,
 /// and, when returned, the new test session id.
-public nonisolated struct ScreenInvitationResult: Decodable, Hashable {
+public nonisolated struct ScreenInvitationResult: Decodable, Hashable, Sendable {
     public let id: Int?
     public let testURL: String?
 
@@ -121,7 +121,7 @@ public nonisolated struct ScreenInvitationResult: Decodable, Hashable {
 /// One candidate's run of a campaign. Returned (in a list) by `GET /tests` and
 /// (singly) by `GET /tests/:id`. The `report` is populated once the candidate
 /// finishes; before then most timing fields and the report are absent.
-public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable {
+public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, Sendable {
     /// e.g. "waiting", "in_progress", "completed", "aborted", "cancelled".
     public var status: String
     /// Dashboard URL for a recruiter to review this candidate.
@@ -216,7 +216,7 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable {
 }
 
 /// A question within a test session and when the candidate last touched it.
-public nonisolated struct ScreenTestQuestion: Decodable, Identifiable, Hashable {
+public nonisolated struct ScreenTestQuestion: Decodable, Identifiable, Hashable, Sendable {
     public let id: Int
     public let lastActivityTime: Int?
 
@@ -282,7 +282,7 @@ private extension KeyedDecodingContainer {
 }
 
 /// A candidate's scored results, present once the test is completed.
-public nonisolated struct ScreenReport: Decodable, Hashable {
+public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
     /// Time spent, in seconds.
     public let duration: Int?
     /// Proctoring/anti-cheat warnings raised during the test.
@@ -346,7 +346,7 @@ public nonisolated struct ScreenReport: Decodable, Hashable {
 }
 
 /// Per-technology results within a report, with a further per-skill breakdown.
-public nonisolated struct ScreenTechnologyResult: Decodable, Hashable {
+public nonisolated struct ScreenTechnologyResult: Decodable, Hashable, Sendable {
     public let points: Int?
     public let score: Double?
     /// Per-skill breakdown, keyed by skill name (e.g. "Problem solving").
@@ -374,7 +374,7 @@ public nonisolated struct ScreenTechnologyResult: Decodable, Hashable {
 }
 
 /// A single skill's score within a technology result.
-public nonisolated struct ScreenSkillResult: Decodable, Hashable {
+public nonisolated struct ScreenSkillResult: Decodable, Hashable, Sendable {
     public let points: Int?
     public let score: Double?
     public let totalPoints: Int?

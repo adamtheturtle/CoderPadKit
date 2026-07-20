@@ -14,7 +14,7 @@ import Foundation
 /// One page of test sessions from `GET /tests`. Unlike the Interview API's
 /// cursor-URL pagination, Screen uses offset/limit: pass `nextStart` as the next
 /// request's `start` while `hasMoreItems` is true.
-public nonisolated struct ScreenTestsPage: Decodable, Hashable {
+public nonisolated struct ScreenTestsPage: Decodable, Hashable, Sendable {
     public let tests: [ScreenTestSession]
     public let discardedTestCount: Int
     public let pagination: ScreenPagination?
@@ -81,7 +81,7 @@ nonisolated struct TolerantScreenList<Element: Decodable>: Decodable {
     }
 }
 
-public nonisolated struct ScreenCampaignListResult: Equatable {
+public nonisolated struct ScreenCampaignListResult: Equatable, Sendable {
     public let campaigns: [ScreenCampaign]
     public let discardedCount: Int
 
@@ -93,7 +93,7 @@ public nonisolated struct ScreenCampaignListResult: Equatable {
     }
 }
 
-public nonisolated struct ScreenTestListResult: Equatable {
+public nonisolated struct ScreenTestListResult: Equatable, Sendable {
     public let tests: [ScreenTestSession]
     public let discardedCount: Int
 
@@ -148,7 +148,7 @@ private nonisolated struct DiscardedScreenCodingKey: CodingKey {
     }
 }
 
-public nonisolated struct ScreenPagination: Decodable, Hashable {
+public nonisolated struct ScreenPagination: Decodable, Hashable, Sendable {
     public let start: Int?
     public let limit: Int?
     public let total: Int?
