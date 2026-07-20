@@ -174,7 +174,12 @@ public nonisolated struct PadInterviewerNotification: Codable, Identifiable, Has
         id = try container.decode(Int.self, forKey: .id)
         title = container.loggedDecodeIfPresent(String.self, forKey: .title) ?? ""
         message = container.loggedDecodeIfPresent(String.self, forKey: .message) ?? ""
-        priority = container.loggedDecodeIfPresent(Int.self, forKey: .priority)
+        // This undocumented live-response field has appeared as both a JSON number
+        // and a numeric string. Decode those representations quietly: unlike a core
+        // model field, an unfamiliar notification priority must not emit API-drift
+        // noise or affect decoding the rest of the pad (#2893).
+        priority = (try? container.decodeIfPresent(Int.self, forKey: .priority))
+            ?? (try? container.decodeIfPresent(String.self, forKey: .priority)).flatMap(Int.init)
         requestID = container.loggedDecodeIfPresent(String.self, forKey: .requestID)
         autoDismissed = container.loggedDecodeIfPresent(Bool.self, forKey: .autoDismissed) ?? false
         dismissedAt = container.loggedDecodeIfPresent(Date.self, forKey: .dismissedAt)

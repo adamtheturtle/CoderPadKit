@@ -195,6 +195,21 @@ struct DecodeToleranceTests {
     }
 
     @Test
+    func `notification priority accepts a numeric string and ignores unknown shapes`() throws {
+        let numeric = try JSONDecoder().decode(
+            PadInterviewerNotification.self,
+            from: Data(#"{"id":1,"priority":"3"}"#.utf8)
+        )
+        let unknown = try JSONDecoder().decode(
+            PadInterviewerNotification.self,
+            from: Data(#"{"id":2,"priority":{"level":"high"}}"#.utf8)
+        )
+
+        #expect(numeric.priority == 3)
+        #expect(unknown.priority == nil)
+    }
+
+    @Test
     func `environment file retains binary when contents are unavailable`() throws {
         let json = Data(
             #"{"id":7,"file_contents":[{"path":"image.png","contents":null,"binary":true}]}"#.utf8
