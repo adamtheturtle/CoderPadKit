@@ -27,7 +27,7 @@ public nonisolated struct ScreenCampaign: Decodable, Identifiable, Hashable {
     public let archived: Bool
 
     /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
-    init(id: Int, name: String, languages: [String] = [], pinned: Bool = false, archived: Bool = false) {
+    public init(id: Int, name: String, languages: [String] = [], pinned: Bool = false, archived: Bool = false) {
         self.id = id
         self.name = name
         self.languages = languages
@@ -74,7 +74,7 @@ public nonisolated struct ScreenInvitation: Encodable, Hashable {
     public var sendInvitationEmail: Bool?
     public var sendNotificationEmailOnBounce: Bool?
 
-    init(candidateEmail: String? = nil,
+    public init(candidateEmail: String? = nil,
          candidateName: String? = nil,
          recruiterEmail: String? = nil,
          tags: String? = nil,
@@ -149,7 +149,7 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable {
     public let approvalStatus: String?
 
     /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
-    init(id: Int, status: String = "waiting", report: ScreenReport? = nil,
+    public init(id: Int, status: String = "waiting", report: ScreenReport? = nil,
          candidateName: String? = nil, candidateEmail: String? = nil, tags: [String] = [],
          sendTime: Int? = nil, startTime: Int? = nil, endTime: Int? = nil,
          lastActivityTime: Int? = nil, campaignID: Int? = nil,
@@ -301,7 +301,7 @@ public nonisolated struct ScreenReport: Decodable, Hashable {
     public let communityStats: [Int]?
 
     /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
-    init(score: Double? = nil, points: Int? = nil, duration: Int? = nil,
+    public init(score: Double? = nil, points: Int? = nil, duration: Int? = nil,
          warnings: [String] = [], technologies: [String: ScreenTechnologyResult] = [:],
          totalDuration: Int? = nil, totalPoints: Int? = nil,
          comparativeScore: Double? = nil, communityStats: [Int]? = nil,
