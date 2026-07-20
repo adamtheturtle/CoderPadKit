@@ -40,6 +40,16 @@ let created = try await client.createPad(PadCreate(title: "Phone screen", langua
 let org = try await client.organization()
 ```
 
+CoderPad Screen uses a separate host and `API-Key` authentication. Create a
+``ScreenClient`` to list campaigns and candidate sessions, send invitations, retrieve
+reports, or manage the organization webhook:
+
+```swift
+let screen = ScreenClient.live(apiKey: "your-screen-api-key")
+let campaigns = try await screen.listCampaigns()
+let sessions = try await screen.listAllTests(campaignID: campaigns.first?.id)
+```
+
 Fetch and replay a file's editor history using the URL returned by its pad environment:
 
 ```swift
@@ -118,3 +128,16 @@ let badKey = CoderPadClient.mock(unauthorized: true) // every request answers 40
 - ``OrganizationUser``
 - ``OrganizationStats``
 - ``Quota``
+
+### Screen
+
+- ``ScreenClient``
+- ``ScreenCampaign``
+- ``ScreenInvitation``
+- ``ScreenInvitationResult``
+- ``ScreenTestSession``
+- ``ScreenTestQuestion``
+- ``ScreenReport``
+- ``ScreenTechnologyResult``
+- ``ScreenSkillResult``
+- ``ScreenPagination``

@@ -1,5 +1,5 @@
 {
-  "originHash" : "5bb4d2fa3c93b5ce22899d03fc2f799c9e3a7f61119b3df57c7bdd6651e82e3b",
+  "originHash" : "a257bd2939eae9702e04d7403acd7420d96fc544f2d491cfcbff8061c1e01096",
   "pins" : [
     {
       "identity" : "paginatedrestclient",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "5a98c0b23073c81ccf3b28e4b8d0d7f33d302519",
         "version" : "0.2.0"
+      }
+    },
+    {
+      "identity" : "safeurlkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/adamtheturtle/SafeURLKit.git",
+      "state" : {
+        "revision" : "f71fa0333026fcd3ee357f86154997eea3b31a50",
+        "version" : "0.1.1"
       }
     }
   ],

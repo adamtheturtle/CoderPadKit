@@ -31,13 +31,15 @@ let package = Package(
         .library(name: "CoderPadKitMock", targets: ["CoderPadKitMock"])
     ],
     dependencies: [
-        .package(url: "https://github.com/adamtheturtle/PaginatedRESTClient.git", from: "0.2.0")
+        .package(url: "https://github.com/adamtheturtle/PaginatedRESTClient.git", from: "0.2.0"),
+        .package(url: "https://github.com/adamtheturtle/SafeURLKit.git", from: "0.1.1")
     ],
     targets: [
         .target(
             name: "CoderPadKit",
             dependencies: [
                 .product(name: "PaginatedRESTClient", package: "PaginatedRESTClient")
+                , .product(name: "SafeURLKit", package: "SafeURLKit")
             ],
             swiftSettings: swiftSettings
         ),
