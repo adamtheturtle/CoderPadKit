@@ -116,14 +116,20 @@ struct PadHistoryClientTests {
         let file = try #require(environment.fileContents.first)
         let history = try await client.padHistory(historyURL: #require(file.history))
 
-        #expect(history.count == 4)
-        #expect(history.map(\.author) == ["CoderPad", "4503601411610331",
-                                          "9988776655443322", "9988776655443322"])
-        #expect(history[2].timestamp == history[3].timestamp)
-        #expect(history[2].operations.contains(.insert(" ")))
-        #expect(history[3].operations.contains(.delete(1)))
+        #expect(history.count > 400)
+        #expect(Set(history.map(\.author)) == [
+            "CoderPad", "4503601411610331", "9988776655443322"
+        ])
+        #expect(history.suffix(2).first?.timestamp == history.last?.timestamp)
+        #expect(history.contains { $0.operations.contains(.insert("x")) })
+        #expect(history.contains { $0.operations.contains(.delete(1)) })
+        #expect(history.contains { $0.operations.contains(.insert("# Consider the empty-input case\n")) })
         #expect(history.replay() == file.contents)
         #expect(history.dropFirst().allSatisfy { !pad.participants.contains($0.author) })
+
+        let gaps = zip(history, history.dropFirst()).map { $1.timestamp - $0.timestamp }
+        #expect(gaps.contains(0))
+        #expect(gaps.contains { $0 > 60_000 })
 
         let runDates = try await client.padEvents(padID: pad.id)
             .filter { $0.kind == "ran" }

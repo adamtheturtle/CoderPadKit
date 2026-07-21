@@ -43,26 +43,8 @@ nonisolated extension MockFixtures {
             return ["seed": ["a": "CoderPad", "o": [contents], "t": timestamp]]
         }
 
-        let units = Array(contents.utf16)
-        let split = units.count / 2
-        let prefix = String(decoding: units[..<split], as: UTF16.self)
-        let suffix = String(decoding: units[split...], as: UTF16.self)
         let seedAuthor = fileIndex == 0 ? "CoderPad" : "-MockUploadHistory01"
-
-        return [
-            "seed": ["a": seedAuthor, "o": [prefix], "t": timestamp],
-            "candidate-edit": [
-                "a": "4503601411610331", "o": [split, suffix], "t": timestamp + 1_204_000
-            ],
-            // Same-millisecond edits exercise deterministic id ordering. The
-            // temporary trailing space is then deleted, leaving current contents.
-            "interviewer-1-insert": [
-                "a": "9988776655443322", "o": [units.count, " "], "t": timestamp + 2_515_000
-            ],
-            "interviewer-2-delete": [
-                "a": "9988776655443322", "o": [units.count, -1], "t": timestamp + 2_515_000
-            ]
-        ]
+        return realisticHistory(contents: contents, start: timestamp, seedAuthor: seedAuthor)
     }
 
     /// Align each seeded pad's editor history with its event-log dates so run
@@ -91,7 +73,38 @@ nonisolated extension MockFixtures {
 
     private static func environmentFiles(id: Int) -> (language: String, files: [[String: Any]]) {
         switch id {
-        case 1, 21, 31, 41:
+        case 1:
+            let python = """
+            def two_sum(nums, target):
+                \"\"\"Return the indices of two values whose sum is target.\"\"\"
+                seen = {}
+
+                for index, value in enumerate(nums):
+                    complement = target - value
+                    if complement in seen:
+                        return [seen[complement], index]
+                    seen[value] = index
+
+                return []
+
+
+            def test_two_sum():
+                assert two_sum([2, 7, 11, 15], 9) == [0, 1]
+                assert two_sum([3, 2, 4], 6) == [1, 2]
+                assert two_sum([3, 3], 6) == [0, 1]
+                assert two_sum([], 10) == []
+
+
+            if __name__ == "__main__":
+                test_two_sum()
+                print("All tests passed")
+
+            """
+            return ("python3", [
+                file(environmentID: id, index: 0, path: "coderpad/main.py", contents: python)
+            ])
+
+        case 21, 31, 41:
             return ("python3", [
                 file(environmentID: id, index: 0, path: "coderpad/main.py",
                      contents: "def greet(name):\n    return f\"Hello, {name}!\"\n\nprint(greet(\"CoderPad\"))\n")
