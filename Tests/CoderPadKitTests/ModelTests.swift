@@ -223,6 +223,19 @@ struct DecodeToleranceTests {
     }
 
     @Test
+    func `Question decodes present null and absent AI Assist custom system prompts`() throws {
+        for (fragment, expected): (String, String?) in [
+            (#","ai_assist_custom_system_prompt":"  Keep this spacing.  ""#, "  Keep this spacing.  "),
+            (#","ai_assist_custom_system_prompt":null"#, nil),
+            ("", nil)
+        ] {
+            let json = Data(#"{"id":9\#(fragment)}"#.utf8)
+            let question = try CoderPadClient.decoder.decode(Question.self, from: json)
+            #expect(question.aiAssistCustomSystemPrompt == expected)
+        }
+    }
+
+    @Test
     func `Question retains an empirically observed custom database schema`() throws {
         let json = Data(
             #"""

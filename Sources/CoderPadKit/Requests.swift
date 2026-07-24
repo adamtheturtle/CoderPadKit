@@ -70,11 +70,13 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
     public var takeHome: Bool?
     public var padType: String?
     public var candidateInstructions: [CandidateInstructionPayload]?
+    public var aiAssistCustomSystemPrompt: String?
 
     public init(
         title: String, language: String? = nil, description: String? = nil, solution: String? = nil,
         contents: String? = nil, takeHome: Bool? = nil, padType: String? = nil,
-        candidateInstructions: [CandidateInstructionPayload]? = nil
+        candidateInstructions: [CandidateInstructionPayload]? = nil,
+        aiAssistCustomSystemPrompt: String? = nil
     ) {
         self.title = title
         self.language = language
@@ -84,6 +86,7 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
         self.takeHome = takeHome
         self.padType = padType
         self.candidateInstructions = candidateInstructions
+        self.aiAssistCustomSystemPrompt = aiAssistCustomSystemPrompt
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -91,6 +94,7 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
         case takeHome = "take_home"
         case padType = "pad_type"
         case candidateInstructions = "candidate_instructions"
+        case aiAssistCustomSystemPrompt = "ai_assist_custom_system_prompt"
     }
 
     private enum QuestionKeys: String, CodingKey {
@@ -105,6 +109,7 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
         try container.encodeIfPresent(takeHome, forKey: .takeHome)
         try container.encodeIfPresent(padType, forKey: .padType)
         try container.encodeIfPresent(candidateInstructions, forKey: .candidateInstructions)
+        try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
         var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
         try question.encode(title, forKey: .title)
         try question.encodeIfPresent(language, forKey: .language)
@@ -125,11 +130,13 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
     public var takeHome: Bool?
     public var padType: String?
     public var candidateInstructions: [CandidateInstructionPayload]?
+    public var aiAssistCustomSystemPrompt: String?
 
     public init(
         id: Int, title: String? = nil, language: String? = nil, description: String? = nil,
         solution: String? = nil, contents: String? = nil, takeHome: Bool? = nil,
-        padType: String? = nil, candidateInstructions: [CandidateInstructionPayload]? = nil
+        padType: String? = nil, candidateInstructions: [CandidateInstructionPayload]? = nil,
+        aiAssistCustomSystemPrompt: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -140,6 +147,7 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         self.takeHome = takeHome
         self.padType = padType
         self.candidateInstructions = candidateInstructions
+        self.aiAssistCustomSystemPrompt = aiAssistCustomSystemPrompt
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -147,6 +155,7 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         case takeHome = "take_home"
         case padType = "pad_type"
         case candidateInstructions = "candidate_instructions"
+        case aiAssistCustomSystemPrompt = "ai_assist_custom_system_prompt"
     }
 
     private enum QuestionKeys: String, CodingKey {
@@ -162,6 +171,7 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         try container.encodeIfPresent(takeHome, forKey: .takeHome)
         try container.encodeIfPresent(padType, forKey: .padType)
         try container.encodeIfPresent(candidateInstructions, forKey: .candidateInstructions)
+        try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
         if title != nil || language != nil {
             var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
             try question.encodeIfPresent(title, forKey: .title)

@@ -84,6 +84,7 @@ extension Question {
         contents: String?, contentsForTestCases: String?, publicTakeHomeSettingID: Int?,
         customFiles: [QuestionCustomFile], testCases: [QuestionTestCase], createdAt: Date?,
         updatedAt: Date?, candidateInstructions: [CandidateInstruction],
+        aiAssistCustomSystemPrompt: String? = nil,
         customDatabase: QuestionCustomDatabase? = nil
     ) {
         self.id = id
@@ -108,6 +109,7 @@ extension Question {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.candidateInstructions = candidateInstructions
+        self.aiAssistCustomSystemPrompt = aiAssistCustomSystemPrompt
         self.customDatabase = customDatabase
     }
 
@@ -142,6 +144,7 @@ extension Question {
                     CandidateInstruction(instructions: $0.instructions, defaultVisible: $0.defaultVisible)
                 }
             } ?? candidateInstructions,
+            aiAssistCustomSystemPrompt: aiAssistCustomSystemPrompt,
             customDatabase: customDatabase
         )
     }
