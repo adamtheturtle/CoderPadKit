@@ -226,6 +226,7 @@ nonisolated enum MockResponses {
             "owner_email": MockFixtures.demoUserEmail,
             "language": bodyDict["language"] ?? NSNull(),
             "description": bodyDict["description"] ?? NSNull(),
+            "ai_assist_custom_system_prompt": bodyDict["ai_assist_custom_system_prompt"] ?? NSNull(),
             "candidate_instructions": bodyDict["candidate_instructions"] ?? [],
             "shared": false, "used": 0, "take_home": bodyDict["take_home"] as? Bool ?? false,
             "test_cases_enabled": false, "solution": bodyDict["solution"] ?? "",

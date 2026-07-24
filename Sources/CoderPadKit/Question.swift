@@ -36,6 +36,8 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
     public let createdAt: Date?
     public let updatedAt: Date?
     public let candidateInstructions: [CandidateInstruction]
+    /// Interviewer-only instructions appended after CoderPad's base AI Assist system prompt.
+    public let aiAssistCustomSystemPrompt: String?
     /// A database attached to the question, when present.
     ///
     /// This metadata has been observed in live API responses but is not part of
@@ -58,6 +60,7 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case candidateInstructions = "candidate_instructions"
+        case aiAssistCustomSystemPrompt = "ai_assist_custom_system_prompt"
         case customDatabase = "custom_database"
     }
 
@@ -86,6 +89,8 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
         updatedAt = container.loggedDecodeIfPresent(Date.self, forKey: .updatedAt)
         candidateInstructions = container
             .loggedDecodeIfPresent([CandidateInstruction].self, forKey: .candidateInstructions) ?? []
+        aiAssistCustomSystemPrompt = container
+            .loggedDecodeIfPresent(String.self, forKey: .aiAssistCustomSystemPrompt)
         customDatabase = container
             .loggedDecodeIfPresent(QuestionCustomDatabase.self, forKey: .customDatabase)
     }

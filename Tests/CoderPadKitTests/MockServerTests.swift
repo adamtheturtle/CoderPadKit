@@ -260,6 +260,21 @@ struct MockServerTests {
     }
 
     @Test
+    func `create and update question round-trip AI Assist custom system prompt`() async throws {
+        let created = try await client.createQuestion(QuestionCreate(
+            title: "AI-assisted question",
+            aiAssistCustomSystemPrompt: "  Be a concise interviewer.  "
+        ))
+        #expect(created.aiAssistCustomSystemPrompt == "  Be a concise interviewer.  ")
+
+        let updated = try await client.updateQuestion(QuestionUpdate(
+            id: created.id,
+            aiAssistCustomSystemPrompt: "Ask one question at a time."
+        ))
+        #expect(updated.aiAssistCustomSystemPrompt == "Ask one question at a time.")
+    }
+
+    @Test
     func `updateQuestion persists changes and returns fresh state without a PUT body`() async throws {
         let updated = try await client.updateQuestion(QuestionUpdate(id: 102, title: "Renamed question"))
         #expect(updated.id == 102)

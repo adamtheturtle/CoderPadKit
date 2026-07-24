@@ -29,7 +29,7 @@ final nonisolated class MockState: @unchecked Sendable {
 
     /// Seed questions with this state's edits layered on and deletions removed.
     func allQuestions() -> [[String: Any]] {
-        let merged = MockFixtures.questions().map { question -> [String: Any] in
+        let merged = (MockFixtures.questions() + createdQuestions).map { question -> [String: Any] in
             guard let id = question["id"] as? Int, let updates = updatedQuestions[id] else { return question }
 
             var combined = question
@@ -38,7 +38,7 @@ final nonisolated class MockState: @unchecked Sendable {
             }
             return combined
         }
-        return (merged + createdQuestions).filter { question in
+        return merged.filter { question in
             guard let id = question["id"] as? Int else { return true }
 
             return !deletedQuestionIDs.contains(id)
