@@ -6,8 +6,10 @@
 import Foundation
 
 public extension ScreenClient {
+    nonisolated static let mockBaseURL = URL(string: "https://screen.mock.coderpad.io")!
+
     public nonisolated static func isAllowedBaseURL(_ url: URL) -> Bool {
-        let allowedHosts = [defaultBaseURL.host, euBaseURL.host].compactMap { $0?.lowercased() }
+        let allowedHosts = [defaultBaseURL.host, euBaseURL.host, mockBaseURL.host].compactMap { $0?.lowercased() }
         return url.scheme?.lowercased() == "https"
             && url.host.map { allowedHosts.contains($0.lowercased()) } == true
             && url.port == nil && url.user == nil && url.password == nil

@@ -16,8 +16,8 @@ nonisolated enum MockScreen {
     /// The host the mock Screen client points at; `MockScreenURLProtocol` answers for
     /// it. A dedicated demo host (not the live codingame.com/.eu) so a misrouted live
     /// request can never accidentally be served canned data.
-    static let host = "screen.mock.coderpad.io"
-    static let baseURL = URL(string: "https://screen.mock.coderpad.io")!
+    static let host = ScreenClient.mockBaseURL.host!
+    static let baseURL = ScreenClient.mockBaseURL
 
     /// A session backed by the in-process fake Screen API. When `unauthorized` is true
     /// the server answers every request with 401, driving the bad-key demo's Screen

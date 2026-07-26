@@ -24,6 +24,16 @@ struct ScreenClientTests {
     }
 
     @Test
+    func `base URL validation allows live regions and the in-process mock`() {
+        #expect(ScreenClient.isAllowedBaseURL(ScreenClient.defaultBaseURL))
+        #expect(ScreenClient.isAllowedBaseURL(ScreenClient.euBaseURL))
+        #expect(ScreenClient.isAllowedBaseURL(ScreenClient.mockBaseURL))
+        #expect(!ScreenClient.isAllowedBaseURL(URL(string: "https://screen.mock.coderpad.io/path")!))
+        #expect(!ScreenClient.isAllowedBaseURL(URL(string: "https://user@screen.mock.coderpad.io")!))
+        #expect(!ScreenClient.isAllowedBaseURL(URL(string: "http://screen.mock.coderpad.io")!))
+    }
+
+    @Test
     func `listCampaigns decodes campaigns and their languages`() async throws {
         // The fixture includes one malformed entry; it must be dropped, not hide
         // the valid campaigns behind a decode error (#896).
