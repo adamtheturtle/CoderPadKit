@@ -6,7 +6,7 @@
 public extension ScreenClient {
     /// Every test session matching the filters, following offset pagination to the
     /// end. Convenience over `listTests` for callers that want the full list.
-    public nonisolated func listAllTests(campaignID: Int? = nil,
+    nonisolated func listAllTests(campaignID: Int? = nil,
                                   product: String? = nil,
                                   candidateEmail: String? = nil,
                                   from: Int? = nil,
@@ -15,7 +15,7 @@ public extension ScreenClient {
                                      candidateEmail: candidateEmail, from: from, until: until).tests
     }
 
-    public nonisolated func listAllTestsResult(campaignID: Int? = nil,
+    nonisolated func listAllTestsResult(campaignID: Int? = nil,
                                         product: String? = nil,
                                         candidateEmail: String? = nil,
                                         from: Int? = nil,
@@ -61,7 +61,8 @@ public extension ScreenClient {
 
             let currentStart = start ?? -1
             guard let next = pagination.nextStart, next > currentStart,
-                  seenStarts.insert(next).inserted else {
+                  seenStarts.insert(next).inserted
+            else {
                 throw CoderPadError.decode("Screen pagination returned an invalid next offset.")
             }
 
