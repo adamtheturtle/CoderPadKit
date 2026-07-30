@@ -8,7 +8,6 @@
 //
 
 import Foundation
-import os.log
 import PaginatedRESTClient
 
 // MARK: - Pagination
@@ -187,7 +186,7 @@ public struct CoderPadClient {
             decoderFactory: Self.makeDecoder,
             encoderFactory: Self.makeEncoder,
             errors: CoderPadErrorMapping(),
-            log: { apiLogger.debug("\($0, privacy: .public)") }
+            log: { apiLogger.debug($0) }
         )
     }
 
