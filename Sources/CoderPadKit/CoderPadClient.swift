@@ -10,6 +10,10 @@
 import Foundation
 import PaginatedRESTClient
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 // MARK: - Pagination
 
 // The generic `PagedResponse` protocol and the paginated transport that consumes it
