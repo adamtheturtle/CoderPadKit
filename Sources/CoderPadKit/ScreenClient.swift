@@ -17,6 +17,10 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 public struct ScreenClient {
     // Immutable, Sendable configuration driving pure networking, so these are
     // `nonisolated`: the request methods can run off the main actor rather than

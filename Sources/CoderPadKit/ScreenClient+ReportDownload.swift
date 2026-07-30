@@ -5,6 +5,10 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 public extension ScreenClient {
     /// Downloads report bytes to URLSession's temporary file, checking both the
     /// advertised and actual size before materializing the PDF in memory (#2767).
