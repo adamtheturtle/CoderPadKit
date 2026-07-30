@@ -11,13 +11,15 @@
 //  behind by an earlier run.
 //
 
-import CoreGraphics
 import Foundation
-import os
 import Synchronization
 
+#if canImport(CoreGraphics)
+    import CoreGraphics
+#endif
+
 public nonisolated enum ScreenReportFiles {
-    private static let logger = Logger(subsystem: "com.coderpad.app", category: "screen-reports")
+    private static let logger = CoderPadLogger(category: "screen-reports")
 
     /// Folders staged by this process (keyed by their unique directory name), each
     /// with its scheduled removal task when one exists. The registry keeps the launch
@@ -38,12 +40,16 @@ public nonisolated enum ScreenReportFiles {
 
     /// Whether the bytes plausibly are a PDF document.
     public static func isLikelyPDF(_ data: Data) -> Bool {
+        #if canImport(CoreGraphics)
         guard data.starts(with: pdfMagic),
               let provider = CGDataProvider(data: data as CFData),
               let document = CGPDFDocument(provider)
         else { return false }
 
         return document.numberOfPages > 0
+        #else
+        return data.starts(with: pdfMagic)
+        #endif
     }
 
     /// The root folder under the app's temporary directory that holds every staged

@@ -296,8 +296,8 @@ extension KeyedDecodingContainer {
         } catch {
             apiLogger.debug(
                 """
-                decode '\(key.stringValue, privacy: .public)' as execution_enabled \
-                failed: \(error.localizedDescription, privacy: .public)
+                decode '\(key.stringValue)' as execution_enabled \
+                failed: \(error.localizedDescription)
                 """
             )
             return nil

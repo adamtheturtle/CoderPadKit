@@ -4,12 +4,37 @@
 //
 
 import Foundation
-import os.log
 
 /// The package's logger. Decode failures are logged here (rather than swallowed) so
 /// silent API drift shows up in Console instead of producing empty data with no
 /// diagnostic.
-nonisolated let apiLogger = Logger(subsystem: "com.coderpad.CoderPadKit", category: "api")
+#if canImport(OSLog)
+    import OSLog
+
+    nonisolated struct CoderPadLogger {
+        private let logger: Logger
+
+        init(category: String) {
+            logger = Logger(subsystem: "com.coderpad.CoderPadKit", category: category)
+        }
+
+        func debug(_ message: String) {
+            logger.debug("\(message, privacy: .public)")
+        }
+
+        func error(_ message: String) {
+            logger.error("\(message, privacy: .public)")
+        }
+    }
+#else
+    nonisolated struct CoderPadLogger {
+        init(category _: String) {}
+        func debug(_: String) {}
+        func error(_: String) {}
+    }
+#endif
+
+nonisolated let apiLogger = CoderPadLogger(category: "api")
 
 extension KeyedDecodingContainer {
     /// Like `try? decodeIfPresent`, but logs the underlying error so silent API drift
@@ -20,9 +45,9 @@ extension KeyedDecodingContainer {
         } catch {
             apiLogger.debug(
                 """
-                decodeIfPresent '\(key.stringValue, privacy: .public)' \
-                as \(String(describing: type), privacy: .public) \
-                failed: \(error.localizedDescription, privacy: .public)
+                decodeIfPresent '\(key.stringValue)' \
+                as \(String(describing: type)) \
+                failed: \(error.localizedDescription)
                 """
             )
             return nil
