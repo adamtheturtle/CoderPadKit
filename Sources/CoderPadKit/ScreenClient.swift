@@ -45,8 +45,8 @@ public struct ScreenClient {
     public nonisolated static let maximumFullListItems = 10000
 
     public nonisolated init(apiKey: String,
-                     baseURL: URL = Self.defaultBaseURL,
-                     session: URLSession = Self.liveSession) {
+                            baseURL: URL = Self.defaultBaseURL,
+                            session: URLSession = Self.liveSession) {
         self.apiKey = apiKey
         self.baseURL = baseURL
         self.session = session
@@ -84,7 +84,7 @@ public struct ScreenClient {
     /// Invites a candidate to a campaign, creating a test session.
     /// `POST /campaigns/:id/actions/send`.
     public nonisolated func sendInvitation(campaignID: Int,
-                                    _ invitation: ScreenInvitation) async throws -> ScreenInvitationResult {
+                                           _ invitation: ScreenInvitation) async throws -> ScreenInvitationResult {
         try Self.requirePositiveID(campaignID, kind: "campaign")
         return try await send(ScreenInvitationResult.self,
                               method: "POST",
@@ -98,13 +98,15 @@ public struct ScreenClient {
     /// reports `pagination.nextStart`/`hasMoreItems` for paging, or use
     /// `listAllTests` to follow every page.
     public nonisolated func listTests(campaignID: Int? = nil,
-                               product: String? = nil,
-                               candidateEmail: String? = nil,
-                               from: Int? = nil,
-                               until: Int? = nil,
-                               start: Int? = nil,
-                               limit: Int? = nil) async throws -> ScreenTestsPage {
-        if let campaignID { try Self.requirePositiveID(campaignID, kind: "campaign") }
+                                      product: String? = nil,
+                                      candidateEmail: String? = nil,
+                                      from: Int? = nil,
+                                      until: Int? = nil,
+                                      start: Int? = nil,
+                                      limit: Int? = nil) async throws -> ScreenTestsPage {
+        if let campaignID {
+            try Self.requirePositiveID(campaignID, kind: "campaign")
+        }
         let filters = try Self.normalizedListFilters(product: product, candidateEmail: candidateEmail)
         if let start, start < 0 {
             throw CoderPadError.decode("Screen pagination start must not be negative.")
@@ -114,15 +116,27 @@ public struct ScreenClient {
         }
         try Self.validateTimeRange(from: from, until: until)
         var query: [URLQueryItem] = []
-        if let campaignID { query.append(URLQueryItem(name: "campaignId", value: String(campaignID))) }
-        if let product = filters.product { query.append(URLQueryItem(name: "product", value: product)) }
+        if let campaignID {
+            query.append(URLQueryItem(name: "campaignId", value: String(campaignID)))
+        }
+        if let product = filters.product {
+            query.append(URLQueryItem(name: "product", value: product))
+        }
         if let candidateEmail = filters.candidateEmail {
             query.append(URLQueryItem(name: "candidateEmail", value: candidateEmail))
         }
-        if let from { query.append(URLQueryItem(name: "from", value: String(from))) }
-        if let until { query.append(URLQueryItem(name: "to", value: String(until))) }
-        if let start { query.append(URLQueryItem(name: "start", value: String(start))) }
-        if let limit { query.append(URLQueryItem(name: "limit", value: String(limit))) }
+        if let from {
+            query.append(URLQueryItem(name: "from", value: String(from)))
+        }
+        if let until {
+            query.append(URLQueryItem(name: "to", value: String(until)))
+        }
+        if let start {
+            query.append(URLQueryItem(name: "start", value: String(start)))
+        }
+        if let limit {
+            query.append(URLQueryItem(name: "limit", value: String(limit)))
+        }
         return try await get(ScreenTestsPage.self, path: "/tests", query: query)
     }
 
@@ -156,15 +170,21 @@ public struct ScreenClient {
     /// PDF bytes; `reportType` selects the report variant when the API offers more
     /// than one.
     public nonisolated func testReport(id: Int,
-                                reportType: String? = nil,
-                                anonymous: Bool? = nil,
-                                includeRank: Bool? = nil,
-                                includeComparativeScore: Bool? = nil) async throws -> Data {
+                                       reportType: String? = nil,
+                                       anonymous: Bool? = nil,
+                                       includeRank: Bool? = nil,
+                                       includeComparativeScore: Bool? = nil) async throws -> Data {
         try Self.requirePositiveID(id, kind: "test")
         var query: [URLQueryItem] = []
-        if let reportType { query.append(URLQueryItem(name: "report_type", value: reportType)) }
-        if let anonymous { query.append(URLQueryItem(name: "anonymous", value: String(anonymous))) }
-        if let includeRank { query.append(URLQueryItem(name: "include_rank", value: String(includeRank))) }
+        if let reportType {
+            query.append(URLQueryItem(name: "report_type", value: reportType))
+        }
+        if let anonymous {
+            query.append(URLQueryItem(name: "anonymous", value: String(anonymous)))
+        }
+        if let includeRank {
+            query.append(URLQueryItem(name: "include_rank", value: String(includeRank)))
+        }
         if let includeComparativeScore {
             query.append(URLQueryItem(name: "include_comparative_score", value: String(includeComparativeScore)))
         }
@@ -198,7 +218,9 @@ public struct ScreenClient {
 
         var components = URLComponents(url: baseURL.appending(path: Self.apiPrefix + path),
                                        resolvingAgainstBaseURL: false)
-        if !query.isEmpty { components?.queryItems = query }
+        if !query.isEmpty {
+            components?.queryItems = query
+        }
         guard let url = components?.url else { throw CoderPadError.http(0, "Invalid URL") }
 
         var request = URLRequest(url: url)
@@ -252,7 +274,9 @@ public struct ScreenClient {
         do {
             (data, response) = try await session.data(for: request)
         } catch let urlError as URLError {
-            if urlError.code == .cancelled { throw CancellationError() }
+            if urlError.code == .cancelled {
+                throw CancellationError()
+            }
             throw CoderPadError.network(urlError)
         }
         guard let http = response as? HTTPURLResponse else {
@@ -307,7 +331,11 @@ private extension ScreenClient {
         guard id > 0 else { throw CoderPadError.decode("Screen \(kind) ID must be positive.") }
     }
 
-    public nonisolated static func normalizedFilter(_ raw: String?, name: String, maximumLength: Int) throws -> String? {
+    public nonisolated static func normalizedFilter(
+        _ raw: String?,
+        name: String,
+        maximumLength: Int
+    ) throws -> String? {
         guard let raw else { return nil }
 
         let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -315,7 +343,8 @@ private extension ScreenClient {
               !value.unicodeScalars.contains(where: { scalar in
                   let category = scalar.properties.generalCategory
                   return category == .control || category == .format
-              }) else {
+              })
+        else {
             throw CoderPadError.decode("Screen \(name) filter is invalid or too long.")
         }
 

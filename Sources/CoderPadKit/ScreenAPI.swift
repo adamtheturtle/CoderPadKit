@@ -75,11 +75,11 @@ public nonisolated struct ScreenInvitation: Encodable, Hashable, Sendable {
     public var sendNotificationEmailOnBounce: Bool?
 
     public init(candidateEmail: String? = nil,
-         candidateName: String? = nil,
-         recruiterEmail: String? = nil,
-         tags: String? = nil,
-         sendInvitationEmail: Bool? = nil,
-         sendNotificationEmailOnBounce: Bool? = nil) {
+                candidateName: String? = nil,
+                recruiterEmail: String? = nil,
+                tags: String? = nil,
+                sendInvitationEmail: Bool? = nil,
+                sendNotificationEmailOnBounce: Bool? = nil) {
         self.candidateEmail = candidateEmail
         self.candidateName = candidateName
         self.recruiterEmail = recruiterEmail
@@ -150,10 +150,10 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
 
     /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
     public init(id: Int, status: String = "waiting", report: ScreenReport? = nil,
-         candidateName: String? = nil, candidateEmail: String? = nil, tags: [String] = [],
-         sendTime: Int? = nil, startTime: Int? = nil, endTime: Int? = nil,
-         lastActivityTime: Int? = nil, campaignID: Int? = nil,
-         url: String? = nil, testURL: String? = nil) {
+                candidateName: String? = nil, candidateEmail: String? = nil, tags: [String] = [],
+                sendTime: Int? = nil, startTime: Int? = nil, endTime: Int? = nil,
+                lastActivityTime: Int? = nil, campaignID: Int? = nil,
+                url: String? = nil, testURL: String? = nil) {
         self.id = id
         self.status = status
         self.url = url
@@ -241,8 +241,8 @@ private nonisolated struct LenientScreenDictionary<Value: Decodable>: Decodable 
         100
     }
 
-    public let values: [String: Value]
-    public let discardedCount: Int
+    let values: [String: Value]
+    let discardedCount: Int
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: DynamicScreenCodingKey.self)
@@ -302,10 +302,10 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
 
     /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
     public init(score: Double? = nil, points: Int? = nil, duration: Int? = nil,
-         warnings: [String] = [], technologies: [String: ScreenTechnologyResult] = [:],
-         totalDuration: Int? = nil, totalPoints: Int? = nil,
-         comparativeScore: Double? = nil, communityStats: [Int]? = nil,
-         omittedBreakdownEntries: Int = 0) {
+                warnings: [String] = [], technologies: [String: ScreenTechnologyResult] = [:],
+                totalDuration: Int? = nil, totalPoints: Int? = nil,
+                comparativeScore: Double? = nil, communityStats: [Int]? = nil,
+                omittedBreakdownEntries: Int = 0) {
         self.duration = duration
         self.warnings = warnings
         self.points = points

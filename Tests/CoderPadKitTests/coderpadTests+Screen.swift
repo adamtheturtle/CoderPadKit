@@ -285,7 +285,9 @@ struct ScreenClientTests {
             _ = try await screenClient().listAllTests(campaignID: 777)
         }
     }
+}
 
+extension ScreenClientTests {
     @Test
     func `a report that is a PDF is returned`() async throws {
         let data = try await screenClient().testReport(id: 13_188_658)
