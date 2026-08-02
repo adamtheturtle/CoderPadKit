@@ -92,7 +92,7 @@ struct QuestionZIPUploadTests {
     }
 
     @Test
-    func `contents and ZIP fail before create or update transport`() async {
+    func `contents or structured files and ZIP fail before transport`() async {
         let client = makeClient()
         let upload = QuestionZIPUpload(data: Data(), filename: "empty.zip")
 
@@ -105,6 +105,21 @@ struct QuestionZIPUploadTests {
         await #expect(throws: QuestionMutationValidationError.self) {
             _ = try await client.updateQuestion(
                 QuestionUpdate(id: 42, contents: "starter"),
+                zipFile: upload
+            )
+        }
+        await #expect(throws: QuestionMutationValidationError.self) {
+            _ = try await client.createQuestion(
+                QuestionCreate(title: "Conflict", fileContents: []),
+                zipFile: upload
+            )
+        }
+        await #expect(throws: QuestionMutationValidationError.self) {
+            _ = try await client.updateQuestion(
+                QuestionUpdate(
+                    id: 42,
+                    fileContents: [QuestionFileContent(path: "main.py", contents: "")]
+                ),
                 zipFile: upload
             )
         }

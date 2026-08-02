@@ -26,14 +26,14 @@ public nonisolated struct QuestionZIPUpload: Sendable {
 }
 
 /// A question mutation selected incompatible sources for its starter content.
-public nonisolated enum QuestionMutationValidationError: LocalizedError, Sendable {
-    /// A ZIP upload and the single-file `contents` value were both supplied.
+public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatable, Sendable {
+    /// More than one starter-content representation was supplied.
     case mutuallyExclusiveContentSources
 
     public var errorDescription: String? {
         switch self {
         case .mutuallyExclusiveContentSources:
-            "A question ZIP upload cannot be combined with contents or structured file contents."
+            "Use only one of contents, structured file contents, or a question ZIP upload."
         }
     }
 }
@@ -87,17 +87,44 @@ public nonisolated struct PadUpdate: Codable, Sendable {
     }
 }
 
-/// The request body for creating a question. `title` and `language` are encoded
-/// nested under a `question` object to match the API's documented `question[title]` /
-/// `question[language]` parameters; the remaining fields are sent flat, as the API
-/// documents them. Encode-only: these are never decoded.
+/// A path and its UTF-8 text contents for a multi-file question mutation.
+///
+/// This is an encode-only request value. It is intentionally separate from
+/// ``QuestionCustomFile``, which describes downloadable file metadata returned by
+/// the API rather than starter-code files sent in a question mutation.
+public nonisolated struct QuestionFileContent: Encodable, Sendable {
+    public var path: String
+    public var contents: String
+
+    public init(path: String, contents: String) {
+        self.path = path
+        self.contents = contents
+    }
+}
+
+private nonisolated func validateQuestionContents(
+    contents: String?, fileContents: [QuestionFileContent]?
+) throws {
+    guard contents == nil || fileContents == nil else {
+        throw QuestionMutationValidationError.mutuallyExclusiveContentSources
+    }
+}
+
+/// The request body for creating a question. `title`, `language`, and ``fileContents``
+/// are encoded under a `question` object to match the API's documented bracketed
+/// parameters; the remaining fields are sent flat, as the API documents them.
+/// Encode-only: these are never decoded.
 public nonisolated struct QuestionCreate: Encodable, Sendable {
     public var title: String
     public var language: String?
     public var description: String?
     public var solution: String?
     /// Starter code inserted into the interview session when this question is used.
+    /// Mutually exclusive with ``fileContents`` and a ZIP upload.
     public var contents: String?
+    /// Path/content entries for a multi-file question. Mutually exclusive with
+    /// ``contents`` and a ZIP upload.
+    public var fileContents: [QuestionFileContent]?
     public var takeHome: Bool?
     public var padType: String?
     public var candidateInstructions: [CandidateInstructionPayload]?
@@ -105,7 +132,8 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
 
     public init(
         title: String, language: String? = nil, description: String? = nil, solution: String? = nil,
-        contents: String? = nil, takeHome: Bool? = nil, padType: String? = nil,
+        contents: String? = nil, fileContents: [QuestionFileContent]? = nil,
+        takeHome: Bool? = nil, padType: String? = nil,
         candidateInstructions: [CandidateInstructionPayload]? = nil,
         aiAssistCustomSystemPrompt: String? = nil
     ) {
@@ -114,6 +142,7 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
         self.description = description
         self.solution = solution
         self.contents = contents
+        self.fileContents = fileContents
         self.takeHome = takeHome
         self.padType = padType
         self.candidateInstructions = candidateInstructions
@@ -130,9 +159,11 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
 
     private enum QuestionKeys: String, CodingKey {
         case title, language
+        case fileContents = "file_contents"
     }
 
     public nonisolated func encode(to encoder: any Encoder) throws {
+        try validateQuestionContents(contents: contents, fileContents: fileContents)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(solution, forKey: .solution)
@@ -144,6 +175,7 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
         var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
         try question.encode(title, forKey: .title)
         try question.encodeIfPresent(language, forKey: .language)
+        try question.encodeIfPresent(fileContents, forKey: .fileContents)
     }
 }
 
@@ -157,7 +189,11 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
     public var description: String?
     public var solution: String?
     /// Starter code inserted into the interview session when this question is used.
+    /// Mutually exclusive with ``fileContents`` and a ZIP upload.
     public var contents: String?
+    /// Replacement path/content entries for a multi-file question. Mutually exclusive
+    /// with ``contents`` and a ZIP upload.
+    public var fileContents: [QuestionFileContent]?
     public var takeHome: Bool?
     public var padType: String?
     public var candidateInstructions: [CandidateInstructionPayload]?
@@ -165,7 +201,8 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
 
     public init(
         id: Int, title: String? = nil, language: String? = nil, description: String? = nil,
-        solution: String? = nil, contents: String? = nil, takeHome: Bool? = nil,
+        solution: String? = nil, contents: String? = nil,
+        fileContents: [QuestionFileContent]? = nil, takeHome: Bool? = nil,
         padType: String? = nil, candidateInstructions: [CandidateInstructionPayload]? = nil,
         aiAssistCustomSystemPrompt: String? = nil
     ) {
@@ -175,6 +212,7 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         self.description = description
         self.solution = solution
         self.contents = contents
+        self.fileContents = fileContents
         self.takeHome = takeHome
         self.padType = padType
         self.candidateInstructions = candidateInstructions
@@ -191,9 +229,11 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
 
     private enum QuestionKeys: String, CodingKey {
         case title, language
+        case fileContents = "file_contents"
     }
 
     public nonisolated func encode(to encoder: any Encoder) throws {
+        try validateQuestionContents(contents: contents, fileContents: fileContents)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(description, forKey: .description)
@@ -203,10 +243,11 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         try container.encodeIfPresent(padType, forKey: .padType)
         try container.encodeIfPresent(candidateInstructions, forKey: .candidateInstructions)
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
-        if title != nil || language != nil {
+        if title != nil || language != nil || fileContents != nil {
             var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
             try question.encodeIfPresent(title, forKey: .title)
             try question.encodeIfPresent(language, forKey: .language)
+            try question.encodeIfPresent(fileContents, forKey: .fileContents)
         }
     }
 }

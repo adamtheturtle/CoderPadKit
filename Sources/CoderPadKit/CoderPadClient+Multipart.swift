@@ -11,8 +11,8 @@ import PaginatedRESTClient
 private nonisolated struct MultipartStatusOnly: Decodable, Sendable {}
 
 public extension CoderPadClient {
-    /// Creates a multi-file question from caller-provided ZIP bytes. A ZIP cannot
-    /// be combined with ``QuestionCreate/contents``.
+    /// Creates a multi-file question from caller-provided ZIP bytes. A ZIP cannot be
+    /// combined with ``QuestionCreate/contents`` or ``QuestionCreate/fileContents``.
     func createQuestion(
         _ body: QuestionCreate,
         zipFile: QuestionZIPUpload
@@ -21,14 +21,15 @@ public extension CoderPadClient {
             method: "POST",
             path: "/api/questions/",
             fields: try body.multipartFields(),
-            contents: body.contents,
+            hasAlternativeContentSource: body.contents != nil || body.fileContents != nil,
             zipFile: zipFile
         )
         return try await rest.perform(Question.self, request: request)
     }
 
     /// Modifies a question with caller-provided ZIP bytes and returns its fresh
-    /// server state. A ZIP cannot be combined with ``QuestionUpdate/contents``.
+    /// server state. A ZIP cannot be combined with ``QuestionUpdate/contents`` or
+    /// ``QuestionUpdate/fileContents``.
     func updateQuestion(
         _ body: QuestionUpdate,
         zipFile: QuestionZIPUpload
@@ -46,7 +47,7 @@ public extension CoderPadClient {
             method: "PUT",
             path: "/api/questions/\(body.id)",
             fields: try body.multipartFields(),
-            contents: body.contents,
+            hasAlternativeContentSource: body.contents != nil || body.fileContents != nil,
             zipFile: zipFile
         )
         _ = try await rest.perform(MultipartStatusOnly.self, request: request)
@@ -58,10 +59,10 @@ extension CoderPadClient {
         method: String,
         path: String,
         fields: [MultipartFormField],
-        contents: String?,
+        hasAlternativeContentSource: Bool,
         zipFile: QuestionZIPUpload
     ) throws -> RESTRequest {
-        guard contents == nil else {
+        guard !hasAlternativeContentSource else {
             throw QuestionMutationValidationError.mutuallyExclusiveContentSources
         }
         guard !apiKey.isEmpty else {
