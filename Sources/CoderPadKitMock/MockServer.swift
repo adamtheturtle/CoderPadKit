@@ -84,6 +84,7 @@ final nonisolated class MockURLProtocol: URLProtocol {
         let path = url.path
         let method = request.httpMethod ?? "GET"
         let bodyData = request.httpBody ?? Self.drain(stream: request.httpBodyStream)
+        let contentType = request.value(forHTTPHeaderField: "Content-Type")
         let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?
             .queryItems?
             .reduce(into: [String: String]()) { $0[$1.name] = $1.value } ?? [:]
@@ -96,7 +97,8 @@ final nonisolated class MockURLProtocol: URLProtocol {
                                                    method: method,
                                                    path: path,
                                                    query: query,
-                                                   body: bodyData)
+                                                   body: bodyData,
+                                                   contentType: contentType)
 
         let headers = ["Content-Type": "application/json"]
         guard let response = HTTPURLResponse(

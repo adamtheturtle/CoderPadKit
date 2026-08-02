@@ -40,6 +40,27 @@ let created = try await client.createPad(PadCreate(title: "Phone screen", langua
 let org = try await client.organization()
 ```
 
+Create or replace a multi-file question by supplying archive bytes and their wire
+filename. CoderPadKit does not read the filesystem; the data can come from memory, a
+file provider, a download, or any other source:
+
+```swift
+let upload = QuestionZIPUpload(data: archiveData, filename: "starter-project.zip")
+
+let question = try await client.createQuestion(
+    QuestionCreate(title: "Refactor the service", language: "multifile_swift"),
+    zipFile: upload
+)
+
+_ = try await client.updateQuestion(
+    QuestionUpdate(id: question.id, description: "Updated requirements"),
+    zipFile: upload
+)
+```
+
+A ZIP upload is mutually exclusive with `contents` (and with structured file contents).
+Conflicting inputs throw ``QuestionMutationValidationError`` before any request is sent.
+
 CoderPad Screen uses a separate host and `API-Key` authentication. Create a
 ``ScreenClient`` to list campaigns and candidate sessions, send invitations, retrieve
 reports, or manage the organization webhook:
@@ -121,6 +142,8 @@ let badKey = CoderPadClient.mock(unauthorized: true) // every request answers 40
 - ``CandidateInstructionPayload``
 - ``QuestionCreate``
 - ``QuestionUpdate``
+- ``QuestionZIPUpload``
+- ``QuestionMutationValidationError``
 
 ### Organization
 
