@@ -4,7 +4,8 @@ An unofficial Swift client for the CoderPad REST API, with typed models and a no
 mock backend.
 
 [Documentation](https://swiftpackageindex.com/adamtheturtle/CoderPadKit/documentation/coderpadkit) |
-[Swift Package Index](https://swiftpackageindex.com/adamtheturtle/CoderPadKit)
+[Swift Package Index](https://swiftpackageindex.com/adamtheturtle/CoderPadKit) |
+[Release notes](CHANGELOG.md)
 
 ## Installation
 
