@@ -124,6 +124,92 @@ struct ExecutionEnabledTests {
     }
 }
 
+@Suite("Question mutation file contents")
+struct QuestionFileContentTests {
+    @Test
+    func `create encodes multiple files under the question parameter`() throws {
+        let data = try CoderPadClient.encoder.encode(QuestionCreate(
+            title: "Multi-file",
+            language: "multifile_python",
+            fileContents: [
+                QuestionFileContent(path: "main.py", contents: "print('Hello, 世界 🌍')"),
+                QuestionFileContent(path: "lib/empty.py", contents: "")
+            ]
+        ))
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let question = try #require(root["question"] as? [String: Any])
+        let files = try #require(question["file_contents"] as? [[String: Any]])
+
+        #expect(files.count == 2)
+        #expect(files[0]["path"] as? String == "main.py")
+        #expect(files[0]["contents"] as? String == "print('Hello, 世界 🌍')")
+        #expect(files[1]["path"] as? String == "lib/empty.py")
+        #expect(files[1]["contents"] as? String == "")
+        #expect(root["contents"] == nil)
+    }
+
+    @Test
+    func `update encodes a structured file replacement without title or language`() throws {
+        let data = try CoderPadClient.encoder.encode(QuestionUpdate(
+            id: 42,
+            fileContents: [QuestionFileContent(path: "Sources/main.swift", contents: "print(«hej»)")]
+        ))
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let question = try #require(root["question"] as? [String: Any])
+        let files = try #require(question["file_contents"] as? [[String: Any]])
+
+        #expect(root["id"] as? Int == 42)
+        #expect(files.count == 1)
+        #expect(files[0]["path"] as? String == "Sources/main.swift")
+        #expect(files[0]["contents"] as? String == "print(«hej»)")
+    }
+
+    @Test
+    func `an explicitly empty file list is encoded`() throws {
+        let data = try CoderPadClient.encoder.encode(QuestionUpdate(id: 42, fileContents: []))
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let question = try #require(root["question"] as? [String: Any])
+        let files = try #require(question["file_contents"] as? [Any])
+
+        #expect(files.isEmpty)
+    }
+
+    @Test
+    func `legacy single-file contents remain flat and source-compatible`() throws {
+        let data = try CoderPadClient.encoder.encode(QuestionCreate(
+            title: "Single-file",
+            contents: "print('unchanged')"
+        ))
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let question = try #require(root["question"] as? [String: Any])
+
+        #expect(root["contents"] as? String == "print('unchanged')")
+        #expect(question["file_contents"] == nil)
+    }
+
+    @Test
+    func `create rejects single-file and structured contents together`() {
+        #expect(throws: QuestionMutationError.self) {
+            try CoderPadClient.encoder.encode(QuestionCreate(
+                title: "Conflict",
+                contents: "legacy",
+                fileContents: [QuestionFileContent(path: "main.py", contents: "structured")]
+            ))
+        }
+    }
+
+    @Test
+    func `update rejects single-file and even an empty structured list together`() {
+        #expect(throws: QuestionMutationError.self) {
+            try CoderPadClient.encoder.encode(QuestionUpdate(
+                id: 42,
+                contents: "legacy",
+                fileContents: []
+            ))
+        }
+    }
+}
+
 @Suite("Decode tolerance")
 struct DecodeToleranceTests {
     @Test

@@ -15,6 +15,25 @@ mock backend.
 Add `CoderPadKit` to your app target and `CoderPadKitMock` to tests or demos that should
 run without the network.
 
+## Multi-file questions
+
+Create or replace a multi-file question's starter files with typed path/content values:
+
+```swift
+let request = QuestionCreate(
+    title: "Service exercise",
+    language: "multifile_python",
+    fileContents: [
+        QuestionFileContent(path: "main.py", contents: "from service import run\n"),
+        QuestionFileContent(path: "service.py", contents: "def run():\n    return 'ready'\n")
+    ]
+)
+let question = try await client.createQuestion(request)
+```
+
+`fileContents` is mutually exclusive with the legacy single-file `contents` property;
+conflicting requests fail locally before networking.
+
 ## Products
 
 - `CoderPadKit`: Typed API client for pads (including editor-history replay), questions,

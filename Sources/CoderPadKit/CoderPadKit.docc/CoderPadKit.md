@@ -40,6 +40,36 @@ let created = try await client.createPad(PadCreate(title: "Phone screen", langua
 let org = try await client.organization()
 ```
 
+### Multi-file questions
+
+Create a framework or project question by supplying its starter files as
+``QuestionFileContent`` values. Paths may include directories, and text contents may
+be empty or contain Unicode:
+
+```swift
+let question = try await client.createQuestion(QuestionCreate(
+    title: "Refactor the greeting service",
+    language: "multifile_python",
+    fileContents: [
+        QuestionFileContent(path: "main.py", contents: "from greeting import greet\n"),
+        QuestionFileContent(path: "greeting.py", contents: "def greet(name):\n    return f'Hello, {name}!'\n"),
+        QuestionFileContent(path: "tests/__init__.py", contents: "")
+    ]
+))
+
+try await client.updateQuestionWithoutRefetch(QuestionUpdate(
+    id: question.id,
+    fileContents: [
+        QuestionFileContent(path: "main.py", contents: "print('Hello, 世界')\n")
+    ]
+))
+```
+
+The legacy ``QuestionCreate/contents`` and ``QuestionUpdate/contents`` properties remain
+available for single-file questions. Do not supply `contents` and `fileContents` in the
+same request; encoding rejects that combination with
+``QuestionMutationError/conflictingContents`` before any network request is sent.
+
 CoderPad Screen uses a separate host and `API-Key` authentication. Create a
 ``ScreenClient`` to list campaigns and candidate sessions, send invitations, retrieve
 reports, or manage the organization webhook:
@@ -119,6 +149,8 @@ let badKey = CoderPadClient.mock(unauthorized: true) // every request answers 40
 - ``QuestionTestCase``
 - ``CandidateInstruction``
 - ``CandidateInstructionPayload``
+- ``QuestionFileContent``
+- ``QuestionMutationError``
 - ``QuestionCreate``
 - ``QuestionUpdate``
 
