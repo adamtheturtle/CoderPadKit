@@ -189,7 +189,7 @@ struct QuestionFileContentTests {
 
     @Test
     func `create rejects single-file and structured contents together`() {
-        #expect(throws: QuestionMutationError.self) {
+        #expect(throws: QuestionMutationValidationError.self) {
             try CoderPadClient.encoder.encode(QuestionCreate(
                 title: "Conflict",
                 contents: "legacy",
@@ -200,7 +200,7 @@ struct QuestionFileContentTests {
 
     @Test
     func `update rejects single-file and even an empty structured list together`() {
-        #expect(throws: QuestionMutationError.self) {
+        #expect(throws: QuestionMutationValidationError.self) {
             try CoderPadClient.encoder.encode(QuestionUpdate(
                 id: 42,
                 contents: "legacy",

@@ -4,7 +4,8 @@ An unofficial Swift client for the CoderPad REST API, with typed models and a no
 mock backend.
 
 [Documentation](https://swiftpackageindex.com/adamtheturtle/CoderPadKit/documentation/coderpadkit) |
-[Swift Package Index](https://swiftpackageindex.com/adamtheturtle/CoderPadKit)
+[Swift Package Index](https://swiftpackageindex.com/adamtheturtle/CoderPadKit) |
+[Release notes](CHANGELOG.md)
 
 ## Installation
 
@@ -31,8 +32,8 @@ let request = QuestionCreate(
 let question = try await client.createQuestion(request)
 ```
 
-`fileContents` is mutually exclusive with the legacy single-file `contents` property;
-conflicting requests fail locally before networking.
+`fileContents` is mutually exclusive with the legacy single-file `contents` property
+and ZIP uploads; conflicting requests fail locally before networking.
 
 ## Products
 

@@ -65,10 +65,28 @@ try await client.updateQuestionWithoutRefetch(QuestionUpdate(
 ))
 ```
 
+Alternatively, create or replace a multi-file question by supplying archive bytes and
+their wire filename. CoderPadKit does not read the filesystem; the data can come from
+memory, a file provider, a download, or any other source:
+
+```swift
+let upload = QuestionZIPUpload(data: archiveData, filename: "starter-project.zip")
+
+let question = try await client.createQuestion(
+    QuestionCreate(title: "Refactor the service", language: "multifile_swift"),
+    zipFile: upload
+)
+
+_ = try await client.updateQuestion(
+    QuestionUpdate(id: question.id, description: "Updated requirements"),
+    zipFile: upload
+)
+```
+
 The legacy ``QuestionCreate/contents`` and ``QuestionUpdate/contents`` properties remain
-available for single-file questions. Do not supply `contents` and `fileContents` in the
-same request; encoding rejects that combination with
-``QuestionMutationError/conflictingContents`` before any network request is sent.
+available for single-file questions. `contents`, `fileContents`, and a ZIP upload are
+mutually exclusive; conflicting inputs throw ``QuestionMutationValidationError`` before
+any request is sent.
 
 CoderPad Screen uses a separate host and `API-Key` authentication. Create a
 ``ScreenClient`` to list campaigns and candidate sessions, send invitations, retrieve
@@ -150,9 +168,10 @@ let badKey = CoderPadClient.mock(unauthorized: true) // every request answers 40
 - ``CandidateInstruction``
 - ``CandidateInstructionPayload``
 - ``QuestionFileContent``
-- ``QuestionMutationError``
 - ``QuestionCreate``
 - ``QuestionUpdate``
+- ``QuestionZIPUpload``
+- ``QuestionMutationValidationError``
 
 ### Organization
 

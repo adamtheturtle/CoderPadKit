@@ -7,6 +7,37 @@
 
 import Foundation
 
+/// ZIP bytes to attach when creating or updating a multi-file question.
+///
+/// The value is deliberately data-oriented: CoderPadKit does not open the filename or
+/// read from disk. Obtain `data` from a file, memory, or another provider before calling
+/// ``CoderPadClient/createQuestion(_:zipFile:)`` or
+/// ``CoderPadClient/updateQuestion(_:zipFile:)``.
+public nonisolated struct QuestionZIPUpload: Sendable {
+    /// The exact archive bytes sent to CoderPad. Empty data is allowed.
+    public var data: Data
+    /// The filename reported in the multipart Content-Disposition header.
+    public var filename: String
+
+    public init(data: Data, filename: String) {
+        self.data = data
+        self.filename = filename
+    }
+}
+
+/// A question mutation selected incompatible sources for its starter content.
+public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatable, Sendable {
+    /// More than one starter-content representation was supplied.
+    case mutuallyExclusiveContentSources
+
+    public var errorDescription: String? {
+        switch self {
+        case .mutuallyExclusiveContentSources:
+            "Use only one of contents, structured file contents, or a question ZIP upload."
+        }
+    }
+}
+
 /// The request body for modifying a pad (`PUT /api/pads/:id`). Only the non-nil
 /// fields are sent. The `id` travels in the URL path as well as the body.
 public nonisolated struct PadUpdate: Codable, Sendable {
@@ -71,17 +102,11 @@ public nonisolated struct QuestionFileContent: Encodable, Sendable {
     }
 }
 
-/// A locally detected invalid question mutation.
-public nonisolated enum QuestionMutationError: Error, Equatable, Sendable {
-    /// The legacy single-file contents and structured multi-file contents were both supplied.
-    case conflictingContents
-}
-
 private nonisolated func validateQuestionContents(
     contents: String?, fileContents: [QuestionFileContent]?
 ) throws {
     guard contents == nil || fileContents == nil else {
-        throw QuestionMutationError.conflictingContents
+        throw QuestionMutationValidationError.mutuallyExclusiveContentSources
     }
 }
 
@@ -95,9 +120,10 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
     public var description: String?
     public var solution: String?
     /// Starter code inserted into the interview session when this question is used.
-    /// Mutually exclusive with ``fileContents``.
+    /// Mutually exclusive with ``fileContents`` and a ZIP upload.
     public var contents: String?
-    /// Path/content entries for a multi-file question. Mutually exclusive with ``contents``.
+    /// Path/content entries for a multi-file question. Mutually exclusive with
+    /// ``contents`` and a ZIP upload.
     public var fileContents: [QuestionFileContent]?
     public var takeHome: Bool?
     public var padType: String?
@@ -163,9 +189,10 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
     public var description: String?
     public var solution: String?
     /// Starter code inserted into the interview session when this question is used.
-    /// Mutually exclusive with ``fileContents``.
+    /// Mutually exclusive with ``fileContents`` and a ZIP upload.
     public var contents: String?
-    /// Replacement path/content entries for a multi-file question. Mutually exclusive with ``contents``.
+    /// Replacement path/content entries for a multi-file question. Mutually exclusive
+    /// with ``contents`` and a ZIP upload.
     public var fileContents: [QuestionFileContent]?
     public var takeHome: Bool?
     public var padType: String?

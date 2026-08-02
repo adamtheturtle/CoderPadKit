@@ -16,7 +16,8 @@ nonisolated enum MockResponses {
         method: String,
         path: String,
         query: [String: String] = [:],
-        body: Data? = nil
+        body: Data? = nil,
+        contentType: String? = nil
     ) -> (Int, Data) {
         // Hold this state's lock so its mutable collections are never read or
         // written by two requests at once. `startLoading()` on the backing
@@ -24,7 +25,14 @@ nonisolated enum MockResponses {
         // client fans pages out concurrently. The lock is per-state, so requests
         // against different keys (e.g. parallel tests) never contend.
         state.lock.withLock { _ in
-            respondLocked(state: state, method: method, path: path, query: query, body: body)
+            respondLocked(
+                state: state,
+                method: method,
+                path: path,
+                query: query,
+                body: body,
+                contentType: contentType
+            )
         }
     }
 
@@ -36,7 +44,8 @@ nonisolated enum MockResponses {
         method: String,
         path: String,
         query: [String: String] = [:],
-        body: Data? = nil
+        body: Data? = nil,
+        contentType: String? = nil
     ) -> (Int, Data) {
         if let result = historyRoute(state: state, method: method, path: path) {
             return result
@@ -44,7 +53,13 @@ nonisolated enum MockResponses {
         if let result = padRoute(state: state, method: method, path: path, body: body) {
             return result
         }
-        if let result = questionRoute(state: state, method: method, path: path, body: body) {
+        if let result = questionRoute(
+            state: state,
+            method: method,
+            path: path,
+            body: body,
+            contentType: contentType
+        ) {
             return result
         }
         if let result = organizationRoute(state: state, method: method, path: path, query: query) {
@@ -174,92 +189,6 @@ nonisolated enum MockResponses {
         return "DEMO\(counter)"
     }
 
-    // MARK: - Question routes
-
-    private static func questionRoute(state: MockState, method: String, path: String, body: Data?) -> (Int, Data)? {
-        if method == "POST", path == "/api/questions/" || path == "/api/questions" {
-            return createQuestion(state: state, body: body)
-        }
-
-        if method == "PUT", let id = match(path, pattern: #"^/api/questions/(\d+)/?$"#) {
-            return modifyQuestion(state: state, idInt: Int(id) ?? 0, body: body)
-        }
-
-        if method == "DELETE", let id = match(path, pattern: #"^/api/questions/(\d+)/?$"#) {
-            let idInt = Int(id) ?? 0
-            state.deletedQuestionIDs.insert(idInt)
-            return (200, jsonString(["status": "OK"]))
-        }
-
-        if method == "GET", let id = match(path, pattern: #"^/api/questions/(\d+)/?$"#) {
-            let idInt = Int(id) ?? 0
-            if var question = state.allQuestions().first(where: { ($0["id"] as? Int) == idInt }) {
-                // Mirror the live API: the question's fields are returned flat.
-                question["status"] = "OK"
-                return ok(question)
-            }
-            return (404, jsonString(["status": "error"]))
-        }
-
-        if method == "GET", path == "/api/questions/" || path == "/api/questions" {
-            return ok(["status": "OK", "questions": state.allQuestions()])
-        }
-
-        return nil
-    }
-
-    private static func createQuestion(state: MockState, body: Data?) -> (Int, Data) {
-        let bodyDict = flattenQuestionParams(
-            (try? JSONSerialization.jsonObject(with: body ?? Data()) as? [String: Any]) ?? [:]
-        )
-        // Derive the id from the seeds *and* this session's creations. Consulting only
-        // the immutable seeds handed every created question the same id, and the
-        // client's identity-based de-duplication then silently dropped all but the
-        // first. Deleted ids are deliberately included, because the live API never
-        // recycles an id that has been handed out.
-        let existingIDs = (MockFixtures.questions() + state.createdQuestions)
-            .compactMap { $0["id"] as? Int }
-        let newID = (existingIDs.max() ?? 100) + 1
-        var question: [String: Any] = [
-            "id": newID,
-            "title": bodyDict["title"] as? String ?? "Untitled",
-            "owner_email": MockFixtures.demoUserEmail,
-            "language": bodyDict["language"] ?? NSNull(),
-            "description": bodyDict["description"] ?? NSNull(),
-            "ai_assist_custom_system_prompt": bodyDict["ai_assist_custom_system_prompt"] ?? NSNull(),
-            "candidate_instructions": bodyDict["candidate_instructions"] ?? [],
-            "shared": false, "used": 0, "take_home": bodyDict["take_home"] as? Bool ?? false,
-            "test_cases_enabled": false, "solution": bodyDict["solution"] ?? "",
-            "pad_type": bodyDict["pad_type"] as? String ?? "live", "is_draft": true,
-            "contents": bodyDict["contents"] ?? NSNull(), "custom_files": [],
-            "author_name": MockFixtures.demoUserName, "organization_name": MockFixtures.orgName,
-            "created_at": Date.now.formatted(.iso8601),
-            "updated_at": Date.now.formatted(.iso8601)
-        ]
-        state.createdQuestions.append(question)
-        // Mirror the live API: the question's fields are returned flat at the top level.
-        question["status"] = "OK"
-        return ok(question)
-    }
-
-    private static func modifyQuestion(state: MockState, idInt: Int, body: Data?) -> (Int, Data) {
-        guard let body,
-              let dict = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
-        else {
-            return (400, jsonString(["status": "error"]))
-        }
-
-        // Merge per-field, for the same reason as `modifyPad`: `QuestionUpdate` sends
-        // only the changed fields, and the live API treats that as a partial update.
-        state.updatedQuestions[idInt, default: [:]]
-            .merge(flattenQuestionParams(dict)) { _, new in new }
-        // Mirror the live API: PUT returns only a status, not the question body.
-        if state.allQuestions().contains(where: { ($0["id"] as? Int) == idInt }) {
-            return ok(["status": "OK"])
-        }
-        return (404, jsonString(["status": "error"]))
-    }
-
     // MARK: - Organization routes
 
     private static func organizationRoute(
@@ -312,21 +241,7 @@ nonisolated enum MockResponses {
         return Data("{}".utf8)
     }
 
-    /// The question create/modify API nests `title`/`language` under a `question`
-    /// object (`question[title]`). Lift those back to top level so the fixtures,
-    /// which store flat keys, can read them - with a flat fallback for older callers.
-    private static func flattenQuestionParams(_ dict: [String: Any]) -> [String: Any] {
-        guard let nested = dict["question"] as? [String: Any] else { return dict }
-
-        var flattened = dict
-        flattened.removeValue(forKey: "question")
-        for (key, value) in nested {
-            flattened[key] = value
-        }
-        return flattened
-    }
-
-    private static func match(_ path: String, pattern: String) -> String? {
+    static func match(_ path: String, pattern: String) -> String? {
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
 
         let range = NSRange(path.startIndex..., in: path)
