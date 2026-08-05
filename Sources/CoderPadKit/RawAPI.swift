@@ -53,7 +53,9 @@ extension CoderPadClient {
     /// Use this when an adapter needs fields that are deliberately not represented by
     /// the typed models, or must relay CoderPad's response without re-encoding it.
     /// `responseLimit` bounds the response in memory and is required so callers make
-    /// that safety policy explicit.
+    /// that safety policy explicit. Query items already configured on `baseURL` come
+    /// first, followed by the caller's items; duplicate names are preserved in that
+    /// order, as are valueless (`?flag`) and explicitly empty (`?key=`) items.
     public nonisolated func rawRequest(
         method: String = "GET",
         path: String,
@@ -74,9 +76,8 @@ extension CoderPadClient {
             throw CoderPadError.http(0, "Invalid URL")
         }
 
-        let query = query.filter { ($0.value ?? "").isEmpty == false }
         if !query.isEmpty {
-            components.queryItems = query
+            components.queryItems = (components.queryItems ?? []) + query
         }
         guard let url = components.url else {
             throw CoderPadError.http(0, "Invalid URL")
