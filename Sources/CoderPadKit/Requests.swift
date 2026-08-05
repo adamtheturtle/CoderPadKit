@@ -38,6 +38,25 @@ public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatab
     }
 }
 
+/// A pad mutation selected incompatible sources for its initial editor contents.
+public nonisolated enum PadMutationValidationError: LocalizedError, Equatable, Sendable {
+    /// Both literal editor contents and a question were supplied.
+    case mutuallyExclusiveContentsAndQuestion
+
+    public var errorDescription: String? {
+        switch self {
+        case .mutuallyExclusiveContentsAndQuestion:
+            "Use only one of contents or questionID when creating or updating a pad."
+        }
+    }
+}
+
+private nonisolated func validatePadContents(contents: String?, questionID: Int?) throws {
+    guard contents == nil || questionID == nil else {
+        throw PadMutationValidationError.mutuallyExclusiveContentsAndQuestion
+    }
+}
+
 /// The request body for modifying a pad (`PUT /api/pads/:id`). Only the non-nil
 /// fields are sent. The `id` travels in the URL path as well as the body.
 public nonisolated struct PadUpdate: Codable, Sendable {
@@ -403,6 +422,7 @@ extension PadCreate {
     }
 
     public nonisolated func encode(to encoder: any Encoder) throws {
+        try validatePadContents(contents: contents, questionID: questionID)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(title, forKey: .title)
         try container.encodeIfPresent(language, forKey: .language)
@@ -433,6 +453,7 @@ extension PadUpdate {
     }
 
     public nonisolated func encode(to encoder: any Encoder) throws {
+        try validatePadContents(contents: contents, questionID: questionID)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(title, forKey: .title)
