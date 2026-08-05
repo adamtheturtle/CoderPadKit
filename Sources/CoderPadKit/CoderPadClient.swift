@@ -166,11 +166,19 @@ public struct CoderPadClient {
     public nonisolated let baseURL: URL
     public nonisolated let session: URLSession
 
+    /// Maximum bytes accepted from a successful editor-history response. The history
+    /// transport checks both declared and streamed sizes before decoding the body.
+    public nonisolated let maximumHistoryResponseBodyBytes: Int
+
+    /// The default editor-history response ceiling (10 MiB).
+    public static let defaultMaximumHistoryResponseBodyBytes = 10 * 1024 * 1024
+
     /// The generic transport that does the request building, retries, pagination, and
     /// background decoding. CoderPad's endpoint methods below are thin wrappers over it;
     /// the CoderPad date quirks and request encoder are injected, so the transport
     /// itself stays domain-free.
     nonisolated let rest: PaginatedRESTClient
+    nonisolated let historyRest: PaginatedRESTClient
 
     /// The standard hosted CoderPad endpoint, used when an account doesn't
     /// override it (e.g. a self-hosted or regional deployment).
@@ -178,14 +186,29 @@ public struct CoderPadClient {
 
     public init(apiKey: String,
                 baseURL: URL = Self.defaultBaseURL,
-                session: URLSession = Self.liveSession) {
+                session: URLSession = Self.liveSession,
+                maximumHistoryResponseBodyBytes: Int = Self.defaultMaximumHistoryResponseBodyBytes) {
+        precondition(maximumHistoryResponseBodyBytes >= 0, "History response limit must not be negative")
         self.apiKey = apiKey
         self.baseURL = baseURL
         self.session = session
+        self.maximumHistoryResponseBodyBytes = maximumHistoryResponseBodyBytes
         rest = PaginatedRESTClient(
             apiKey: apiKey,
             baseURL: baseURL,
             transport: URLSessionTransport(session: session),
+            decoderFactory: Self.makeDecoder,
+            encoderFactory: Self.makeEncoder,
+            errors: CoderPadErrorMapping(),
+            log: { apiLogger.debug($0) }
+        )
+        historyRest = PaginatedRESTClient(
+            apiKey: apiKey,
+            baseURL: baseURL,
+            transport: URLSessionTransport(
+                session: session,
+                successResponseLimit: maximumHistoryResponseBodyBytes
+            ),
             decoderFactory: Self.makeDecoder,
             encoderFactory: Self.makeEncoder,
             errors: CoderPadErrorMapping(),
@@ -294,24 +317,6 @@ public struct CoderPadClient {
     public func padEnvironment(id: Int) async throws -> PadEnvironment {
         // The live API returns the environment's fields flat at the top level.
         try await rest.fetch(PadEnvironment.self, path: "/api/pad_environments/\(id)")
-    }
-
-    /// Fetches and chronologically orders a pad file's editor history from Firebase.
-    ///
-    /// Pass the `history` value from ``PadEnvironmentFile``. The CoderPad API key is
-    /// deliberately not sent to this external URL. A Firebase `null` response is
-    /// returned as an empty history.
-    public func padHistory(historyURL: String) async throws -> PadHistory {
-        guard let url = URL(string: historyURL), url.scheme != nil, url.host != nil else {
-            throw CoderPadError.http(0, "Invalid history URL")
-        }
-
-        let request = RESTRequest(
-            url: url,
-            method: "GET",
-            headers: ["Accept": "application/json"]
-        )
-        return try await rest.performWithRetry(PadHistory?.self, request: request) ?? PadHistory()
     }
 
     /// Creates a pad and returns it.
