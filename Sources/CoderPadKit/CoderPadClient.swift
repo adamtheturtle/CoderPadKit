@@ -278,14 +278,16 @@ public struct CoderPadClient {
 
     /// Fetches a single pad by id.
     public func getPad(id: String) async throws -> Pad {
+        try Self.validatePadID(id)
         // The live API returns the pad's fields flat at the top level (alongside
         // "status"), not nested under a "pad" key.
-        try await rest.fetch(Pad.self, path: "/api/pads/\(id)")
+        return try await rest.fetch(Pad.self, path: "/api/pads/\(id)")
     }
 
     /// Fetches a pad's event log.
     public func padEvents(padID: String) async throws -> [PadEvent] {
-        try await rest.fetchAllPages(EventsPage.self, path: "/api/pads/\(padID)/events")
+        try Self.validatePadID(padID)
+        return try await rest.fetchAllPages(EventsPage.self, path: "/api/pads/\(padID)/events")
     }
 
     /// Fetches a single pad environment by id.
@@ -323,6 +325,7 @@ public struct CoderPadClient {
     /// `{"status":"OK"}` with no pad body, so the pad is re-fetched. The pad id travels
     /// in the URL path (`PUT /api/pads/:id`) per the API's "Modify a pad" contract.
     public func updatePad(_ body: PadUpdate) async throws -> Pad {
+        try Self.validatePadID(body.id)
         _ = try await rest.send(StatusOnly.self, method: "PUT", path: "/api/pads/\(body.id)", body: body)
         return try await getPad(id: body.id)
     }
@@ -331,12 +334,14 @@ public struct CoderPadClient {
     /// that hold an authoritative optimistic copy and merge the change locally, saving
     /// a GET per field, reconciled on the next refresh.
     public func updatePadWithoutRefetch(_ body: PadUpdate) async throws {
+        try Self.validatePadID(body.id)
         _ = try await rest.send(StatusOnly.self, method: "PUT", path: "/api/pads/\(body.id)", body: body)
     }
 
     /// Ends the interview by setting `ended` on the pad. The live API replies
     /// `{"status":"OK"}` with no pad body.
     public func endPad(id: String) async throws {
+        try Self.validatePadID(id)
         _ = try await rest.send(StatusOnly.self, method: "PUT", path: "/api/pads/\(id)",
                                 body: PadUpdate(id: id, ended: true))
     }
@@ -345,8 +350,18 @@ public struct CoderPadClient {
     /// "Modify a pad" endpoint with `deleted` set (`PUT /api/pads/:id` with the id
     /// in the URL path). The live API replies `{"status":"OK"}`.
     public func deletePad(id: String) async throws {
+        try Self.validatePadID(id)
         _ = try await rest.send(StatusOnly.self, method: "PUT", path: "/api/pads/\(id)",
                                 body: PadUpdate(id: id, deleted: true))
+    }
+
+    nonisolated static func validatePadID(_ id: String) throws {
+        let allowed = id.unicodeScalars.allSatisfy { scalar in
+            scalar.isASCII && (CharacterSet.alphanumerics.contains(scalar) || "-._~".unicodeScalars.contains(scalar))
+        }
+        guard !id.isEmpty, id != ".", id != "..", allowed else {
+            throw CoderPadError.decode("Pad ID must be one non-empty URL path component.")
+        }
     }
 
     // MARK: Questions
