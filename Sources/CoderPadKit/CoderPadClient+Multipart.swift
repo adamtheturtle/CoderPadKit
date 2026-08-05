@@ -10,6 +10,15 @@ import PaginatedRESTClient
 
 private nonisolated struct MultipartStatusOnly: Decodable, Sendable {}
 
+nonisolated struct StagedMultipartRequest: Sendable {
+    let request: RESTRequest
+    let multipart: MultipartFormData
+
+    func remove() {
+        multipart.remove()
+    }
+}
+
 public extension CoderPadClient {
     /// Creates a multi-file question from caller-provided ZIP bytes. A ZIP cannot be
     /// combined with ``QuestionCreate/contents`` or ``QuestionCreate/fileContents``.
@@ -24,7 +33,8 @@ public extension CoderPadClient {
             hasAlternativeContentSource: body.contents != nil || body.fileContents != nil,
             zipFile: zipFile
         )
-        return try await rest.perform(Question.self, request: request)
+        defer { request.remove() }
+        return try await rest.perform(Question.self, request: request.request)
     }
 
     /// Modifies a question with caller-provided ZIP bytes and returns its fresh
@@ -54,7 +64,8 @@ public extension CoderPadClient {
             hasAlternativeContentSource: body.contents != nil || body.fileContents != nil,
             zipFile: zipFile
         )
-        _ = try await rest.perform(MultipartStatusOnly.self, request: request)
+        defer { request.remove() }
+        _ = try await rest.perform(MultipartStatusOnly.self, request: request.request)
     }
 }
 
@@ -65,15 +76,16 @@ extension CoderPadClient {
         fields: [MultipartFormField],
         hasAlternativeContentSource: Bool,
         zipFile: QuestionZIPUpload
-    ) throws -> RESTRequest {
+    ) throws -> StagedMultipartRequest {
         guard !hasAlternativeContentSource else {
             throw QuestionMutationValidationError.mutuallyExclusiveContentSources
         }
         guard !apiKey.isEmpty else {
             throw CoderPadError.missingAPIKey
         }
+        try zipFile.validateSize()
 
-        let multipart = MultipartFormData(
+        let multipart = try MultipartFormData(
             fields: fields,
             files: [
                 MultipartFormFile(
@@ -84,15 +96,19 @@ extension CoderPadClient {
                 )
             ]
         )
-        return RESTRequest(
-            url: baseURL.appending(path: path),
-            method: method,
-            headers: [
-                "Authorization": "Bearer \(apiKey)",
-                "Accept": "application/json",
-                "Content-Type": multipart.contentType
-            ],
-            body: multipart.body
+        return StagedMultipartRequest(
+            request: RESTRequest(
+                url: baseURL.appending(path: path),
+                method: method,
+                headers: [
+                    "Authorization": "Bearer \(apiKey)",
+                    "Accept": "application/json",
+                    "Content-Type": multipart.contentType,
+                    "Content-Length": String(multipart.contentLength)
+                ],
+                bodyFileURL: multipart.bodyFileURL
+            ),
+            multipart: multipart
         )
     }
 }

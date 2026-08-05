@@ -57,6 +57,7 @@ struct QuestionZIPUploadTests {
         #expect(request.authorization == "Bearer test-key")
         #expect(request.accept == "application/json")
         #expect(request.contentType == "multipart/form-data; boundary=\(boundary)")
+        #expect(request.bodyWasStreamed)
         #expect(request.body == expected)
     }
 
@@ -87,6 +88,7 @@ struct QuestionZIPUploadTests {
         #expect(request.method == "PUT")
         #expect(request.path == "/api/questions/42")
         #expect(request.body == expected)
+        #expect(request.bodyWasStreamed)
         #expect(requests.last?.method == "GET")
         #expect(requests.last?.path == "/api/questions/42")
     }
@@ -134,6 +136,42 @@ struct QuestionZIPUploadTests {
         requireSendable(QuestionCreate.self)
         requireSendable(QuestionUpdate.self)
         requireSendable(QuestionMutationValidationError.self)
+        requireSendable(QuestionZIPUploadTooLargeError.self)
+    }
+
+    @Test
+    func `oversized ZIP is rejected before staging or transport`() async throws {
+        let client = makeClient()
+        let upload = QuestionZIPUpload(
+            data: Data(count: QuestionZIPUpload.maximumByteCount + 1),
+            filename: "too-large.zip"
+        )
+
+        let error = await #expect(throws: QuestionZIPUploadTooLargeError.self) {
+            _ = try await client.createQuestion(QuestionCreate(title: "Too large"), zipFile: upload)
+        }
+
+        #expect(error?.byteCount == QuestionZIPUpload.maximumByteCount + 1)
+        #expect(error?.limit == QuestionZIPUpload.maximumByteCount)
+        #expect(ZIPCaptureURLProtocol.requests().isEmpty)
+    }
+
+    @Test
+    func `large ZIP uses a staged file instead of an aggregate request body`() async throws {
+        let client = makeClient()
+        let archive = Data(repeating: 0xA5, count: 8 * 1024 * 1024)
+        let foldersBeforeUpload = stagedFolderNames()
+
+        _ = try await client.createQuestion(
+            QuestionCreate(title: "Large archive"),
+            zipFile: QuestionZIPUpload(data: archive, filename: "large.zip")
+        )
+
+        let request = try #require(ZIPCaptureURLProtocol.requests().first)
+        #expect(request.bodyWasStreamed)
+        #expect(request.body?.count ?? 0 > archive.count)
+        #expect(request.contentLength == request.body?.count)
+        #expect(stagedFolderNames() == foldersBeforeUpload)
     }
 
     private func makeClient() -> CoderPadClient {
@@ -183,6 +221,14 @@ struct QuestionZIPUploadTests {
     }
 
     private func requireSendable<T: Sendable>(_: T.Type) {}
+
+    private func stagedFolderNames() -> Set<String> {
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: MultipartFormData.stagingRoot,
+            includingPropertiesForKeys: nil
+        )) ?? []
+        return Set(urls.map(\.lastPathComponent))
+    }
 }
 
 private nonisolated struct CapturedZIPRequest: Sendable {
@@ -191,6 +237,8 @@ private nonisolated struct CapturedZIPRequest: Sendable {
     let authorization: String?
     let accept: String?
     let contentType: String?
+    let contentLength: Int?
+    let bodyWasStreamed: Bool
     let body: Data?
 }
 
@@ -218,7 +266,8 @@ private final nonisolated class ZIPCaptureURLProtocol: URLProtocol {
             client?.urlProtocol(self, didFailWithError: URLError(.badURL))
             return
         }
-        let body = request.httpBody ?? Self.drain(stream: request.httpBodyStream)
+        let bodyStream = request.httpBodyStream
+        let body = request.httpBody ?? Self.drain(stream: bodyStream)
         Self.captured.withLock {
             $0.append(CapturedZIPRequest(
                 method: request.httpMethod ?? "",
@@ -226,6 +275,8 @@ private final nonisolated class ZIPCaptureURLProtocol: URLProtocol {
                 authorization: request.value(forHTTPHeaderField: "Authorization"),
                 accept: request.value(forHTTPHeaderField: "Accept"),
                 contentType: request.value(forHTTPHeaderField: "Content-Type"),
+                contentLength: request.value(forHTTPHeaderField: "Content-Length").flatMap(Int.init),
+                bodyWasStreamed: request.httpBody == nil && bodyStream != nil,
                 body: body
             ))
         }
