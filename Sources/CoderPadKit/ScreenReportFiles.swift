@@ -64,6 +64,14 @@ public nonisolated enum ScreenReportFiles {
     /// so the window title in Preview stays meaningful; uniqueness comes from the
     /// enclosing directory.
     public static func stage(_ data: Data, testID: Int) throws -> URL {
+        try stage(data, testID: testID, afterCreatingFolder: { _ in })
+    }
+
+    static func stage(
+        _ data: Data,
+        testID: Int,
+        afterCreatingFolder: @Sendable (URL) -> Void
+    ) throws -> URL {
         guard testID > 0 else { throw CocoaError(.fileWriteInvalidFileName) }
         guard isWithinSizeLimit(data.count) else { throw CocoaError(.fileWriteOutOfSpace) }
 
@@ -73,13 +81,18 @@ public nonisolated enum ScreenReportFiles {
 
         let name = UUID().uuidString
         let folder = stagingRoot.appendingPathComponent(name, isDirectory: true)
-        try FileManager.default.createDirectory(
-            at: folder,
-            withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o700]
-        )
         let url = folder.appendingPathComponent("ScreenReport-\(testID).pdf")
+        // Reserve the name before the directory becomes visible. A concurrent launch
+        // sweep snapshots this registry and therefore cannot mistake an in-progress
+        // write for an abandoned report.
+        active.withLock { $0[name] = .some(nil) }
         do {
+            try FileManager.default.createDirectory(
+                at: folder,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            afterCreatingFolder(folder)
             // Atomic, so the viewer can never observe a partially written report
             // (#1115), and owner-only like its folder (#1385, #1949).
             try data.write(to: url, options: .atomic)
@@ -87,10 +100,10 @@ public nonisolated enum ScreenReportFiles {
         } catch {
             // A failed write must not leave the sensitive single-use folder behind
             // (#1942).
+            _ = active.withLock { $0.removeValue(forKey: name) }
             try? FileManager.default.removeItem(at: folder)
             throw error
         }
-        active.withLock { $0[name] = .some(nil) }
         return url
     }
 
