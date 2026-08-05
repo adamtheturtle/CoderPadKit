@@ -332,7 +332,11 @@ public struct CoderPadClient {
     public func updatePad(_ body: PadUpdate) async throws -> Pad {
         try Self.validatePadID(body.id)
         _ = try await rest.send(StatusOnly.self, method: "PUT", path: "/api/pads/\(body.id)", body: body)
-        return try await getPad(id: body.id)
+        do {
+            return try await getPad(id: body.id)
+        } catch {
+            throw CoderPadMutationRefreshError(target: .pad(id: body.id), underlying: error)
+        }
     }
 
     /// Sends the modify-pad PUT without the follow-up GET, for inline per-field editors
@@ -401,7 +405,11 @@ public struct CoderPadClient {
     /// `{"status":"OK"}` with no question body, so the question is re-fetched.
     public func updateQuestion(_ body: QuestionUpdate) async throws -> Question {
         _ = try await rest.send(StatusOnly.self, method: "PUT", path: "/api/questions/\(body.id)", body: body)
-        return try await getQuestion(id: body.id)
+        do {
+            return try await getQuestion(id: body.id)
+        } catch {
+            throw CoderPadMutationRefreshError(target: .question(id: body.id), underlying: error)
+        }
     }
 
     /// Sends the modify-question PUT without the follow-up GET, for inline per-field
