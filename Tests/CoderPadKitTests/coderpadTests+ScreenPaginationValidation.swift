@@ -37,6 +37,41 @@ struct ScreenPaginationValidationTests {
         #expect(page.nextStart == 0)
     }
 
+    @Test(arguments: ["start", "limit", "total", "next_start"])
+    func `present pagination integers reject strings`(field: String) {
+        let json = #"{"has_more_items":false,"\#(field)":"1"}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenPagination.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test(arguments: ["start", "limit", "total", "next_start"])
+    func `present pagination integers reject objects`(field: String) {
+        let json = #"{"has_more_items":false,"\#(field)":{"value":1}}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenPagination.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test
+    func `absent and null pagination integers remain optional`() throws {
+        let absent = try JSONDecoder().decode(
+            ScreenPagination.self,
+            from: Data(#"{"has_more_items":false}"#.utf8)
+        )
+        let null = try JSONDecoder().decode(
+            ScreenPagination.self,
+            from: Data(
+                #"{"start":null,"limit":null,"total":null,"next_start":null,"has_more_items":false}"#.utf8
+            )
+        )
+
+        #expect(absent.start == nil && absent.limit == nil && absent.total == nil && absent.nextStart == nil)
+        #expect(null.start == nil && null.limit == nil && null.total == nil && null.nextStart == nil)
+    }
+
     @Test
     func `has more items is required and must be boolean`() {
         for json in [
