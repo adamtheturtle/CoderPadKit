@@ -4,6 +4,8 @@
 //
 
 @testable import CoderPadKit
+import CoderPadKitMock
+import Dispatch
 import Foundation
 import Synchronization
 import Testing
@@ -52,5 +54,34 @@ struct ScreenReportFilesTests {
         }
 
         #expect(!FileManager.default.fileExists(atPath: folder.path))
+    }
+
+    @Test
+    func `cleanup cannot delete a report while staging is in progress`() async throws {
+        let data = try await ScreenClient.mock(key: "stage-race-\(UUID().uuidString)")
+            .testReport(id: 5001)
+        let (created, signalCreated) = AsyncStream<Void>.makeStream()
+        let continueWriting = DispatchSemaphore(value: 0)
+        let stagedFolder = Mutex<URL?>(nil)
+        let staging = Task.detached {
+            try ScreenReportFiles.stage(data, testID: 5001) { folder in
+                stagedFolder.withLock { $0 = folder }
+                signalCreated.yield()
+                signalCreated.finish()
+                continueWriting.wait()
+            }
+        }
+
+        var createdIterator = created.makeAsyncIterator()
+        _ = await createdIterator.next()
+        defer { continueWriting.signal() }
+        let folder = try #require(stagedFolder.withLock { $0 })
+
+        ScreenReportFiles.cleanUpLeftovers()
+
+        #expect(FileManager.default.fileExists(atPath: folder.path))
+        continueWriting.signal()
+        let report = try await staging.value
+        ScreenReportFiles.remove(report)
     }
 }
