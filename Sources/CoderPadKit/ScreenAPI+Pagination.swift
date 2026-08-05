@@ -157,10 +157,10 @@ public nonisolated struct ScreenPagination: Decodable, Hashable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let start = try? container.decodeIfPresent(Int.self, forKey: .start)
-        let limit = try? container.decodeIfPresent(Int.self, forKey: .limit)
-        let total = try? container.decodeIfPresent(Int.self, forKey: .total)
-        let nextStart = try? container.decodeIfPresent(Int.self, forKey: .nextStart)
+        let start = try container.decodeIfPresent(Int.self, forKey: .start)
+        let limit = try container.decodeIfPresent(Int.self, forKey: .limit)
+        let total = try container.decodeIfPresent(Int.self, forKey: .total)
+        let nextStart = try container.decodeIfPresent(Int.self, forKey: .nextStart)
         guard start.map({ $0 >= 0 }) ?? true,
               limit.map({ $0 > 0 }) ?? true,
               total.map({ $0 >= 0 }) ?? true,
