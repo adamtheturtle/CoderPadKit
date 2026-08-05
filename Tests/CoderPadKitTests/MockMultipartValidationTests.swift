@@ -26,4 +26,32 @@ struct MockMultipartValidationTests {
         #expect(http.statusCode == 400)
         #expect(String(decoding: data, as: UTF8.self).contains("malformed multipart body"))
     }
+
+    @Test
+    func `repeated multipart field names are rejected instead of overwritten`() async throws {
+        let boundary = "repeated-field-boundary"
+        var request = URLRequest(url: URL(string: "https://app.coderpad.io/api/questions")!)
+        request.httpMethod = "POST"
+        request.setValue("Bearer test-\(UUID().uuidString)", forHTTPHeaderField: "Authorization")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Data(
+            """
+            --\(boundary)\r
+            Content-Disposition: form-data; name="question[title]"\r
+            \r
+            First\r
+            --\(boundary)\r
+            Content-Disposition: form-data; name="question[title]"\r
+            \r
+            Overwrite\r
+            --\(boundary)--
+            """.utf8
+        )
+
+        let (data, response) = try await MockServer.session().data(for: request)
+        let http = try #require(response as? HTTPURLResponse)
+
+        #expect(http.statusCode == 400)
+        #expect(String(decoding: data, as: UTF8.self).contains("malformed multipart body"))
+    }
 }
