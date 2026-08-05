@@ -31,21 +31,24 @@ nonisolated extension MockResponses {
 
         let framedBody = String(raw[..<closingRange.lowerBound])
         var fields: [String: Any] = [:]
+        var seenNames: Set<String> = []
         for part in framedBody.components(separatedBy: openingBoundary) {
             guard let split = part.range(of: "\r\n\r\n") else { continue }
             let headers = String(part[..<split.lowerBound])
-            guard !headers.contains("filename="),
-                  let nameStart = headers.range(of: "name=\"")?.upperBound,
+            guard let nameStart = headers.range(of: "name=\"")?.upperBound,
                   let nameEnd = headers[nameStart...].firstIndex(of: "\"") else { continue }
+
+            let wireName = String(headers[nameStart ..< nameEnd])
+            let name = wireName.hasPrefix("question[") && wireName.hasSuffix("]")
+                ? String(wireName.dropFirst("question[".count).dropLast())
+                : wireName
+            guard seenNames.insert(name).inserted else { return nil }
+            guard !headers.contains("filename=") else { continue }
 
             var value = String(part[split.upperBound...])
             // Swift treats CRLF as one extended grapheme cluster, so one removal
             // drops the delimiter without eating the field's final character.
             if value.hasSuffix("\r\n") { value.removeLast() }
-            let wireName = String(headers[nameStart ..< nameEnd])
-            let name = wireName.hasPrefix("question[") && wireName.hasSuffix("]")
-                ? String(wireName.dropFirst("question[".count).dropLast())
-                : wireName
             fields[name] = multipartValue(value, name: name)
         }
         return fields
