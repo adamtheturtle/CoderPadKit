@@ -30,4 +30,27 @@ struct ScreenReportFilesTests {
 
         #expect(attempts.withLock { $0 } == 2)
     }
+
+    @Test
+    func `outside schedule with a colliding name cannot replace legitimate cleanup`() async throws {
+        let name = UUID().uuidString
+        let folder = ScreenReportFiles.stagingRoot.appending(path: name, directoryHint: .isDirectory)
+        let report = folder.appending(path: "report.pdf")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data("sensitive report".utf8).write(to: report)
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        ScreenReportFiles.scheduleRemoval(of: report, after: .milliseconds(30))
+        let outside = FileManager.default.temporaryDirectory
+            .appending(path: "OutsideScreenReports", directoryHint: .isDirectory)
+            .appending(path: name, directoryHint: .isDirectory)
+            .appending(path: "attacker.pdf")
+        ScreenReportFiles.scheduleRemoval(of: outside, after: .milliseconds(1))
+
+        for _ in 0 ..< 100 where FileManager.default.fileExists(atPath: folder.path) {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: folder.path))
+    }
 }
