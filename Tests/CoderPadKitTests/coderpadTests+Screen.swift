@@ -302,6 +302,38 @@ extension ScreenClientTests {
     }
 
     @Test
+    func `report error bodies are read only through the configured limit`() throws {
+        let fileURL = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        try Data(repeating: 97, count: 2 * 1024 * 1024).write(to: fileURL)
+
+        let body = try ScreenClient.reportErrorBody(at: fileURL)
+
+        #expect(body.utf8.count == ScreenClient.maximumErrorBodyBytes)
+        #expect(body.allSatisfy { $0 == "a" })
+    }
+
+    @Test
+    func `an unreadable report error body surfaces a distinct decode failure`() throws {
+        let fileURL = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try Data("server diagnostic".utf8).write(to: fileURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: fileURL.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+
+        let error = #expect(throws: CoderPadError.self) {
+            _ = try ScreenClient.reportErrorBody(at: fileURL)
+        }
+        if case let .decode(detail) = error {
+            #expect(detail == "The report error response body could not be read.")
+        } else {
+            Issue.record("Expected a .decode error, got \(String(describing: error))")
+        }
+    }
+
+    @Test
     func `an unknown test id surfaces a mapped 404`() async throws {
         let error = await #expect(throws: CoderPadError.self) {
             _ = try await screenClient().getTest(id: 1)
