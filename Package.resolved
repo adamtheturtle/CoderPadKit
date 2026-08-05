@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/adamtheturtle/PaginatedRESTClient.git",
       "state" : {
-        "revision" : "ea75662d54ff3a36de0bbde4b161f77b31fb2db0",
-        "version" : "0.3.0"
+        "revision" : "ba50fc033a69623087c5f95fdd10d26eee2e57b3",
+        "version" : "0.3.1"
       }
     },
     {
