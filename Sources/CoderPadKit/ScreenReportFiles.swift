@@ -107,11 +107,9 @@ public nonisolated enum ScreenReportFiles {
         retryAfter: Duration,
         removeItem: @escaping @Sendable (URL) throws -> Void
     ) {
-        let folder = url.deletingLastPathComponent()
         // Only ever delete inside the staging root: a caller passing an unexpected
         // URL must not be able to remove an arbitrary parent directory (#1946).
-        guard folder.deletingLastPathComponent().standardizedFileURL.path
-            == stagingRoot.standardizedFileURL.path else {
+        guard let folder = stagedFolder(containing: url) else {
             logger.error("Refused to remove a Screen report outside the staging root.")
             return
         }
@@ -149,7 +147,13 @@ public nonisolated enum ScreenReportFiles {
         retryAfter: Duration,
         removeItem: @escaping @Sendable (URL) throws -> Void
     ) {
-        let name = url.deletingLastPathComponent().lastPathComponent
+        // Validate before constructing a task or touching `active`: an outside URL with
+        // a colliding folder name must not cancel cleanup for a legitimate report.
+        guard let folder = stagedFolder(containing: url) else {
+            logger.error("Refused to schedule removal outside the staging root.")
+            return
+        }
+        let name = folder.lastPathComponent
         let task = Task.detached(priority: .utility) {
             try? await Task.sleep(for: duration)
             guard !Task.isCancelled else { return }
@@ -160,6 +164,16 @@ public nonisolated enum ScreenReportFiles {
             if let previous = registry[name], let previous { previous.cancel() }
             registry[name] = task
         }
+    }
+
+    /// Returns the report's single-use folder only when it is a direct child of the
+    /// staging root. Keeping this check shared prevents scheduled and immediate removal
+    /// from drifting into different containment policies.
+    private static func stagedFolder(containing url: URL) -> URL? {
+        let folder = url.deletingLastPathComponent().standardizedFileURL
+        guard folder.deletingLastPathComponent().standardizedFileURL.path
+            == stagingRoot.standardizedFileURL.path else { return nil }
+        return folder
     }
 
     /// A rejected workspace launch has no viewer that needs the staged bytes, so
