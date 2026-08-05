@@ -35,7 +35,11 @@ public extension CoderPadClient {
         zipFile: QuestionZIPUpload
     ) async throws -> Question {
         try await updateQuestionWithoutRefetch(body, zipFile: zipFile)
-        return try await getQuestion(id: body.id)
+        do {
+            return try await getQuestion(id: body.id)
+        } catch {
+            throw CoderPadMutationRefreshError(target: .question(id: body.id), underlying: error)
+        }
     }
 
     /// Sends a ZIP-backed modify-question PUT without the follow-up GET.
