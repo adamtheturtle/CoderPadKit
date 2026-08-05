@@ -24,7 +24,10 @@ public extension ScreenClient {
         let fileURL: URL
         let response: URLResponse
         do {
-            (fileURL, response) = try await session.download(for: request)
+            (fileURL, response) = try await session.download(
+                for: request,
+                delegate: ScreenRedirectDelegate(requestURL: request.url)
+            )
         } catch let urlError as URLError {
             if urlError.code == .cancelled { throw CancellationError() }
             throw CoderPadError.network(urlError)
