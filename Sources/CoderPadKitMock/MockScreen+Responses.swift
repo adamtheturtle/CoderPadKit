@@ -97,7 +97,11 @@ nonisolated enum MockScreenResponses {
     /// Creates a "waiting" session from the invitation body and returns the new test id
     /// and the candidate's link, matching `POST /campaigns/:id/actions/send`.
     private static func sendInvitation(state: MockScreenState, campaignID: Int, body: Data?) -> Result {
-        let params = (body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }) ?? [:]
+        guard let body,
+              let params = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
+        else {
+            return malformedJSON()
+        }
         let id = state.nextTestID
         state.nextTestID += 1
         let testURL = "https://app.coderpad.io/screen/demo/tests/\(id)"
@@ -235,9 +239,10 @@ nonisolated enum MockScreenResponses {
 
         case "POST":
             // The body is the URL as a bare JSON string, per the API contract.
-            if let body, let url = try? JSONDecoder().decode(String.self, from: body) {
-                state.webhookURL = url
+            guard let body, let url = try? JSONDecoder().decode(String.self, from: body) else {
+                return malformedJSON()
             }
+            state.webhookURL = url
             return noContent()
 
         case "DELETE":
@@ -255,6 +260,10 @@ nonisolated enum MockScreenResponses {
         let data = (try? JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted]))
             ?? Data("{}".utf8)
         return Result(status: status, body: data, contentType: "application/json")
+    }
+
+    private static func malformedJSON() -> Result {
+        json(400, ["code": "invalid_json", "message": "Malformed JSON request body"])
     }
 
     /// The 204 No Content used by the action and webhook write endpoints.
