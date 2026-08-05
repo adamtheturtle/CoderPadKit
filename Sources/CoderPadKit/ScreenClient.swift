@@ -28,6 +28,7 @@ public struct ScreenClient {
     public nonisolated let apiKey: String
     public nonisolated let baseURL: URL
     public nonisolated let session: URLSession
+    public nonisolated let maximumResponseBodyBytes: Int
 
     /// The US server. EU customers override with `euBaseURL`.
     public nonisolated static let defaultBaseURL = URL(string: "https://www.codingame.com")!
@@ -40,16 +41,20 @@ public struct ScreenClient {
     public nonisolated static let maximumPageSize = 500
     public nonisolated static let maximumProductFilterLength = 64
     public nonisolated static let maximumEmailFilterLength = 320
+    public nonisolated static let defaultMaximumResponseBodyBytes = 10 * 1024 * 1024
     public nonisolated static let maximumErrorBodyBytes = 16 * 1024
     public nonisolated static let maximumFullListPages = 100
     public nonisolated static let maximumFullListItems = 10000
 
     public nonisolated init(apiKey: String,
                             baseURL: URL = Self.defaultBaseURL,
-                            session: URLSession = Self.liveSession) {
+                            session: URLSession = Self.liveSession,
+                            maximumResponseBodyBytes: Int = Self.defaultMaximumResponseBodyBytes) {
+        precondition(maximumResponseBodyBytes >= 0, "Response limit must not be negative")
         self.apiKey = apiKey
         self.baseURL = baseURL
         self.session = session
+        self.maximumResponseBodyBytes = maximumResponseBodyBytes
     }
 
     /// The single construction point for the live session, mirroring `CoderPadClient`.
@@ -262,35 +267,6 @@ public struct ScreenClient {
             request.httpBody = try encode(body)
         }
         _ = try await data(for: request)
-    }
-
-    /// Runs the request, mapping transport failures to `CoderPadError.network` and
-    /// non-2xx responses to `CoderPadError.http` (carrying the body so the API's
-    /// `message` can surface), matching `CoderPadClient`'s behavior.
-    @discardableResult
-    private nonisolated func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch let urlError as URLError {
-            if urlError.code == .cancelled {
-                throw CancellationError()
-            }
-            throw CoderPadError.network(urlError)
-        }
-        guard let http = response as? HTTPURLResponse else {
-            throw CoderPadError.http(0, "No HTTP response")
-        }
-        guard (200 ..< 300).contains(http.statusCode) else {
-            // Bound the extra copy retained by CoderPadError and any eventual UI/log
-            // presentation. URLSession has already received `data`; this specifically
-            // prevents duplicating an arbitrarily large server body as a String (#2771).
-            let bounded = data.prefix(Self.maximumErrorBodyBytes)
-            throw CoderPadError.http(http.statusCode, String(bytes: bounded, encoding: .utf8) ?? "")
-        }
-
-        return (data, http)
     }
 
     /// One coder each for every Screen call, rather than one per request/response.
