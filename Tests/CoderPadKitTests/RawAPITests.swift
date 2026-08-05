@@ -30,9 +30,10 @@ struct RawAPITests {
 
     @Test
     func `enforces the response limit`() async {
-        await #expect(throws: CoderPadResponseTooLargeError.self) {
+        let error = await #expect(throws: CoderPadResponseTooLargeError.self) {
             _ = try await client.rawRequest(path: "/api/quota", responseLimit: 1)
         }
+        #expect(error?.limit == 1)
     }
 
     @Test

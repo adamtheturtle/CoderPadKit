@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import PaginatedRESTClient
 
 #if canImport(FoundationNetworking)
     import FoundationNetworking
@@ -83,49 +84,29 @@ extension CoderPadClient {
             throw CoderPadError.http(0, "Invalid URL")
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.httpBody = body
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        var headers = [
+            "Authorization": "Bearer \(apiKey)",
+            "Accept": "application/json"
+        ]
         if body != nil {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            headers["Content-Type"] = "application/json"
         }
 
-        let (data, response) = try await boundedData(for: request, limit: responseLimit)
-        return CoderPadRawResponse(
-            status: (response as? HTTPURLResponse)?.statusCode ?? 0,
-            data: data
+        let request = RESTRequest(
+            url: url,
+            method: method,
+            headers: headers,
+            body: body
         )
-    }
-
-    private nonisolated func boundedData(
-        for request: URLRequest,
-        limit: Int
-    ) async throws -> (Data, URLResponse) {
-        #if os(Linux)
-            let (data, response) = try await session.data(for: request)
-            guard data.count <= limit else {
-                throw CoderPadResponseTooLargeError(limit: limit)
-            }
-            return (data, response)
-        #else
-            let (bytes, response) = try await session.bytes(for: request)
-            if response.expectedContentLength > Int64(limit) {
-                throw CoderPadResponseTooLargeError(limit: limit)
-            }
-
-            var data = Data()
-            if response.expectedContentLength > 0 {
-                data.reserveCapacity(min(Int(response.expectedContentLength), limit))
-            }
-            for try await byte in bytes {
-                guard data.count < limit else {
-                    throw CoderPadResponseTooLargeError(limit: limit)
-                }
-                data.append(byte)
-            }
-            return (data, response)
-        #endif
+        do {
+            let response = try await URLSessionTransport(
+                session: session,
+                successResponseLimit: responseLimit,
+                errorResponseLimit: responseLimit
+            ).response(for: request)
+            return CoderPadRawResponse(status: response.statusCode, data: response.data)
+        } catch is RESTResponseTooLargeError {
+            throw CoderPadResponseTooLargeError(limit: responseLimit)
+        }
     }
 }
