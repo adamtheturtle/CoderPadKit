@@ -122,4 +122,17 @@ struct ScreenPaginationValidationTests {
             try JSONDecoder().decode(ScreenTestsPage.self, from: Data(truncated.utf8))
         }
     }
+
+    @Test(.timeLimit(.minutes(1)))
+    func `a discarded value beyond the nesting limit fails instead of looping`() {
+        let depth = 80
+        let nested = String(repeating: "[", count: depth)
+            + "null"
+            + String(repeating: "]", count: depth)
+        let json = "{\"tests\":[\(nested)]}"
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenTestsPage.self, from: Data(json.utf8))
+        }
+    }
 }
