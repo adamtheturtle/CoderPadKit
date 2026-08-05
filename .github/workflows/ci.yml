@@ -43,12 +43,12 @@ jobs:
         run: swift test
 
   linux:
-    name: Linux (Swift 6.2)
+    name: Linux library (Swift 6.2)
     runs-on: ubuntu-latest
     container: swift:6.2
     steps:
       - uses: actions/checkout@v5
-      - name: Build
-        run: swift build --build-tests
-      - name: Test
-        run: swift test
+      # CoderPadKitMock intentionally uses CoreGraphics/CoreText fixtures, but
+      # downstream server packages consume the platform-neutral library product.
+      - name: Build library product
+        run: swift build --product CoderPadKit
