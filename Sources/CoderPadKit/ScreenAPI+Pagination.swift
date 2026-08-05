@@ -118,14 +118,16 @@ private nonisolated struct DiscardedScreenValue: Decodable {
 
         if var array = try? decoder.unkeyedContainer() {
             while !array.isAtEnd {
-                _ = try? array.decode(Self.self)
+                // A failed decode does not guarantee that an unkeyed container advances.
+                // Propagate the depth guard instead of retrying the same element forever.
+                _ = try array.decode(Self.self)
             }
             return
         }
 
         if let object = try? decoder.container(keyedBy: DiscardedScreenCodingKey.self) {
             for key in object.allKeys {
-                _ = try? object.decode(Self.self, forKey: key)
+                _ = try object.decode(Self.self, forKey: key)
             }
             return
         }
