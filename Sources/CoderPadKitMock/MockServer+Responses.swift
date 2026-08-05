@@ -108,7 +108,9 @@ nonisolated enum MockResponses {
         }
 
         if method == "GET", let id = match(path, pattern: #"^/api/pad_environments/(\d+)/?$"#) {
-            let idInt = Int(id) ?? 1
+            guard let idInt = Int(id) else {
+                return (400, jsonString(["status": "error", "message": "invalid environment ID"]))
+            }
             // Mirror the live API: the environment's fields are returned flat.
             var env = MockFixtures.padEnvironment(id: idInt)
             env["status"] = "OK"
