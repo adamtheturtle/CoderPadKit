@@ -16,7 +16,10 @@ nonisolated extension ScreenClient {
         let bytes: URLSession.AsyncBytes
         let response: URLResponse
         do {
-            (bytes, response) = try await session.bytes(for: request)
+            (bytes, response) = try await session.bytes(
+                for: request,
+                delegate: ScreenRedirectDelegate(requestURL: request.url)
+            )
         } catch let urlError as URLError {
             if urlError.code == .cancelled { throw CancellationError() }
             throw CoderPadError.network(urlError)
