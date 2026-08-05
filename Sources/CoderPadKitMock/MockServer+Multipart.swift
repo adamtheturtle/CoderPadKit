@@ -11,7 +11,7 @@ nonisolated extension MockResponses {
     /// Reads either the client's JSON question body or its multipart text fields.
     /// The ZIP bytes themselves are deliberately ignored: the mock needs to preserve
     /// mutation semantics, not interpret archive contents.
-    static func questionParams(body: Data?, contentType: String?) -> [String: Any] {
+    static func questionParams(body: Data?, contentType: String?) -> [String: Any]? {
         guard let body else { return [:] }
         guard let contentType,
               contentType.hasPrefix("multipart/form-data;"),
@@ -22,8 +22,16 @@ nonisolated extension MockResponses {
         }
 
         let raw = String(decoding: body, as: UTF8.self)
+        let openingBoundary = "--\(boundary)\r\n"
+        let closingBoundary = "\r\n--\(boundary)--"
+        guard raw.hasPrefix(openingBoundary),
+              let closingRange = raw.range(of: closingBoundary, options: .backwards),
+              closingRange.upperBound == raw.endIndex
+                  || raw[closingRange.upperBound...] == "\r\n" else { return nil }
+
+        let framedBody = String(raw[..<closingRange.lowerBound])
         var fields: [String: Any] = [:]
-        for part in raw.components(separatedBy: "--\(boundary)\r\n") {
+        for part in framedBody.components(separatedBy: openingBoundary) {
             guard let split = part.range(of: "\r\n\r\n") else { continue }
             let headers = String(part[..<split.lowerBound])
             guard !headers.contains("filename="),
