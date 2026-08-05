@@ -13,6 +13,32 @@ nonisolated extension ScreenClient {
     /// Runs a bounded request, mapping transport and HTTP failures onto CoderPadError.
     @discardableResult
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        #if canImport(FoundationNetworking)
+            let data: Data
+            let response: URLResponse
+            do {
+                (data, response) = try await session.data(
+                    for: request,
+                    delegate: ScreenRedirectDelegate(requestURL: request.url)
+                )
+            } catch let urlError as URLError {
+                if urlError.code == .cancelled { throw CancellationError() }
+                throw CoderPadError.network(urlError)
+            }
+            let (http, limit) = try responseMetadata(for: response)
+            let isSuccess = (200 ..< 300).contains(http.statusCode)
+            guard !isSuccess || data.count <= limit else {
+                throw CoderPadError.decode("The Screen response exceeded the \(limit)-byte limit.")
+            }
+            guard isSuccess else {
+                let boundedErrorData = Data(data.prefix(limit))
+                throw CoderPadError.http(
+                    http.statusCode,
+                    String(bytes: boundedErrorData, encoding: .utf8) ?? ""
+                )
+            }
+            return (data, http)
+        #else
         let bytes: URLSession.AsyncBytes
         let response: URLResponse
         do {
@@ -24,22 +50,18 @@ nonisolated extension ScreenClient {
             if urlError.code == .cancelled { throw CancellationError() }
             throw CoderPadError.network(urlError)
         }
-        guard let http = response as? HTTPURLResponse else {
-            throw CoderPadError.http(0, "No HTTP response")
-        }
+        let (http, limit) = try responseMetadata(for: response)
         let isSuccess = (200 ..< 300).contains(http.statusCode)
-        let limit = isSuccess ? maximumResponseBodyBytes : Self.maximumErrorBodyBytes
-        if isSuccess, http.expectedContentLength > Int64(limit) {
-            throw CoderPadError.decode("The Screen response exceeded the \(limit)-byte limit.")
-        }
 
         let data = try await responseBody(from: bytes, response: http, limit: limit, isSuccess: isSuccess)
         guard isSuccess else {
             throw CoderPadError.http(http.statusCode, String(bytes: data, encoding: .utf8) ?? "")
         }
         return (data, http)
+        #endif
     }
 
+    #if !canImport(FoundationNetworking)
     private func responseBody(
         from bytes: URLSession.AsyncBytes,
         response: HTTPURLResponse,
@@ -65,5 +87,18 @@ nonisolated extension ScreenClient {
             throw CoderPadError.network(urlError)
         }
         return data
+    }
+    #endif
+
+    private func responseMetadata(for response: URLResponse) throws -> (HTTPURLResponse, Int) {
+        guard let http = response as? HTTPURLResponse else {
+            throw CoderPadError.http(0, "No HTTP response")
+        }
+        let isSuccess = (200 ..< 300).contains(http.statusCode)
+        let limit = isSuccess ? maximumResponseBodyBytes : Self.maximumErrorBodyBytes
+        if isSuccess, http.expectedContentLength > Int64(limit) {
+            throw CoderPadError.decode("The Screen response exceeded the \(limit)-byte limit.")
+        }
+        return (http, limit)
     }
 }
