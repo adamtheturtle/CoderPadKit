@@ -56,7 +56,9 @@ nonisolated extension MockResponses {
         body: Data?,
         contentType: String?
     ) -> (Int, Data) {
-        let bodyDict = questionParams(body: body, contentType: contentType)
+        guard let bodyDict = questionParams(body: body, contentType: contentType) else {
+            return malformedMultipartResponse
+        }
         // Derive the id from seeds and this session's creations. Deleted ids remain
         // reserved because the live API never recycles an id it has handed out.
         let existingIDs = (MockFixtures.questions() + state.createdQuestions)
@@ -93,13 +95,20 @@ nonisolated extension MockResponses {
         guard body != nil else {
             return (400, jsonString(["status": "error"]))
         }
+        guard let params = questionParams(body: body, contentType: contentType) else {
+            return malformedMultipartResponse
+        }
 
         // QuestionUpdate is partial, so merge only the fields that were supplied.
         state.updatedQuestions[idInt, default: [:]]
-            .merge(questionParams(body: body, contentType: contentType)) { _, new in new }
+            .merge(params) { _, new in new }
         if state.allQuestions().contains(where: { ($0["id"] as? Int) == idInt }) {
             return ok(["status": "OK"])
         }
         return (404, jsonString(["status": "error"]))
+    }
+
+    private static var malformedMultipartResponse: (Int, Data) {
+        (400, jsonString(["status": "error", "message": "malformed multipart body"]))
     }
 }
