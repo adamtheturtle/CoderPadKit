@@ -50,5 +50,5 @@ jobs:
       - uses: actions/checkout@v5
       # CoderPadKitMock intentionally uses CoreGraphics/CoreText fixtures, but
       # downstream server packages consume the platform-neutral library product.
-      - name: Build library product
-        run: swift build --product CoderPadKit
+      - name: Build library target
+        run: swift build --target CoderPadKit
