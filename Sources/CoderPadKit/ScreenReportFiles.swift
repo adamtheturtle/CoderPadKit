@@ -54,7 +54,7 @@ public nonisolated enum ScreenReportFiles {
 
     /// The root folder under the app's temporary directory that holds every staged
     /// report, so launch cleanup can sweep them all in one pass.
-    private static var root: URL {
+    static var stagingRoot: URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("ScreenReports", isDirectory: true)
     }
@@ -72,7 +72,7 @@ public nonisolated enum ScreenReportFiles {
         guard isLikelyPDF(data) else { throw CocoaError(.fileWriteUnknown) }
 
         let name = UUID().uuidString
-        let folder = root.appendingPathComponent(name, isDirectory: true)
+        let folder = stagingRoot.appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(
             at: folder,
             withIntermediateDirectories: true,
@@ -99,11 +99,19 @@ public nonisolated enum ScreenReportFiles {
     /// open is safe: the viewer's handle (or in-memory copy) keeps the data readable;
     /// the unlink only removes the name.
     public static func remove(_ url: URL) {
+        remove(url, retryAfter: .seconds(30)) { try FileManager.default.removeItem(at: $0) }
+    }
+
+    static func remove(
+        _ url: URL,
+        retryAfter: Duration,
+        removeItem: @escaping @Sendable (URL) throws -> Void
+    ) {
         let folder = url.deletingLastPathComponent()
         // Only ever delete inside the staging root: a caller passing an unexpected
         // URL must not be able to remove an arbitrary parent directory (#1946).
         guard folder.deletingLastPathComponent().standardizedFileURL.path
-            == root.standardizedFileURL.path else {
+            == stagingRoot.standardizedFileURL.path else {
             logger.error("Refused to remove a Screen report outside the staging root.")
             return
         }
@@ -111,25 +119,42 @@ public nonisolated enum ScreenReportFiles {
         let scheduled = active.withLock { $0.removeValue(forKey: folder.lastPathComponent) }
         if let scheduled, let scheduled { scheduled.cancel() }
         do {
-            try FileManager.default.removeItem(at: folder)
+            try removeItem(folder)
         } catch CocoaError.fileNoSuchFile {
             // Already swept; both cleanup paths are idempotent (#1948).
         } catch {
-            // Candidate data that couldn't be deleted is worth a trace, not silence
-            // (#1116, #1387, #1944); the launch sweep retries next run.
+            // Keep a retry registered so the launch sweep cannot mistake sensitive
+            // data from this process for an abandoned directory and race it (#1947).
             logger.error("Couldn't remove a staged Screen report: \(error.localizedDescription)")
+            scheduleRemovalAttempt(
+                of: url,
+                after: retryAfter,
+                retryAfter: retryAfter,
+                removeItem: removeItem
+            )
         }
     }
 
     /// Removes a staged report once the viewer has had ample time to load it. If the
     /// app quits before the delay elapses, `cleanUpLeftovers()` sweeps it next launch.
     public static func scheduleRemoval(of url: URL, after duration: Duration = .seconds(300)) {
+        scheduleRemovalAttempt(of: url, after: duration, retryAfter: .seconds(30)) {
+            try FileManager.default.removeItem(at: $0)
+        }
+    }
+
+    private static func scheduleRemovalAttempt(
+        of url: URL,
+        after duration: Duration,
+        retryAfter: Duration,
+        removeItem: @escaping @Sendable (URL) throws -> Void
+    ) {
         let name = url.deletingLastPathComponent().lastPathComponent
         let task = Task.detached(priority: .utility) {
             try? await Task.sleep(for: duration)
             guard !Task.isCancelled else { return }
 
-            remove(url)
+            remove(url, retryAfter: retryAfter, removeItem: removeItem)
         }
         active.withLock { registry in
             if let previous = registry[name], let previous { previous.cancel() }
@@ -154,7 +179,7 @@ public nonisolated enum ScreenReportFiles {
         let manager = FileManager.default
         let entries: [URL]
         do {
-            entries = try manager.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            entries = try manager.contentsOfDirectory(at: stagingRoot, includingPropertiesForKeys: nil)
         } catch CocoaError.fileReadNoSuchFile {
             // Nothing was ever staged (or a prior sweep finished the job).
             return
