@@ -420,6 +420,16 @@ public struct CoderPadClient {
     /// together, per the API contract).
     public func organizationStats(start: Date? = nil, end: Date? = nil) async throws -> OrganizationStats {
         guard !apiKey.isEmpty else { throw CoderPadError.missingAPIKey }
+        switch (start, end) {
+        case (nil, nil):
+            break
+        case let (start?, end?):
+            guard start <= end else {
+                throw CoderPadError.decode("Organization statistics start must not be later than its end.")
+            }
+        default:
+            throw CoderPadError.decode("Organization statistics start and end must be supplied together.")
+        }
 
         var comps = URLComponents(url: baseURL.appending(path: "/api/organization/stats"),
                                   resolvingAgainstBaseURL: false)
