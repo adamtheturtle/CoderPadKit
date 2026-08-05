@@ -52,12 +52,15 @@ struct PadHistoryModelTests {
 
 @Suite("Pad history client")
 struct PadHistoryClientTests {
-    private func client() -> CoderPadClient {
+    private func client(
+        maximumHistoryResponseBodyBytes: Int = CoderPadClient.defaultMaximumHistoryResponseBodyBytes
+    ) -> CoderPadClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [PadHistoryURLProtocol.self]
         return CoderPadClient(
             apiKey: "secret-that-must-not-leave-coderpad",
-            session: URLSession(configuration: configuration)
+            session: URLSession(configuration: configuration),
+            maximumHistoryResponseBodyBytes: maximumHistoryResponseBodyBytes
         )
     }
 
@@ -94,6 +97,21 @@ struct PadHistoryClientTests {
             return
         }
         #expect(status == 404)
+    }
+
+    @Test(arguments: ["declared-too-large.json", "streamed-too-large.json"])
+    func `history responses are bounded before decoding`(_ path: String) async throws {
+        let error = await #expect(throws: CoderPadError.self) {
+            _ = try await client(maximumHistoryResponseBodyBytes: 8).padHistory(
+                historyURL: "https://coderpad-1.firebaseio.com/\(path)"
+            )
+        }
+
+        guard case let .decode(detail) = error else {
+            Issue.record("Expected a .decode error, got \(String(describing: error))")
+            return
+        }
+        #expect(detail.contains("8-byte limit"))
     }
 
     @Test
@@ -180,9 +198,11 @@ private final nonisolated class PadHistoryURLProtocol: URLProtocol {
 
         let status: Int
         let body: Data
+        let headers: [String: String]
         if !hasExpectedRequestShape {
             status = 400
             body = Data(#"{"error":"unexpected request headers"}"#.utf8)
+            headers = ["Content-Type": "application/json"]
         } else {
             switch url.path {
             case "/history.json":
@@ -190,12 +210,26 @@ private final nonisolated class PadHistoryURLProtocol: URLProtocol {
                 body = Data(
                     #"{"later":{"a":"author-1","o":[2,"!"],"t":2},"earlier":{"a":"author-1","o":[1,"i"],"t":1}}"#.utf8
                 )
+                headers = ["Content-Type": "application/json"]
             case "/empty.json":
                 status = 200
                 body = Data("null".utf8)
+                headers = ["Content-Type": "application/json"]
+            case "/declared-too-large.json":
+                status = 200
+                body = Data(repeating: 97, count: 32)
+                headers = [
+                    "Content-Type": "application/json",
+                    "Content-Length": "32"
+                ]
+            case "/streamed-too-large.json":
+                status = 200
+                body = Data(repeating: 97, count: 32)
+                headers = ["Content-Type": "application/json"]
             default:
                 status = 404
                 body = Data("Not Found".utf8)
+                headers = ["Content-Type": "text/plain"]
             }
         }
 
@@ -203,7 +237,7 @@ private final nonisolated class PadHistoryURLProtocol: URLProtocol {
             url: url,
             statusCode: status,
             httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type": "application/json"]
+            headerFields: headers
         ) else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
