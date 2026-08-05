@@ -34,9 +34,7 @@ public extension ScreenClient {
             throw CoderPadError.http(0, "No HTTP response")
         }
         guard (200 ..< 300).contains(http.statusCode) else {
-            let body = (try? Data(contentsOf: fileURL, options: .mappedIfSafe)) ?? Data()
-            let bounded = body.prefix(Self.maximumErrorBodyBytes)
-            throw CoderPadError.http(http.statusCode, String(bytes: bounded, encoding: .utf8) ?? "")
+            throw CoderPadError.http(http.statusCode, try Self.reportErrorBody(at: fileURL))
         }
 
         let fileSize = try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? -1
@@ -45,6 +43,23 @@ public extension ScreenClient {
         }
 
         return try (Data(contentsOf: fileURL), http)
+    }
+
+    nonisolated static func reportErrorBody(at fileURL: URL) throws -> String {
+        do {
+            let handle = try FileHandle(forReadingFrom: fileURL)
+            defer { try? handle.close() }
+
+            var body = Data()
+            while body.count < maximumErrorBodyBytes {
+                let remaining = maximumErrorBodyBytes - body.count
+                guard let chunk = try handle.read(upToCount: remaining), !chunk.isEmpty else { break }
+                body.append(chunk)
+            }
+            return String(bytes: body, encoding: .utf8) ?? ""
+        } catch {
+            throw CoderPadError.decode("The report error response body could not be read.")
+        }
     }
 
     public nonisolated static func isAllowedReportSize(declared: Int64, actual: Int) -> Bool {
