@@ -14,6 +14,10 @@ import Foundation
 /// ``CoderPadClient/createQuestion(_:zipFile:)`` or
 /// ``CoderPadClient/updateQuestion(_:zipFile:)``.
 public nonisolated struct QuestionZIPUpload: Sendable {
+    /// Maximum accepted archive size (50 MiB). Multipart headers and ordinary text
+    /// fields are staged separately and do not count against this archive ceiling.
+    public static let maximumByteCount = 50 * 1024 * 1024
+
     /// The exact archive bytes sent to CoderPad. Empty data is allowed.
     public var data: Data
     /// The filename reported in the multipart Content-Disposition header.
@@ -22,6 +26,30 @@ public nonisolated struct QuestionZIPUpload: Sendable {
     public init(data: Data, filename: String) {
         self.data = data
         self.filename = filename
+    }
+
+    func validateSize() throws {
+        guard data.count <= Self.maximumByteCount else {
+            throw QuestionZIPUploadTooLargeError(
+                byteCount: data.count,
+                limit: Self.maximumByteCount
+            )
+        }
+    }
+}
+
+/// A question ZIP exceeded ``QuestionZIPUpload/maximumByteCount``.
+public nonisolated struct QuestionZIPUploadTooLargeError: LocalizedError, Equatable, Sendable {
+    public let byteCount: Int
+    public let limit: Int
+
+    public var errorDescription: String? {
+        "Question ZIP is \(byteCount) bytes; the upload limit is \(limit) bytes."
+    }
+
+    public init(byteCount: Int, limit: Int) {
+        self.byteCount = byteCount
+        self.limit = limit
     }
 }
 

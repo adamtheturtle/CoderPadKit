@@ -21,14 +21,20 @@ nonisolated struct MultipartFormFile: Sendable {
     let data: Data
 }
 
-/// A complete, in-memory multipart/form-data payload.
+/// A complete multipart/form-data payload staged in a private temporary file.
 ///
-/// Encoding works only with values and bytes already supplied by the caller. It never
-/// performs implicit file I/O, so constructing a request cannot block an actor on a
-/// filesystem read.
+/// The caller's file `Data` is written directly to the file handle rather than appended
+/// to a second aggregate `Data`, keeping peak resident memory close to the source archive.
 nonisolated struct MultipartFormData: Sendable {
     let boundary: String
-    let body: Data
+    let stagingFolder: URL
+    let bodyFileURL: URL
+    let contentLength: Int
+
+    static var stagingRoot: URL {
+        FileManager.default.temporaryDirectory
+            .appending(path: "CoderPadQuestionUploads", directoryHint: .isDirectory)
+    }
 
     var contentType: String {
         "multipart/form-data; boundary=\(boundary)"
@@ -38,30 +44,66 @@ nonisolated struct MultipartFormData: Sendable {
         fields: [MultipartFormField],
         files: [MultipartFormFile],
         boundary: String = "CoderPadKit-\(UUID().uuidString)"
-    ) {
+    ) throws {
         self.boundary = boundary
+        let folder = Self.stagingRoot.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let fileURL = folder.appending(path: "multipart.body")
+        stagingFolder = folder
+        bodyFileURL = fileURL
 
-        var body = Data()
-        for field in fields {
-            body.appendUTF8("--\(boundary)\r\n")
-            body.appendUTF8(
-                "Content-Disposition: form-data; name=\"\(Self.quoted(field.name))\"\r\n\r\n"
+        do {
+            try FileManager.default.createDirectory(
+                at: folder,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
             )
-            body.appendUTF8(field.value)
-            body.appendUTF8("\r\n")
+            guard FileManager.default.createFile(
+                atPath: fileURL.path,
+                contents: nil,
+                attributes: [.posixPermissions: 0o600]
+            ) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            let handle = try FileHandle(forWritingTo: fileURL)
+            do {
+                var byteCount = 0
+                for field in fields {
+                    try Self.writeUTF8("--\(boundary)\r\n", to: handle, byteCount: &byteCount)
+                    try Self.writeUTF8(
+                        "Content-Disposition: form-data; name=\"\(Self.quoted(field.name))\"\r\n\r\n",
+                        to: handle,
+                        byteCount: &byteCount
+                    )
+                    try Self.writeUTF8(field.value, to: handle, byteCount: &byteCount)
+                    try Self.writeUTF8("\r\n", to: handle, byteCount: &byteCount)
+                }
+                for file in files {
+                    try Self.writeUTF8("--\(boundary)\r\n", to: handle, byteCount: &byteCount)
+                    try Self.writeUTF8(
+                        "Content-Disposition: form-data; name=\"\(Self.quoted(file.name))\"; "
+                            + "filename=\"\(Self.quoted(file.filename))\"\r\n"
+                            + "Content-Type: \(file.contentType)\r\n\r\n",
+                        to: handle,
+                        byteCount: &byteCount
+                    )
+                    try Self.write(file.data, to: handle, byteCount: &byteCount)
+                    try Self.writeUTF8("\r\n", to: handle, byteCount: &byteCount)
+                }
+                try Self.writeUTF8("--\(boundary)--\r\n", to: handle, byteCount: &byteCount)
+                try handle.close()
+                contentLength = byteCount
+            } catch {
+                try? handle.close()
+                throw error
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: folder)
+            throw error
         }
-        for file in files {
-            body.appendUTF8("--\(boundary)\r\n")
-            body.appendUTF8(
-                "Content-Disposition: form-data; name=\"\(Self.quoted(file.name))\"; "
-                    + "filename=\"\(Self.quoted(file.filename))\"\r\n"
-                    + "Content-Type: \(file.contentType)\r\n\r\n"
-            )
-            body.append(file.data)
-            body.appendUTF8("\r\n")
-        }
-        body.appendUTF8("--\(boundary)--\r\n")
-        self.body = body
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(at: stagingFolder)
     }
 
     /// Escapes a quoted Content-Disposition parameter without losing Unicode.
@@ -73,6 +115,17 @@ nonisolated struct MultipartFormData: Sendable {
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "\r", with: "%0D")
             .replacingOccurrences(of: "\n", with: "%0A")
+    }
+
+    private static func writeUTF8(_ value: String, to handle: FileHandle, byteCount: inout Int) throws {
+        try write(Data(value.utf8), to: handle, byteCount: &byteCount)
+    }
+
+    private static func write(_ data: Data, to handle: FileHandle, byteCount: inout Int) throws {
+        let (nextCount, overflow) = byteCount.addingReportingOverflow(data.count)
+        guard !overflow else { throw CocoaError(.fileWriteOutOfSpace) }
+        try handle.write(contentsOf: data)
+        byteCount = nextCount
     }
 }
 
@@ -135,11 +188,5 @@ private nonisolated extension Array where Element == MultipartFormField {
     mutating func append(name: String, value: String?) {
         guard let value else { return }
         append(MultipartFormField(name: name, value: value))
-    }
-}
-
-private nonisolated extension Data {
-    mutating func appendUTF8(_ value: String) {
-        append(contentsOf: value.utf8)
     }
 }
