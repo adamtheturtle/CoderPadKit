@@ -353,7 +353,18 @@ nonisolated func decodeExecutionEnabled<K: CodingKey>(
     from container: KeyedDecodingContainer<K>,
     forKey key: K
 ) throws -> Bool? {
-    if let string = try? container.decode(String.self, forKey: key) { return string == "true" }
+    if let string = try? container.decode(String.self, forKey: key) {
+        switch string {
+        case "true": return true
+        case "false": return false
+        default:
+            throw DecodingError.dataCorruptedError(
+                forKey: key,
+                in: container,
+                debugDescription: "Expected execution_enabled to be the string 'true' or 'false'."
+            )
+        }
+    }
     return try container.decodeIfPresent(Bool.self, forKey: key)
 }
 

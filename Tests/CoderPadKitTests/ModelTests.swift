@@ -91,6 +91,24 @@ struct ExecutionEnabledTests {
         #expect(fromBool.executionEnabled == false)
     }
 
+    @Test(arguments: ["TRUE", "False", "yes", "1", " true "])
+    func `strict request models reject unknown execution strings`(_ value: String) {
+        let data = Data(#"{"execution_enabled":"\#(value)"}"#.utf8)
+
+        #expect(throws: DecodingError.self) {
+            try CoderPadClient.decoder.decode(PadCreate.self, from: data)
+        }
+    }
+
+    @Test(arguments: ["TRUE", "False", "yes", "1", " true "])
+    func `lenient response models preserve unknown execution strings as nil`(_ value: String) throws {
+        let data = Data(#"{"id":"X1","execution_enabled":"\#(value)"}"#.utf8)
+
+        let pad = try CoderPadClient.decoder.decode(Pad.self, from: data)
+
+        #expect(pad.executionEnabled == nil)
+    }
+
     @Test
     func `a nil execution flag is omitted entirely`() throws {
         let data = try CoderPadClient.encoder.encode(PadCreate(title: "No flag"))
