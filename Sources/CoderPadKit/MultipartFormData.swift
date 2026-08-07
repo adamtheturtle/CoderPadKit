@@ -43,10 +43,11 @@ nonisolated struct MultipartFormData: Sendable {
     init(
         fields: [MultipartFormField],
         files: [MultipartFormFile],
-        boundary: String = "CoderPadKit-\(UUID().uuidString)"
+        boundary: String? = nil
     ) throws {
-        self.boundary = boundary
-        let folder = Self.stagingRoot.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let stagingIdentifier = UUID().uuidString
+        self.boundary = boundary ?? "CoderPadKit-\(stagingIdentifier)"
+        let folder = Self.stagingRoot.appending(path: stagingIdentifier, directoryHint: .isDirectory)
         let fileURL = folder.appending(path: "multipart.body")
         stagingFolder = folder
         bodyFileURL = fileURL
@@ -68,7 +69,7 @@ nonisolated struct MultipartFormData: Sendable {
             do {
                 var byteCount = 0
                 for field in fields {
-                    try Self.writeUTF8("--\(boundary)\r\n", to: handle, byteCount: &byteCount)
+                    try Self.writeUTF8("--\(self.boundary)\r\n", to: handle, byteCount: &byteCount)
                     try Self.writeUTF8(
                         "Content-Disposition: form-data; name=\"\(Self.quoted(field.name))\"\r\n\r\n",
                         to: handle,
@@ -78,7 +79,7 @@ nonisolated struct MultipartFormData: Sendable {
                     try Self.writeUTF8("\r\n", to: handle, byteCount: &byteCount)
                 }
                 for file in files {
-                    try Self.writeUTF8("--\(boundary)\r\n", to: handle, byteCount: &byteCount)
+                    try Self.writeUTF8("--\(self.boundary)\r\n", to: handle, byteCount: &byteCount)
                     try Self.writeUTF8(
                         "Content-Disposition: form-data; name=\"\(Self.quoted(file.name))\"; "
                             + "filename=\"\(Self.quoted(file.filename))\"\r\n"
@@ -89,7 +90,7 @@ nonisolated struct MultipartFormData: Sendable {
                     try Self.write(file.data, to: handle, byteCount: &byteCount)
                     try Self.writeUTF8("\r\n", to: handle, byteCount: &byteCount)
                 }
-                try Self.writeUTF8("--\(boundary)--\r\n", to: handle, byteCount: &byteCount)
+                try Self.writeUTF8("--\(self.boundary)--\r\n", to: handle, byteCount: &byteCount)
                 try handle.close()
                 contentLength = byteCount
             } catch {

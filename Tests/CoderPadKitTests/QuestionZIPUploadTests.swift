@@ -160,7 +160,6 @@ struct QuestionZIPUploadTests {
     func `large ZIP uses a staged file instead of an aggregate request body`() async throws {
         let client = makeClient()
         let archive = Data(repeating: 0xA5, count: 8 * 1024 * 1024)
-        let foldersBeforeUpload = stagedFolderNames()
 
         _ = try await client.createQuestion(
             QuestionCreate(title: "Large archive"),
@@ -171,7 +170,11 @@ struct QuestionZIPUploadTests {
         #expect(request.bodyWasStreamed)
         #expect(request.body?.count ?? 0 > archive.count)
         #expect(request.contentLength == request.body?.count)
-        #expect(stagedFolderNames() == foldersBeforeUpload)
+        let boundary = try boundary(from: request.contentType)
+        let stagingIdentifier = String(boundary.dropFirst("CoderPadKit-".count))
+        let stagingFolder = MultipartFormData.stagingRoot
+            .appending(path: stagingIdentifier, directoryHint: .isDirectory)
+        #expect(!FileManager.default.fileExists(atPath: stagingFolder.path))
     }
 
     private func makeClient() -> CoderPadClient {
@@ -222,13 +225,6 @@ struct QuestionZIPUploadTests {
 
     private func requireSendable<T: Sendable>(_: T.Type) {}
 
-    private func stagedFolderNames() -> Set<String> {
-        let urls = (try? FileManager.default.contentsOfDirectory(
-            at: MultipartFormData.stagingRoot,
-            includingPropertiesForKeys: nil
-        )) ?? []
-        return Set(urls.map(\.lastPathComponent))
-    }
 }
 
 private nonisolated struct CapturedZIPRequest: Sendable {
