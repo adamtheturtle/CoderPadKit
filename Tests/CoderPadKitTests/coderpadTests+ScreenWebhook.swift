@@ -9,9 +9,9 @@ import Testing
 @Suite("Screen webhook validation")
 struct ScreenWebhookValidationTests {
     @Test(arguments: [
-        "", "http://example.com/hook", "https://localhost/hook",
-        "https://127.0.0.1/hook", "https://user:secret@example.com/hook",
-        "https://example.com/hook#fragment"
+        "", "http://coderpad.io/hook", "https://localhost/hook",
+        "https://127.0.0.1/hook", "https://user:secret@coderpad.io/hook",
+        "https://coderpad.io/hook#fragment"
     ])
     func `setter rejects unsafe callback URLs before transport`(url: String) async {
         #expect(ScreenClient.normalizedWebhookURL(url) == nil)
@@ -27,19 +27,19 @@ struct ScreenWebhookValidationTests {
 
     @Test
     func `setter trims a safe public HTTPS callback`() async throws {
-        #expect(ScreenClient.normalizedWebhookURL("  https://example.com/hook?token=1\n")
-            == "https://example.com/hook?token=1")
-        try await screenClient().setWebhookURL("  https://example.com/hook?token=1\n")
+        #expect(ScreenClient.normalizedWebhookURL("  https://coderpad.io/hook?token=1\n")
+            == "https://coderpad.io/hook?token=1")
+        try await screenClient().setWebhookURL("  https://coderpad.io/hook?token=1\n")
     }
 
     @Test
     func `getter validation accepts absence and normalizes a safe callback`() throws {
         #expect(try ScreenClient.validatedWebhookURL(nil) == nil)
-        #expect(try ScreenClient.validatedWebhookURL(" https://example.com/hook ")
-            == "https://example.com/hook")
+        #expect(try ScreenClient.validatedWebhookURL(" https://coderpad.io/hook ")
+            == "https://coderpad.io/hook")
     }
 
-    @Test(arguments: ["", "not a URL", "http://example.com", "https://localhost/hook"])
+    @Test(arguments: ["", "not a URL", "http://coderpad.io", "https://localhost/hook"])
     func `getter validation rejects malformed server configuration`(url: String) {
         #expect(throws: CoderPadError.self) {
             try ScreenClient.validatedWebhookURL(url)
