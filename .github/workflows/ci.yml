@@ -28,8 +28,7 @@ jobs:
       matrix:
         # The package requires swift-tools-version 6.2 (defaultIsolation,
         # NonisolatedNonsendingByDefault). latest-stable Xcode on the macos-26 image
-        # provides Swift 6.2+. The library uses os.log, so it is Apple-only: there is
-        # no Linux job.
+        # provides Swift 6.2+.
         swift: ["latest-stable"]
     steps:
       - uses: actions/checkout@v5
@@ -42,3 +41,14 @@ jobs:
         run: swift build --build-tests
       - name: Test
         run: swift test
+
+  linux:
+    name: Linux library (Swift 6.2)
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    steps:
+      - uses: actions/checkout@v5
+      # CoderPadKitMock intentionally uses CoreGraphics/CoreText fixtures, but
+      # downstream server packages consume the platform-neutral library product.
+      - name: Build library target
+        run: swift build --target CoderPadKit
