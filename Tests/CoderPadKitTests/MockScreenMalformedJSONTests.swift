@@ -35,7 +35,7 @@ struct MockScreenMalformedJSONTests {
     @Test
     func `a malformed webhook body does not replace existing state`() async throws {
         let client = ScreenClient.mock(key: "malformed-webhook-\(UUID().uuidString)")
-        try await client.setWebhookURL("https://example.com/kept")
+        try await client.setWebhookURL("https://coderpad.io/kept")
 
         var request = URLRequest(
             url: client.baseURL.appending(path: "/assessment/api/v1.1/webhook")
@@ -45,6 +45,6 @@ struct MockScreenMalformedJSONTests {
         request.setValue(client.apiKey, forHTTPHeaderField: "API-Key")
         _ = try await client.session.data(for: request)
 
-        #expect(try await client.webhookURL() == "https://example.com/kept")
+        #expect(try await client.webhookURL() == "https://coderpad.io/kept")
     }
 }
