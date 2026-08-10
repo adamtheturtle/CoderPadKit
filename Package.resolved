@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/adamtheturtle/SafeURLKit.git",
       "state" : {
-        "revision" : "f71fa0333026fcd3ee357f86154997eea3b31a50",
-        "version" : "0.1.1"
+        "revision" : "115cca1b70d9da5f3487eac1f7aeba2360737fd0",
+        "version" : "0.1.2"
       }
     }
   ],
