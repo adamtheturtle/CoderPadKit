@@ -19,7 +19,7 @@ nonisolated struct BoundedScreenWarnings: Decodable {
         var decoded: [String] = []
         var discardedCount = 0
         decoded.reserveCapacity(min(container.count ?? 0, Self.maximumEntries))
-        while !container.isAtEnd, decoded.count < Self.maximumEntries {
+        while !container.isAtEnd {
             guard let raw = try? container.decode(String.self) else {
                 if (try? container.decode(DiscardedScreenValue.self)) == nil {
                     throw DecodingError.dataCorrupted(.init(
@@ -40,7 +40,13 @@ nonisolated struct BoundedScreenWarnings: Decodable {
                 continue
             }
 
-            decoded.append(String(normalized.prefix(Self.maximumLength)))
+            if decoded.count < Self.maximumEntries {
+                decoded.append(String(normalized.prefix(Self.maximumLength)))
+            } else {
+                // Count excess genuine warnings so a full retained list is not
+                // indistinguishable from a truncated one (#113).
+                discardedCount += 1
+            }
         }
         values = decoded
         self.discardedCount = discardedCount

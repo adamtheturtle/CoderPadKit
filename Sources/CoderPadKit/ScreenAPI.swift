@@ -328,7 +328,12 @@ private nonisolated struct LenientScreenDictionary<Value: Decodable>: Decodable 
         var discardedCount = 0
 
         let keys = container.allKeys.sorted(by: { $0.stringValue < $1.stringValue })
-        for key in keys.prefix(Self.maximumEntries) {
+        for key in keys {
+            if decodedValues.count >= Self.maximumEntries {
+                discardedCount += 1
+                continue
+            }
+
             guard let normalizedKey = normalizedScreenDictionaryKey(key.stringValue),
                   decodedValues[normalizedKey] == nil,
                   let value = try? container.decode(Value.self, forKey: key)
@@ -339,8 +344,6 @@ private nonisolated struct LenientScreenDictionary<Value: Decodable>: Decodable 
 
             decodedValues[normalizedKey] = value
         }
-
-        discardedCount += max(0, keys.count - Self.maximumEntries)
 
         values = decodedValues
         self.discardedCount = discardedCount
@@ -377,8 +380,9 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
     /// Score distribution buckets across the candidate community, when requested
     /// with `withCommunityStats`.
     public let communityStats: [Int]?
-    /// Count of `warnings` elements that failed to decode as a string and
-    /// were dropped rather than failing the whole report (#218).
+    /// Count of `warnings` elements that failed to decode as a string, were blank
+    /// after normalization, or exceeded the retained-warning cap and were dropped
+    /// rather than failing the whole report (#218, #113).
     public let omittedWarningCount: Int
 
     /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.

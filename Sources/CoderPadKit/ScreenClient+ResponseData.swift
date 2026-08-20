@@ -34,7 +34,7 @@ nonisolated extension ScreenClient {
                 let boundedErrorData = Data(data.prefix(limit))
                 throw CoderPadError.http(
                     http.statusCode,
-                    String(bytes: boundedErrorData, encoding: .utf8) ?? ""
+                    String(decoding: boundedErrorData, as: UTF8.self)
                 )
             }
             return (data, http)
@@ -55,7 +55,7 @@ nonisolated extension ScreenClient {
 
         let data = try await responseBody(from: bytes, response: http, limit: limit, isSuccess: isSuccess)
         guard isSuccess else {
-            throw CoderPadError.http(http.statusCode, String(bytes: data, encoding: .utf8) ?? "")
+            throw CoderPadError.http(http.statusCode, String(decoding: data, as: UTF8.self))
         }
         return (data, http)
         #endif

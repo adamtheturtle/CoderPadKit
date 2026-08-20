@@ -75,7 +75,25 @@ struct ScreenReportMetricTests {
         #expect(report.technologies.count == 100)
         #expect(report.omittedBreakdownEntries == 20)
         #expect(report.warnings.count == 100)
+        #expect(report.omittedWarningCount == 21)
         #expect(report.warnings.allSatisfy { $0.count <= 500 && !$0.contains("\n") })
+    }
+
+    @Test
+    func `valid technologies after early malformed keys are still retained`() throws {
+        var technologies: [String: Any] = [:]
+        for index in 0 ..< 100 {
+            // Lexicographically early keys that fail value decoding.
+            technologies[String(format: "A%03d", index)] = ["score": 120]
+        }
+        technologies["Valid"] = ["score": 50]
+
+        let data = try JSONSerialization.data(withJSONObject: ["technologies": technologies])
+        let report = try JSONDecoder().decode(ScreenReport.self, from: data)
+
+        #expect(report.technologies["Valid"]?.score == 50)
+        #expect(report.technologies.count == 1)
+        #expect(report.omittedBreakdownEntries == 100)
     }
 
     @Test(arguments: [
