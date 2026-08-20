@@ -38,9 +38,12 @@ public struct ScreenClient {
     /// All endpoints live under this versioned prefix. The version is bumped only
     /// for breaking changes (added response fields are non-breaking — see `ScreenAPI`).
     private nonisolated static let apiPrefix = "/assessment/api/v1.1"
-    public nonisolated static let maximumPageSize = 500
+    /// Screen v1.1 documents `limit` as int32 with a maximum of 50 (#103).
+    public nonisolated static let maximumPageSize = 50
     public nonisolated static let maximumProductFilterLength = 64
     public nonisolated static let maximumEmailFilterLength = 320
+    /// Documented `product` query values for `GET /tests` (#104).
+    public nonisolated static let allowedProductFilters: Set<String> = ["screen", "map"]
     public nonisolated static let defaultMaximumResponseBodyBytes = 10 * 1024 * 1024
     public nonisolated static let maximumErrorBodyBytes = 16 * 1024
     public nonisolated static let maximumFullListPages = 100
@@ -358,7 +361,7 @@ private extension ScreenClient {
 
     public nonisolated static func normalizedListFilters(product: String?, candidateEmail: String?) throws
         -> (product: String?, candidateEmail: String?) {
-        let product = try normalizedFilter(product, name: "product", maximumLength: maximumProductFilterLength)
+        let product = try normalizedProductFilter(product)
         let candidateEmail = try normalizedFilter(
             candidateEmail, name: "candidate email", maximumLength: maximumEmailFilterLength
         ).map(EmailValidation.normalized)
@@ -366,5 +369,23 @@ private extension ScreenClient {
             throw CoderPadError.decode("Screen candidate email filter is invalid or too long.")
         }
         return (product, candidateEmail)
+    }
+
+    /// Trims and lowercases a product filter, then requires one of the documented
+    /// wire values (`screen`, `map`). `nil` means "no product filter" (#104).
+    public nonisolated static func normalizedProductFilter(_ raw: String?) throws -> String? {
+        guard let product = try normalizedFilter(
+            raw, name: "product", maximumLength: maximumProductFilterLength
+        ) else {
+            return nil
+        }
+
+        let normalized = product.lowercased()
+        guard allowedProductFilters.contains(normalized) else {
+            throw CoderPadError.decode(
+                "Screen product filter must be one of: \(allowedProductFilters.sorted().joined(separator: ", "))."
+            )
+        }
+        return normalized
     }
 }
