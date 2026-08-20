@@ -215,14 +215,15 @@ extension Pad {
         return updatedAt.timeIntervalSince(endedAt) > 60 ? updatedAt : nil
     }
 
-    /// The pad's web URL, parsed from the API's `url` string.
+    /// The pad's web URL, when the API's `url` string is an absolute HTTPS link
+    /// without embedded credentials (#166).
     public var webURL: URL? {
-        URL(string: url)
+        OpenableHTTPSURL.parse(url)
     }
 
-    /// The session playback URL, when the pad has one.
+    /// The session playback URL, when present and safe to open as HTTPS (#166).
     public var playbackURL: URL? {
-        playback.flatMap(URL.init(string:))
+        OpenableHTTPSURL.parse(playback)
     }
 
     /// Whether the interview has finished. Prefers the explicit `ended_at`

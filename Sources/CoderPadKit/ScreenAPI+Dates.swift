@@ -48,4 +48,69 @@ public extension ScreenTestSession {
     public var lastActivityDate: Date? {
         ScreenEpochMilliseconds.date(from: lastActivityTime)
     }
+
+    /// Recruiter dashboard URL when the API value is absolute HTTPS without
+    /// credentials (#167).
+    public var openableURL: URL? {
+        OpenableHTTPSURL.parse(url)
+    }
+
+    /// Candidate test URL when the API value is absolute HTTPS without
+    /// credentials (#167).
+    public var openableTestURL: URL? {
+        OpenableHTTPSURL.parse(testURL)
+    }
+}
+
+public extension ScreenInvitationResult {
+    /// Candidate invitation URL when the API value is absolute HTTPS without
+    /// credentials (#167).
+    public var openableTestURL: URL? {
+        OpenableHTTPSURL.parse(testURL)
+    }
+}
+
+extension ScreenTestSession {
+    /// Rejects jointly present timestamps that cannot describe a real session
+    /// lifecycle (negative durations, activity outside the window) (#169).
+    nonisolated static func validateChronology(
+        sendTime: Int?,
+        startTime: Int?,
+        endTime: Int?,
+        lastActivityTime: Int?,
+        codingPath: [any CodingKey]
+    ) throws {
+        if let sendTime, let startTime, startTime < sendTime {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: codingPath,
+                debugDescription: "Screen start_time must not precede send_time."
+            ))
+        }
+        if let startTime, let endTime, endTime < startTime {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: codingPath,
+                debugDescription: "Screen end_time must not precede start_time."
+            ))
+        }
+        if let sendTime, let endTime, endTime < sendTime {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: codingPath,
+                debugDescription: "Screen end_time must not precede send_time."
+            ))
+        }
+        if let lastActivityTime {
+            if let sendTime, lastActivityTime < sendTime {
+                throw DecodingError.dataCorrupted(.init(
+                    codingPath: codingPath,
+                    debugDescription: "Screen last_activity_time must not precede send_time."
+                ))
+            }
+            if let endTime, lastActivityTime > endTime {
+                throw DecodingError.dataCorrupted(.init(
+                    codingPath: codingPath,
+                    debugDescription: "Screen last_activity_time must not follow end_time."
+                ))
+            }
+        }
+    }
 }
