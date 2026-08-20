@@ -243,11 +243,11 @@ public nonisolated struct PadInterviewerNotification: Codable, Identifiable, Has
 }
 
 /// One entry in a pad's event log: a join, a code run, a question being added, and so on.
-public nonisolated struct PadEvent: Decodable, Identifiable, Hashable, Sendable {
-    public var id: String {
-        "\(createdAt?.timeIntervalSince1970 ?? 0)-\(kind)-\(userName ?? "")-\(message)"
-    }
-
+///
+/// Events are not ``Identifiable``: the API does not assign a stable event id, and
+/// synthesizing one from timestamp/kind/actor/message can collide for distinct rows
+/// (#101). Callers that need collection identity should use positional indices.
+public nonisolated struct PadEvent: Decodable, Hashable, Sendable {
     public let message: String
     public let kind: String
     /// Event-specific context: the language run for `ran`, the question ID for
