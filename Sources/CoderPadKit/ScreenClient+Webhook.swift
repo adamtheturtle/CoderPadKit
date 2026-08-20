@@ -6,6 +6,10 @@
 import Foundation
 import SafeURLKit
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 public extension ScreenClient {
     private nonisolated static let webhookPolicy = URLPolicy(
         allowedSchemes: ["https"],
