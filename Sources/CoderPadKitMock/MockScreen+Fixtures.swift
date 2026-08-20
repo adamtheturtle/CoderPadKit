@@ -147,7 +147,7 @@ nonisolated enum MockScreenFixtures {
     ) -> [String: Any] {
         var session: [String: Any] = [
             "id": id, "id_test": id, "status": status, "campaign_id": campaign,
-            "organization_id": "demo-org", "candidate_language": "en", "tags": tags,
+            "organization_id": "4143ca74-2f0e-4151-90d6-e1428739450b", "candidate_language": "en", "tags": tags,
             "url": "https://app.coderpad.io/screen/demo/dashboard/tests/\(id)",
             "test_url": "https://app.coderpad.io/screen/demo/tests/\(id)",
             "questions": [["id": id * 10, "last_activity_time": daysAgo(ended ?? started ?? sent ?? 1)]]

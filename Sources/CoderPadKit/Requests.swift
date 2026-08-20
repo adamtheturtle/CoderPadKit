@@ -7,69 +7,6 @@
 
 import Foundation
 
-/// ZIP bytes to attach when creating or updating a multi-file question.
-///
-/// The value is deliberately data-oriented: CoderPadKit does not open the filename or
-/// read from disk. Obtain `data` from a file, memory, or another provider before calling
-/// ``CoderPadClient/createQuestion(_:zipFile:)`` or
-/// ``CoderPadClient/updateQuestion(_:zipFile:)``.
-public nonisolated struct QuestionZIPUpload: Sendable {
-    /// Maximum accepted archive size (50 MiB).
-    public static let maximumByteCount = 50 * 1024 * 1024
-    /// Maximum complete multipart body size, including the archive, text fields, and
-    /// framing. Text fields cannot use this headroom to bypass the archive ceiling.
-    public static let maximumMultipartByteCount = maximumByteCount + (5 * 1024 * 1024)
-
-    /// The exact archive bytes sent to CoderPad. Empty data is allowed.
-    public var data: Data
-    /// The filename reported in the multipart Content-Disposition header.
-    public var filename: String
-
-    public init(data: Data, filename: String) {
-        self.data = data
-        self.filename = filename
-    }
-
-    func validateSize() throws {
-        guard data.count <= Self.maximumByteCount else {
-            throw QuestionZIPUploadTooLargeError(
-                byteCount: data.count,
-                limit: Self.maximumByteCount
-            )
-        }
-    }
-}
-
-/// A question ZIP exceeded ``QuestionZIPUpload/maximumByteCount``.
-public nonisolated struct QuestionZIPUploadTooLargeError: LocalizedError, Equatable, Sendable {
-    public let byteCount: Int
-    public let limit: Int
-
-    public var errorDescription: String? {
-        "Question ZIP is \(byteCount) bytes; the upload limit is \(limit) bytes."
-    }
-
-    public init(byteCount: Int, limit: Int) {
-        self.byteCount = byteCount
-        self.limit = limit
-    }
-}
-
-/// A staged multipart body exceeded ``QuestionZIPUpload/maximumMultipartByteCount``.
-public nonisolated struct MultipartFormDataTooLargeError: LocalizedError, Equatable, Sendable {
-    public let byteCount: Int
-    public let limit: Int
-
-    public var errorDescription: String? {
-        "Multipart upload is \(byteCount) bytes; the request limit is \(limit) bytes."
-    }
-
-    public init(byteCount: Int, limit: Int) {
-        self.byteCount = byteCount
-        self.limit = limit
-    }
-}
-
 /// A question mutation selected incompatible sources for its starter content.
 public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatable, Sendable {
     /// More than one starter-content representation was supplied.

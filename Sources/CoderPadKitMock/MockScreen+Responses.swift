@@ -108,7 +108,7 @@ nonisolated enum MockScreenResponses {
 
         var session: [String: Any] = [
             "id": id, "id_test": id, "status": "waiting", "campaign_id": campaignID,
-            "organization_id": "demo-org", "candidate_language": "en",
+            "organization_id": "4143ca74-2f0e-4151-90d6-e1428739450b", "candidate_language": "en",
             "send_time": MockScreenFixtures.nowMillis(),
             "last_activity_time": MockScreenFixtures.nowMillis(),
             "url": "https://app.coderpad.io/screen/demo/dashboard/tests/\(id)",

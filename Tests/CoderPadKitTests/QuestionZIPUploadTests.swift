@@ -11,9 +11,10 @@ import Testing
 @Suite("Question ZIP uploads", .serialized)
 struct QuestionZIPUploadTests {
     @Test
-    func `create sends a complete multipart request with Unicode filename and empty data`() async throws {
+    func `create sends a complete multipart request with Unicode filename`() async throws {
         let client = makeClient()
         let filename = "résumé \"draft\".zip"
+        let fileData = Data([0x50, 0x4B, 0x03, 0x04])
 
         _ = try await client.createQuestion(
             QuestionCreate(
@@ -28,7 +29,7 @@ struct QuestionZIPUploadTests {
                 ],
                 aiAssistCustomSystemPrompt: "Give hints"
             ),
-            zipFile: QuestionZIPUpload(data: Data(), filename: filename)
+            zipFile: QuestionZIPUpload(data: fileData, filename: filename)
         )
 
         let request = try #require(ZIPCaptureURLProtocol.requests().first)
@@ -50,7 +51,7 @@ struct QuestionZIPUploadTests {
             ],
             escapedFilename: "r_sum_ \\\"draft\\\".zip",
             filenameStar: "r%C3%A9sum%C3%A9%20%22draft%22.zip",
-            fileData: Data()
+            fileData: fileData
         )
 
         #expect(request.method == "POST")
@@ -139,6 +140,7 @@ struct QuestionZIPUploadTests {
         requireSendable(QuestionMutationValidationError.self)
         requireSendable(QuestionZIPUploadTooLargeError.self)
         requireSendable(QuestionZIPUploadInvalidFilenameError.self)
+        requireSendable(QuestionZIPUploadInvalidArchiveError.self)
         requireSendable(MultipartFormDataTooLargeError.self)
     }
 

@@ -348,6 +348,17 @@ struct UnauthorizedMockServerTests {
         }
         #expect(error?.isUnauthorized == true)
     }
+
+    /// Editor history is fetched from a public Firebase URL that never carries the
+    /// Interview bearer token, live or mocked, so a revoked Interview API key must
+    /// not turn that otherwise public request into a 401.
+    @Test
+    func `padHistory does not 401, unlike the Interview REST routes`() async throws {
+        let history = try await client.padHistory(
+            historyURL: "https://coderpad-1.firebaseio.com/DEMOABC1/history.json"
+        )
+        #expect(!history.isEmpty)
+    }
 }
 
 /// Fails every request with an offline `URLError`, so the client's transport-error

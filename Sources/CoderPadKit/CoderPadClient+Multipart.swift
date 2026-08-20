@@ -83,7 +83,7 @@ extension CoderPadClient {
         guard !apiKey.isEmpty else {
             throw CoderPadError.missingAPIKey
         }
-        try zipFile.validateSize()
+        try zipFile.validate()
 
         let multipart = try MultipartFormData(
             fields: fields,

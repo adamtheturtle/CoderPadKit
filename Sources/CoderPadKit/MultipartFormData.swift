@@ -137,7 +137,8 @@ nonisolated struct MultipartFormData: Sendable {
         )
         var encoded = ""
         for byte in value.utf8 {
-            if let scalar = UnicodeScalar(byte), allowed.contains(scalar) {
+            let scalar = UnicodeScalar(byte)
+            if allowed.contains(scalar) {
                 encoded.append(Character(scalar))
             } else {
                 encoded.append(String(format: "%%%02X", byte))
