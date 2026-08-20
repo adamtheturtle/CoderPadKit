@@ -184,11 +184,28 @@ public struct CoderPadClient {
     /// override it (e.g. a self-hosted or regional deployment).
     public static let defaultBaseURL = URL(string: "https://app.coderpad.io") ?? URL(fileURLWithPath: "/")
 
+    /// Whether `url` is safe to use as an Interview API origin: HTTPS, no embedded
+    /// credentials, and no query/fragment that would contaminate every endpoint URL
+    /// (#200, #201). A non-empty path is allowed so self-hosted deployments can sit
+    /// under a reverse-proxy prefix.
+    public nonisolated static func isAllowedBaseURL(_ url: URL) -> Bool {
+        url.scheme?.lowercased() == "https"
+            && url.host != nil
+            && url.user == nil
+            && url.password == nil
+            && url.query == nil
+            && url.fragment == nil
+    }
+
     public init(apiKey: String,
                 baseURL: URL = Self.defaultBaseURL,
                 session: URLSession = Self.liveSession,
                 maximumHistoryResponseBodyBytes: Int = Self.defaultMaximumHistoryResponseBodyBytes) {
         precondition(maximumHistoryResponseBodyBytes >= 0, "History response limit must not be negative")
+        precondition(
+            Self.isAllowedBaseURL(baseURL),
+            "CoderPadClient base URL must be a credential-free HTTPS origin without query or fragment."
+        )
         self.apiKey = apiKey
         self.baseURL = baseURL
         self.session = session

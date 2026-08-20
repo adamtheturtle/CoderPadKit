@@ -45,6 +45,8 @@ final nonisolated class ScreenRedirectDelegate: NSObject, URLSessionTaskDelegate
     private static func originComponents(_ url: URL?) -> Origin? {
         guard let url,
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.user == nil,
+              components.password == nil,
               let scheme = components.scheme?.lowercased(),
               let host = components.host?.lowercased(),
               let port = components.port ?? defaultPort(for: scheme)

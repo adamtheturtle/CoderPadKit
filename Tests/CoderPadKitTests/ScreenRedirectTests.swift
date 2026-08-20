@@ -36,5 +36,9 @@ struct ScreenRedirectTests {
         #expect(!ScreenRedirectDelegate.hasSameOrigin(origin, URL(string: "https://attacker.example/tests")!))
         #expect(!ScreenRedirectDelegate.hasSameOrigin(origin, URL(string: "http://www.codingame.com/tests")!))
         #expect(!ScreenRedirectDelegate.hasSameOrigin(origin, URL(string: "https://www.codingame.com:444/tests")!))
+        #expect(!ScreenRedirectDelegate.hasSameOrigin(
+            origin,
+            URL(string: "https://user:pass@www.codingame.com/assessment/api/v1.1/tests")!
+        ))
     }
 }

@@ -24,7 +24,11 @@ struct ScreenClientTests {
     }
 
     @Test
-    func `base URL validation allows live regions and the in-process mock`() {
+    func `base URL validation separates production origins from the mock host`() {
+        #expect(ScreenClient.isAllowedProductionBaseURL(ScreenClient.defaultBaseURL))
+        #expect(ScreenClient.isAllowedProductionBaseURL(ScreenClient.euBaseURL))
+        #expect(!ScreenClient.isAllowedProductionBaseURL(ScreenClient.mockBaseURL))
+
         #expect(ScreenClient.isAllowedBaseURL(ScreenClient.defaultBaseURL))
         #expect(ScreenClient.isAllowedBaseURL(ScreenClient.euBaseURL))
         #expect(ScreenClient.isAllowedBaseURL(ScreenClient.mockBaseURL))
