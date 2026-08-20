@@ -248,6 +248,35 @@ struct DecodeToleranceTests {
     }
 
     @Test
+    func `Pad requires an active environment ID to appear exactly once`() throws {
+        let valid = try CoderPadClient.decoder.decode(
+            Pad.self,
+            from: Data(
+                #"{"id":"P-env","active_environment_id":2,"pad_environment_ids":[1,2,3]}"#.utf8
+            )
+        )
+        #expect(valid.activeEnvironmentID == 2)
+
+        #expect(throws: DecodingError.self) {
+            try CoderPadClient.decoder.decode(
+                Pad.self,
+                from: Data(
+                    #"{"id":"P-missing","active_environment_id":9,"pad_environment_ids":[1,2]}"#.utf8
+                )
+            )
+        }
+
+        #expect(throws: DecodingError.self) {
+            try CoderPadClient.decoder.decode(
+                Pad.self,
+                from: Data(
+                    #"{"id":"P-dup","active_environment_id":2,"pad_environment_ids":[2,2]}"#.utf8
+                )
+            )
+        }
+    }
+
+    @Test
     func `Pad and Question parse both fractional and whole-second timestamps`() throws {
         let fractional = try CoderPadClient.decoder.decode(
             Pad.self, from: Data(#"{"id":"P3","created_at":"2026-06-10T08:00:00.500Z"}"#.utf8)
