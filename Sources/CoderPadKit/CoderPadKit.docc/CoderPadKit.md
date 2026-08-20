@@ -154,6 +154,7 @@ let badKey = CoderPadClient.mock(unauthorized: true) // every request answers 40
 - ``PadHistoryOperation``
 - ``PadCreate``
 - ``PadUpdate``
+- ``PadMutationValidationError``
 
 ### Questions
 

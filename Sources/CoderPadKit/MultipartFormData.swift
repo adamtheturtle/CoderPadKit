@@ -167,7 +167,7 @@ nonisolated struct MultipartFormData: Sendable {
 
 nonisolated extension QuestionCreate {
     func multipartFields() throws -> [MultipartFormField] {
-        var fields = [MultipartFormField(name: "question[title]", value: title)]
+        var fields = [MultipartFormField(name: "question[title]", value: try validatedQuestionTitle(title))]
         fields.append(name: "question[language]", value: language)
         fields.append(name: "question[description]", value: description)
         fields.append(name: "question[solution]", value: solution)
@@ -176,7 +176,7 @@ nonisolated extension QuestionCreate {
         fields.append(name: "question[pad_type]", value: padType)
         fields.append(
             name: "question[candidate_instructions]",
-            value: try candidateInstructions.map(Self.formJSONString)
+            value: try validatedCandidateInstructions(candidateInstructions).map(Self.formJSONString)
         )
         fields.append(
             name: "question[ai_assist_custom_system_prompt]",
@@ -195,7 +195,7 @@ nonisolated extension QuestionCreate {
 nonisolated extension QuestionUpdate {
     func multipartFields() throws -> [MultipartFormField] {
         var fields: [MultipartFormField] = []
-        fields.append(name: "question[title]", value: title)
+        fields.append(name: "question[title]", value: try title.map(validatedQuestionTitle))
         fields.append(name: "question[language]", value: language)
         fields.append(name: "question[description]", value: description)
         fields.append(name: "question[solution]", value: solution)
@@ -204,7 +204,7 @@ nonisolated extension QuestionUpdate {
         fields.append(name: "question[pad_type]", value: padType)
         fields.append(
             name: "question[candidate_instructions]",
-            value: try candidateInstructions.map(Self.formJSONString)
+            value: try validatedCandidateInstructions(candidateInstructions).map(Self.formJSONString)
         )
         fields.append(
             name: "question[ai_assist_custom_system_prompt]",
