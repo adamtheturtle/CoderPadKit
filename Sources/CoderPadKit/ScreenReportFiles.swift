@@ -30,26 +30,48 @@ public nonisolated enum ScreenReportFiles {
 
     /// Every PDF starts with this marker (#1943).
     public static let pdfMagic = Array("%PDF-".utf8)
+    /// Trailer marker required by the PDF file structure (#171).
+    public static let pdfEOFMarker = Array("%%EOF".utf8)
+    /// Cross-reference locator required near the end of a PDF (#171).
+    public static let pdfStartXRefMarker = Array("startxref".utf8)
     /// Generous ceiling for one candidate report, enforced at the staging boundary
     /// as well as before the open/save choice (#2720).
     public static let maxReportBytes = 50 * 1024 * 1024
+    /// Fail-safe expiry scheduled when a report is staged so forgotten cleanup
+    /// cannot retain candidate data for the whole process lifetime (#172).
+    public static let defaultStageExpiry: Duration = .seconds(3600)
 
     public static func isWithinSizeLimit(_ byteCount: Int) -> Bool {
         byteCount >= 0 && byteCount <= maxReportBytes
     }
 
-    /// Whether the bytes plausibly are a PDF document.
+    /// Whether the bytes plausibly are a PDF document. Always requires a bounded
+    /// structural check (`%PDF-`, `startxref`, `%%EOF`); on platforms with
+    /// CoreGraphics, also requires a parseable document with at least one page
+    /// (#171).
     public static func isLikelyPDF(_ data: Data) -> Bool {
+        guard hasPDFStructure(data) else { return false }
         #if canImport(CoreGraphics)
-        guard data.starts(with: pdfMagic),
-              let provider = CGDataProvider(data: data as CFData),
+        guard let provider = CGDataProvider(data: data as CFData),
               let document = CGPDFDocument(provider)
         else { return false }
 
         return document.numberOfPages > 0
         #else
-        return data.starts(with: pdfMagic)
+        return true
         #endif
+    }
+
+    /// Platform-independent structural PDF check used before any CoreGraphics parse.
+    static func hasPDFStructure(_ data: Data) -> Bool {
+        guard data.starts(with: pdfMagic), data.count >= pdfMagic.count + pdfEOFMarker.count else {
+            return false
+        }
+        let trailerWindow = data.suffix(min(2048, data.count))
+        guard trailerWindow.range(of: Data(pdfEOFMarker)) != nil else { return false }
+        // `startxref` may sit just before the trailer; search the same trailing window.
+        return trailerWindow.range(of: Data(pdfStartXRefMarker)) != nil
+            || data.range(of: Data(pdfStartXRefMarker)) != nil
     }
 
     /// The root folder under the app's temporary directory that holds every staged
@@ -64,12 +86,13 @@ public nonisolated enum ScreenReportFiles {
     /// so the window title in Preview stays meaningful; uniqueness comes from the
     /// enclosing directory.
     public static func stage(_ data: Data, testID: Int) throws -> URL {
-        try stage(data, testID: testID, afterCreatingFolder: { _ in })
+        try stage(data, testID: testID, failSafeAfter: defaultStageExpiry, afterCreatingFolder: { _ in })
     }
 
     static func stage(
         _ data: Data,
         testID: Int,
+        failSafeAfter: Duration = defaultStageExpiry,
         afterCreatingFolder: @Sendable (URL) -> Void
     ) throws -> URL {
         guard testID > 0 else { throw CocoaError(.fileWriteInvalidFileName) }
@@ -104,6 +127,9 @@ public nonisolated enum ScreenReportFiles {
             try? FileManager.default.removeItem(at: folder)
             throw error
         }
+        // Schedule fail-safe cleanup even when the caller never calls
+        // `scheduleRemoval` / `handleOpenResult` (#172).
+        scheduleRemoval(of: url, after: failSafeAfter)
         return url
     }
 

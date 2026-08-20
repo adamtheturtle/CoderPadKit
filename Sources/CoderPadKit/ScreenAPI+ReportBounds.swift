@@ -31,9 +31,8 @@ nonisolated struct BoundedScreenWarnings: Decodable {
                 continue
             }
 
-            let normalized = raw.components(separatedBy: .controlCharacters)
-                .joined(separator: " ")
-                .split(whereSeparator: \Character.isWhitespace)
+            let scrubbed = scrubbedScreenDisplayText(raw)
+            let normalized = scrubbed.split(whereSeparator: \Character.isWhitespace)
                 .joined(separator: " ")
             guard !normalized.isEmpty else {
                 discardedCount += 1

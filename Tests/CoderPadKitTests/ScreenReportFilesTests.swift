@@ -64,7 +64,7 @@ struct ScreenReportFilesTests {
         let continueWriting = DispatchSemaphore(value: 0)
         let stagedFolder = Mutex<URL?>(nil)
         let staging = Task.detached {
-            try ScreenReportFiles.stage(data, testID: 5001) { folder in
+            try ScreenReportFiles.stage(data, testID: 5001, failSafeAfter: .seconds(3600)) { folder in
                 stagedFolder.withLock { $0 = folder }
                 signalCreated.yield()
                 signalCreated.finish()
@@ -83,5 +83,42 @@ struct ScreenReportFilesTests {
         continueWriting.signal()
         let report = try await staging.value
         ScreenReportFiles.remove(report)
+    }
+
+    @Test
+    func `stage schedules fail-safe expiry when callers forget cleanup`() async throws {
+        let data = try await ScreenClient.mock(key: "stage-expiry-\(UUID().uuidString)")
+            .testReport(id: 5002)
+        let report = try ScreenReportFiles.stage(
+            data, testID: 5002, failSafeAfter: .milliseconds(40), afterCreatingFolder: { _ in }
+        )
+
+        for _ in 0 ..< 100 where FileManager.default.fileExists(atPath: report.path) {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: report.deletingLastPathComponent().path))
+    }
+
+    @Test
+    func `percent-PDF prefix alone is not treated as a PDF`() {
+        let html = Data("%PDF-<html>not a document</html>".utf8)
+        #expect(!ScreenReportFiles.hasPDFStructure(html))
+        #expect(!ScreenReportFiles.isLikelyPDF(html))
+    }
+
+    @Test
+    func `structural PDF markers are required without relying on CoreGraphics alone`() {
+        let structured = Data(
+            """
+            %PDF-1.4
+            1 0 obj<<>>endobj
+            trailer<<>>
+            startxref
+            9
+            %%EOF
+            """.utf8
+        )
+        #expect(ScreenReportFiles.hasPDFStructure(structured))
     }
 }
