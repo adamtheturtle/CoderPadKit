@@ -12,7 +12,9 @@ public nonisolated struct Organization: Decodable, Hashable, Sendable {
     // The live response also carries `child_organizations`, but its sampled value
     // was empty. Deliberately defer a public property until a non-empty response
     // establishes the item shape instead of publishing a speculative wire model.
-    public let id: Int
+    /// Organization numeric id when the payload includes one. The documented
+    /// `/api/organization` example omits `id`, so this is optional (#152).
+    public let id: Int?
     public let organizationName: String
     public let userCount: Int?
     public let users: [OrganizationUser]
@@ -23,24 +25,39 @@ public nonisolated struct Organization: Decodable, Hashable, Sendable {
     public let singleSignInURL: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, users, teams
+        case id, users, teams, name
         case organizationName = "organization_name"
         case userCount = "user_count"
         case organizationDefaultLanguage = "organization_default_language"
+        case defaultLanguage = "default_language"
         case singleSignOnSupported = "single_sign_on_supported"
         case singleSignInURL = "single_sign_in_url"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
-        organizationName = try container.decode(String.self, forKey: .organizationName)
+        if let rawID = try container.decodeIfPresent(Int.self, forKey: .id) {
+            guard rawID > 0 else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .id,
+                    in: container,
+                    debugDescription: "Organization id must be positive when present."
+                )
+            }
+            id = rawID
+        } else {
+            id = nil
+        }
+        organizationName =
+            try container.decodeIfPresent(String.self, forKey: .organizationName)
+            ?? container.decodeIfPresent(String.self, forKey: .name)
+            ?? ""
         userCount = try container.decodeIfPresent(NonnegativeInt.self, forKey: .userCount)?.value
-        users = try container.decode([OrganizationUser].self, forKey: .users)
-        teams = try container.decode([PadTeam].self, forKey: .teams)
-        organizationDefaultLanguage = try container.decodeIfPresent(
-            String.self, forKey: .organizationDefaultLanguage
-        )
+        users = try container.decodeIfPresent([OrganizationUser].self, forKey: .users) ?? []
+        teams = try container.decodeIfPresent([PadTeam].self, forKey: .teams) ?? []
+        organizationDefaultLanguage =
+            try container.decodeIfPresent(String.self, forKey: .organizationDefaultLanguage)
+            ?? container.decodeIfPresent(String.self, forKey: .defaultLanguage)
         singleSignOnSupported = try container.decodeIfPresent(Bool.self, forKey: .singleSignOnSupported)
         singleSignInURL = try container.decodeIfPresent(String.self, forKey: .singleSignInURL)
     }

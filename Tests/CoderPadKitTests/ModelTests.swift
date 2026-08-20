@@ -22,9 +22,11 @@ struct PadStateTests {
     }
 
     @Test
-    func `unrecognized states are preserved verbatim as other`() {
+    func `unrecognized states preserve the original API spelling as other`() {
         #expect(PadState(apiState: "archived") == .other("archived"))
         #expect(PadState(apiState: "archived").rawValue == "archived")
+        #expect(PadState(apiState: "PausedByAdmin") == .other("PausedByAdmin"))
+        #expect(PadState(apiState: "PausedByAdmin").rawValue == "PausedByAdmin")
     }
 
     @Test

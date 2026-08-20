@@ -28,6 +28,13 @@ public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatab
     /// The combined size of every file's contents exceeded
     /// ``QuestionFileContent/maximumAggregateByteCount``.
     case fileContentsTooLarge(byteCount: Int, limit: Int)
+    /// A structured file path was blank, absolute, used traversal, or was not a
+    /// safe relative project path (#143).
+    case invalidFilePath(String)
+    /// Two structured files shared the same normalized path (#144).
+    case duplicateFilePath(String)
+    /// `takeHome` and `padType` described different interview formats (#145).
+    case contradictoryTakeHomeAndPadType
 
     public var errorDescription: String? {
         switch self {
@@ -45,6 +52,12 @@ public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatab
             "File '\(path)' is \(byteCount) bytes; the per-file limit is \(limit) bytes."
         case let .fileContentsTooLarge(byteCount, limit):
             "Structured file contents total \(byteCount) bytes; the limit is \(limit) bytes."
+        case let .invalidFilePath(path):
+            "Question file path '\(path)' must be a nonempty relative project path."
+        case let .duplicateFilePath(path):
+            "Question file path '\(path)' is duplicated."
+        case .contradictoryTakeHomeAndPadType:
+            "takeHome and padType must describe the same interview format."
         }
     }
 }
@@ -60,6 +73,8 @@ public nonisolated enum PadMutationValidationError: LocalizedError, Equatable, S
     case implausibleOwnerEmail
     /// `teamID` was present but not a canonical UUID.
     case invalidTeamID
+    /// `questionID` was present but not a positive Interview resource id (#146).
+    case nonpositiveQuestionID
 
     public var errorDescription: String? {
         switch self {
@@ -71,6 +86,8 @@ public nonisolated enum PadMutationValidationError: LocalizedError, Equatable, S
             "Pad owner email must be a plausible email address."
         case .invalidTeamID:
             "Pad team ID must be a canonical UUID."
+        case .nonpositiveQuestionID:
+            "Pad question ID must be a positive integer when present."
         }
     }
 }
@@ -79,6 +96,15 @@ nonisolated func validatePadContents(contents: String?, questionID: Int?) throws
     guard contents == nil || questionID == nil else {
         throw PadMutationValidationError.mutuallyExclusiveContentsAndQuestion
     }
+}
+
+/// Requires a present question association id to be strictly positive (#146).
+nonisolated func validatedPadQuestionID(_ questionID: Int?) throws -> Int? {
+    guard let questionID else { return nil }
+    guard questionID > 0 else {
+        throw PadMutationValidationError.nonpositiveQuestionID
+    }
+    return questionID
 }
 
 nonisolated func validatePadLifecycleFlags(ended: Bool?, deleted: Bool?) throws {
@@ -172,8 +198,7 @@ nonisolated func validatedCandidateInstructions(
 }
 
 /// Bounds a structured file list by count, per-file size, and aggregate size before it
-/// reaches the encoder. `fileContents` is otherwise passed through unchanged: paths and
-/// contents are not normalized, only measured.
+/// reaches the encoder. Also normalizes and deduplicates paths (#143, #144).
 nonisolated func validatedFileContents(
     _ fileContents: [QuestionFileContent]?
 ) throws -> [QuestionFileContent]? {
@@ -185,11 +210,18 @@ nonisolated func validatedFileContents(
         )
     }
     var aggregateByteCount = 0
+    var seenPaths = Set<String>()
+    var normalizedFiles: [QuestionFileContent] = []
+    normalizedFiles.reserveCapacity(fileContents.count)
     for file in fileContents {
+        let path = try validatedQuestionFilePath(file.path)
+        guard seenPaths.insert(path).inserted else {
+            throw QuestionMutationValidationError.duplicateFilePath(path)
+        }
         let byteCount = file.contents.utf8.count
         guard byteCount <= QuestionFileContent.maximumFileByteCount else {
             throw QuestionMutationValidationError.fileContentTooLarge(
-                path: file.path,
+                path: path,
                 byteCount: byteCount,
                 limit: QuestionFileContent.maximumFileByteCount
             )
@@ -202,6 +234,43 @@ nonisolated func validatedFileContents(
                 limit: QuestionFileContent.maximumAggregateByteCount
             )
         }
+        normalizedFiles.append(QuestionFileContent(path: path, contents: file.contents))
     }
-    return fileContents
+    return normalizedFiles
+}
+
+/// Requires a nonempty relative project path with no absolute roots, drive letters,
+/// or `.` / `..` components (#143). Separators are normalized to `/`.
+nonisolated func validatedQuestionFilePath(_ path: String) throws -> String {
+    let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+        throw QuestionMutationValidationError.invalidFilePath(path)
+    }
+    if trimmed.hasPrefix("/") || trimmed.hasPrefix("\\") {
+        throw QuestionMutationValidationError.invalidFilePath(path)
+    }
+    // Windows drive / UNC roots such as `C:\main.py` or `\\server\share`.
+    if trimmed.contains(":") || trimmed.contains("\\\\") {
+        throw QuestionMutationValidationError.invalidFilePath(path)
+    }
+    let normalized = trimmed.replacingOccurrences(of: "\\", with: "/")
+    let components = normalized.split(separator: "/", omittingEmptySubsequences: false)
+        .map(String.init)
+    guard !components.isEmpty,
+          !components.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." })
+    else {
+        throw QuestionMutationValidationError.invalidFilePath(path)
+    }
+    return components.joined(separator: "/")
+}
+
+/// Rejects contradictory `takeHome` / `padType` pairs when both are present and
+/// `padType` maps to a known ``InterviewType`` (#145).
+nonisolated func validateTakeHomePadType(takeHome: Bool?, padType: String?) throws {
+    guard let takeHome, let padType else { return }
+    guard let interviewType = InterviewType(rawType: padType) else { return }
+    let implied: InterviewType = takeHome ? .takeHome : .live
+    guard interviewType == implied else {
+        throw QuestionMutationValidationError.contradictoryTakeHomeAndPadType
+    }
 }

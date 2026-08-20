@@ -24,4 +24,19 @@ extension CoderPadClient {
             throw CoderPadError.decode("Interview \(kind) ID must be positive.")
         }
     }
+
+    /// Validates `sort` before opening a page stream so unsupported values fail
+    /// without starting network I/O (#154).
+    func validatedSortStream<Element>(
+        sort: String?,
+        makeStream: (String?) -> AsyncThrowingStream<[Element], any Error>
+    ) -> AsyncThrowingStream<[Element], any Error> {
+        do {
+            return makeStream(try InterviewListSort.validated(sort))
+        } catch {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: error)
+            }
+        }
+    }
 }

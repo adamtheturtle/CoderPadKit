@@ -167,21 +167,23 @@ nonisolated struct MultipartFormData: Sendable {
 
 nonisolated extension QuestionCreate {
     func multipartFields() throws -> [MultipartFormField] {
+        try validateTakeHomePadType(takeHome: takeHome, padType: padType)
+        let normalizedLanguage = try InterviewLanguage.validated(
+            language, allowUnknown: allowUnknownLanguage
+        )
         var fields = [MultipartFormField(name: "question[title]", value: try validatedQuestionTitle(title))]
-        fields.append(name: "question[language]", value: language)
-        fields.append(name: "question[description]", value: description)
-        fields.append(name: "question[solution]", value: solution)
-        fields.append(name: "question[contents]", value: contents)
-        fields.append(name: "question[take_home]", value: takeHome.map(String.init))
-        fields.append(name: "question[pad_type]", value: padType)
+        fields.append(name: "question[language]", value: normalizedLanguage)
+        // Only title/language nest under `question[]`; remaining fields are flat (#153).
+        fields.append(name: "description", value: description)
+        fields.append(name: "solution", value: solution)
+        fields.append(name: "contents", value: contents)
+        fields.append(name: "take_home", value: takeHome.map(String.init))
+        fields.append(name: "pad_type", value: padType)
         fields.append(
-            name: "question[candidate_instructions]",
+            name: "candidate_instructions",
             value: try validatedCandidateInstructions(candidateInstructions).map(Self.formJSONString)
         )
-        fields.append(
-            name: "question[ai_assist_custom_system_prompt]",
-            value: aiAssistCustomSystemPrompt
-        )
+        fields.append(name: "ai_assist_custom_system_prompt", value: aiAssistCustomSystemPrompt)
         return fields
     }
 
@@ -194,22 +196,23 @@ nonisolated extension QuestionCreate {
 
 nonisolated extension QuestionUpdate {
     func multipartFields() throws -> [MultipartFormField] {
+        try validateTakeHomePadType(takeHome: takeHome, padType: padType)
+        let normalizedLanguage = try InterviewLanguage.validated(
+            language, allowUnknown: allowUnknownLanguage
+        )
         var fields: [MultipartFormField] = []
         fields.append(name: "question[title]", value: try title.map(validatedQuestionTitle))
-        fields.append(name: "question[language]", value: language)
-        fields.append(name: "question[description]", value: description)
-        fields.append(name: "question[solution]", value: solution)
-        fields.append(name: "question[contents]", value: contents)
-        fields.append(name: "question[take_home]", value: takeHome.map(String.init))
-        fields.append(name: "question[pad_type]", value: padType)
+        fields.append(name: "question[language]", value: normalizedLanguage)
+        fields.append(name: "description", value: description)
+        fields.append(name: "solution", value: solution)
+        fields.append(name: "contents", value: contents)
+        fields.append(name: "take_home", value: takeHome.map(String.init))
+        fields.append(name: "pad_type", value: padType)
         fields.append(
-            name: "question[candidate_instructions]",
+            name: "candidate_instructions",
             value: try validatedCandidateInstructions(candidateInstructions).map(Self.formJSONString)
         )
-        fields.append(
-            name: "question[ai_assist_custom_system_prompt]",
-            value: aiAssistCustomSystemPrompt
-        )
+        fields.append(name: "ai_assist_custom_system_prompt", value: aiAssistCustomSystemPrompt)
         return fields
     }
 

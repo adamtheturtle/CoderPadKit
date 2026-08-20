@@ -76,7 +76,17 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
+        let decodedID = try container.decode(String.self, forKey: .id)
+        do {
+            try CoderPadClient.validatePadID(decodedID)
+        } catch {
+            throw DecodingError.dataCorruptedError(
+                forKey: .id,
+                in: container,
+                debugDescription: "Pad ID must be one non-empty URL path component."
+            )
+        }
+        id = decodedID
         title = container.loggedDecodeIfPresent(String.self, forKey: .title) ?? ""
         state = container.loggedDecodeIfPresent(String.self, forKey: .state) ?? "unknown"
         ownerEmail = container.loggedDecodeIfPresent(String.self, forKey: .ownerEmail) ?? ""
