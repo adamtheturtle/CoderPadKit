@@ -342,7 +342,7 @@ struct QuestionTitleValidationTests {
 }
 
 @Suite("Candidate instruction payload validation")
-struct CandidateInstructionPayloadValidationTests {
+struct CandidateInstructionValidationTests {
     @Test(arguments: ["", "   ", "\u{0000}", "\u{202E}"])
     func `create rejects blank or control-character candidate instructions`(_ instructions: String) {
         #expect(throws: QuestionMutationValidationError.blankOrControlCandidateInstructions) {
