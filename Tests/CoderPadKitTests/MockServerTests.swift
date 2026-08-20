@@ -263,14 +263,14 @@ struct MockServerTests {
     func `create and update question accept ZIP multipart bodies`() async throws {
         let created = try await client.createQuestion(
             QuestionCreate(title: "ZIP question", language: "multifile_swift"),
-            zipFile: QuestionZIPUpload(data: Data(), filename: "résumé.zip")
+            zipFile: QuestionZIPUpload(data: Data([0x50, 0x4B, 0x03, 0x04]), filename: "resume.zip")
         )
         #expect(created.title == "ZIP question")
         #expect(created.language == "multifile_swift")
 
         let updated = try await client.updateQuestion(
             QuestionUpdate(id: created.id, description: "Archive replaced"),
-            zipFile: QuestionZIPUpload(data: Data([0x50, 0x4B, 0xFF]), filename: "v2.zip")
+            zipFile: QuestionZIPUpload(data: Data([0x50, 0x4B, 0x03, 0x04, 0x00, 0xFF]), filename: "v2.zip")
         )
         #expect(updated.description == "Archive replaced")
     }
