@@ -132,6 +132,20 @@ struct QuestionZIPUploadTests {
     }
 
     @Test
+    func `a blank title is rejected before ZIP staging or transport`() async {
+        let client = makeClient()
+
+        await #expect(throws: QuestionMutationValidationError.blankOrControlTitle) {
+            _ = try await client.createQuestion(
+                QuestionCreate(title: "   "),
+                zipFile: QuestionZIPUpload(data: Data([0x50, 0x4B]), filename: "blank-title.zip")
+            )
+        }
+
+        #expect(ZIPCaptureURLProtocol.requests().isEmpty)
+    }
+
+    @Test
     func `upload and request values are Sendable`() {
         requireSendable(CoderPadClient.self)
         requireSendable(QuestionZIPUpload.self)

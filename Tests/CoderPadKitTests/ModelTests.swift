@@ -176,7 +176,8 @@ struct QuestionFileContentTests {
         let question = try #require(root["question"] as? [String: Any])
         let files = try #require(question["file_contents"] as? [[String: Any]])
 
-        #expect(root["id"] as? Int == 42)
+        // The live "Modify a question" contract carries the id only in the URL path.
+        #expect(root["id"] == nil)
         #expect(files.count == 1)
         #expect(files[0]["path"] as? String == "Sources/main.swift")
         #expect(files[0]["contents"] as? String == "print(«hej»)")
@@ -225,6 +226,179 @@ struct QuestionFileContentTests {
                 fileContents: []
             ))
         }
+    }
+
+    @Test
+    func `too many structured files are rejected before encoding`() {
+        let fileContents = (0 ..< (QuestionFileContent.maximumFileCount + 1)).map {
+            QuestionFileContent(path: "file\($0).py", contents: "x")
+        }
+
+        let error = #expect(throws: QuestionMutationValidationError.self) {
+            try CoderPadClient.encoder.encode(QuestionCreate(title: "Too many files", fileContents: fileContents))
+        }
+        #expect(
+            error
+                == .tooManyFileContents(
+                    count: fileContents.count,
+                    limit: QuestionFileContent.maximumFileCount
+                )
+        )
+    }
+
+    @Test
+    func `a single oversized file is rejected before encoding`() {
+        let oversized = String(repeating: "a", count: QuestionFileContent.maximumFileByteCount + 1)
+
+        let error = #expect(throws: QuestionMutationValidationError.self) {
+            try CoderPadClient.encoder.encode(QuestionUpdate(
+                id: 42,
+                fileContents: [QuestionFileContent(path: "big.py", contents: oversized)]
+            ))
+        }
+        #expect(
+            error
+                == .fileContentTooLarge(
+                    path: "big.py",
+                    byteCount: oversized.utf8.count,
+                    limit: QuestionFileContent.maximumFileByteCount
+                )
+        )
+    }
+
+    @Test
+    func `many small files exceeding the aggregate limit are rejected`() {
+        // Individually well under the per-file limit, but their combined size busts
+        // the aggregate ceiling.
+        let chunkSize = QuestionFileContent.maximumFileByteCount / 2
+        let fileCount = (QuestionFileContent.maximumAggregateByteCount / chunkSize) + 2
+        let fileContents = (0 ..< fileCount).map {
+            QuestionFileContent(path: "chunk\($0).py", contents: String(repeating: "a", count: chunkSize))
+        }
+
+        #expect(throws: QuestionMutationValidationError.self) {
+            try CoderPadClient.encoder.encode(QuestionCreate(title: "Aggregate limit", fileContents: fileContents))
+        }
+    }
+
+    @Test
+    func `file counts and sizes at the limit are accepted`() throws {
+        _ = try CoderPadClient.encoder.encode(QuestionCreate(
+            title: "At the limit",
+            fileContents: [QuestionFileContent(
+                path: "main.py",
+                contents: String(repeating: "a", count: QuestionFileContent.maximumFileByteCount)
+            )]
+        ))
+    }
+}
+
+@Suite("Question title validation")
+struct QuestionTitleValidationTests {
+    @Test(arguments: ["", "   ", "\u{0000}", "\t\n", "Bad\u{202E}title"])
+    func `create rejects a blank or control-character title`(_ title: String) {
+        #expect(throws: QuestionMutationValidationError.blankOrControlTitle) {
+            _ = try CoderPadClient.encoder.encode(QuestionCreate(title: title))
+        }
+    }
+
+    @Test(arguments: ["", "   ", "\u{0000}"])
+    func `update rejects a blank or control-character title`(_ title: String) {
+        #expect(throws: QuestionMutationValidationError.blankOrControlTitle) {
+            _ = try CoderPadClient.encoder.encode(QuestionUpdate(id: 42, title: title))
+        }
+    }
+
+    @Test
+    func `create trims surrounding whitespace from a valid title`() throws {
+        let data = try CoderPadClient.encoder.encode(QuestionCreate(title: "  Two Sum  "))
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let question = try #require(root["question"] as? [String: Any])
+
+        #expect(question["title"] as? String == "Two Sum")
+    }
+
+    @Test
+    func `update with no title omits the nested title key`() throws {
+        let data = try CoderPadClient.encoder.encode(
+            QuestionUpdate(id: 42, language: "python3", description: "New description")
+        )
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let question = try #require(root["question"] as? [String: Any])
+
+        #expect(question["title"] == nil)
+        #expect(question["language"] as? String == "python3")
+    }
+
+    @Test
+    func `update with none of title, language, or file contents omits the question object`() throws {
+        let data = try CoderPadClient.encoder.encode(
+            QuestionUpdate(id: 42, description: "New description")
+        )
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(root["question"] == nil)
+    }
+}
+
+@Suite("Candidate instruction payload validation")
+struct CandidateInstructionValidationTests {
+    @Test(arguments: ["", "   ", "\u{0000}", "\u{202E}"])
+    func `create rejects blank or control-character candidate instructions`(_ instructions: String) {
+        #expect(throws: QuestionMutationValidationError.blankOrControlCandidateInstructions) {
+            _ = try CoderPadClient.encoder.encode(QuestionCreate(
+                title: "Q",
+                candidateInstructions: [CandidateInstructionPayload(instructions: instructions, defaultVisible: true)]
+            ))
+        }
+    }
+
+    @Test
+    func `create trims candidate instructions before encoding`() throws {
+        let data = try CoderPadClient.encoder.encode(QuestionCreate(
+            title: "Q",
+            candidateInstructions: [
+                CandidateInstructionPayload(instructions: "  Read the prompt carefully.  ", defaultVisible: false)
+            ]
+        ))
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let instructions = try #require(root["candidate_instructions"] as? [[String: Any]])
+
+        #expect(instructions[0]["instructions"] as? String == "Read the prompt carefully.")
+        #expect(instructions[0]["default_visible"] as? Bool == false)
+    }
+
+    @Test
+    func `an oversized candidate instructions block is rejected before encoding`() {
+        let oversized = String(repeating: "a", count: CandidateInstructionPayload.maximumByteCount + 1)
+
+        let error = #expect(throws: QuestionMutationValidationError.self) {
+            try CoderPadClient.encoder.encode(QuestionCreate(
+                title: "Q",
+                candidateInstructions: [CandidateInstructionPayload(instructions: oversized, defaultVisible: true)]
+            ))
+        }
+        #expect(
+            error
+                == .candidateInstructionsTooLarge(
+                    byteCount: oversized.utf8.count,
+                    limit: CandidateInstructionPayload.maximumByteCount
+                )
+        )
+    }
+
+    @Test
+    func `candidate instructions at the size limit are accepted`() throws {
+        let atLimit = String(repeating: "a", count: CandidateInstructionPayload.maximumByteCount)
+        _ = try CoderPadClient.encoder.encode(QuestionCreate(
+            title: "Q",
+            candidateInstructions: [CandidateInstructionPayload(instructions: atLimit, defaultVisible: true)]
+        ))
+    }
+
+    @Test
+    func `an absent candidate instructions list is omitted rather than rejected`() throws {
+        _ = try CoderPadClient.encoder.encode(QuestionCreate(title: "Q"))
     }
 }
 

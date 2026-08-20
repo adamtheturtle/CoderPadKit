@@ -7,50 +7,10 @@
 
 import Foundation
 
-/// A question mutation selected incompatible sources for its starter content.
-public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatable, Sendable {
-    /// More than one starter-content representation was supplied.
-    case mutuallyExclusiveContentSources
-
-    public var errorDescription: String? {
-        switch self {
-        case .mutuallyExclusiveContentSources:
-            "Use only one of contents, structured file contents, or a question ZIP upload."
-        }
-    }
-}
-
-/// A pad mutation selected incompatible sources for its initial editor contents.
-public nonisolated enum PadMutationValidationError: LocalizedError, Equatable, Sendable {
-    /// Both literal editor contents and a question were supplied.
-    case mutuallyExclusiveContentsAndQuestion
-    /// `ended` and `deleted` were both `true` in the same update.
-    case endedAndDeletedTogether
-
-    public var errorDescription: String? {
-        switch self {
-        case .mutuallyExclusiveContentsAndQuestion:
-            "Use only one of contents or questionID when creating or updating a pad."
-        case .endedAndDeletedTogether:
-            "Use only one of ended or deleted; a pad cannot be ended and deleted together."
-        }
-    }
-}
-
-private nonisolated func validatePadContents(contents: String?, questionID: Int?) throws {
-    guard contents == nil || questionID == nil else {
-        throw PadMutationValidationError.mutuallyExclusiveContentsAndQuestion
-    }
-}
-
-private nonisolated func validatePadLifecycleFlags(ended: Bool?, deleted: Bool?) throws {
-    guard !(ended == true && deleted == true) else {
-        throw PadMutationValidationError.endedAndDeletedTogether
-    }
-}
-
 /// The request body for modifying a pad (`PUT /api/pads/:id`). Only the non-nil
-/// fields are sent. The `id` travels in the URL path as well as the body.
+/// fields are sent. The official "Modify a pad" contract carries the pad ID solely in
+/// the URL path and documents no `id` body parameter, so ``encode(to:)`` omits it; the
+/// `id` property still exists for path construction and for decoding round trips.
 public nonisolated struct PadUpdate: Codable, Sendable {
     public var id: String
     public var title: String?
@@ -104,20 +64,21 @@ public nonisolated struct PadUpdate: Codable, Sendable {
 /// ``QuestionCustomFile``, which describes downloadable file metadata returned by
 /// the API rather than starter-code files sent in a question mutation.
 public nonisolated struct QuestionFileContent: Encodable, Sendable {
+    /// Maximum number of structured files accepted by a single mutation. Unlike a ZIP
+    /// upload, the structured path has no archive framing to bound it otherwise.
+    public static let maximumFileCount = 200
+    /// Maximum accepted size of one file's `contents`, measured as UTF-8 bytes (1 MiB).
+    public static let maximumFileByteCount = 1024 * 1024
+    /// Maximum accepted combined size of every file's `contents` in one mutation,
+    /// measured as UTF-8 bytes (10 MiB).
+    public static let maximumAggregateByteCount = 10 * 1024 * 1024
+
     public var path: String
     public var contents: String
 
     public init(path: String, contents: String) {
         self.path = path
         self.contents = contents
-    }
-}
-
-private nonisolated func validateQuestionContents(
-    contents: String?, fileContents: [QuestionFileContent]?
-) throws {
-    guard contents == nil || fileContents == nil else {
-        throw QuestionMutationValidationError.mutuallyExclusiveContentSources
     }
 }
 
@@ -175,27 +136,29 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validateQuestionContents(contents: contents, fileContents: fileContents)
+        let normalizedTitle = try validatedQuestionTitle(title)
+        let normalizedFileContents = try validatedFileContents(fileContents)
+        let normalizedCandidateInstructions = try validatedCandidateInstructions(candidateInstructions)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(solution, forKey: .solution)
         try container.encodeIfPresent(contents, forKey: .contents)
         try container.encodeIfPresent(takeHome, forKey: .takeHome)
         try container.encodeIfPresent(padType, forKey: .padType)
-        try container.encodeIfPresent(candidateInstructions, forKey: .candidateInstructions)
+        try container.encodeIfPresent(normalizedCandidateInstructions, forKey: .candidateInstructions)
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
         var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
-        try question.encode(title, forKey: .title)
+        try question.encode(normalizedTitle, forKey: .title)
         try question.encodeIfPresent(language, forKey: .language)
-        try question.encodeIfPresent(fileContents, forKey: .fileContents)
+        try question.encodeIfPresent(normalizedFileContents, forKey: .fileContents)
     }
 }
 
 /// The request body for modifying a question. Like ``QuestionCreate``,
 /// `title`/`language` are nested under `question`. The official "Modify a question"
 /// contract carries the question ID solely in the URL path and lists no `id` form
-/// field, so ``encode(to:)`` omits it, matching the ZIP multipart variant
-/// (``MultipartFormData``). The `id` property still exists for path construction.
-/// Encode-only.
+/// field, so ``encode(to:)`` omits it, matching the ZIP multipart variant. The `id`
+/// property still exists for path construction. Encode-only.
 public nonisolated struct QuestionUpdate: Encodable, Sendable {
     public var id: Int
     public var title: String?
@@ -234,7 +197,7 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, description, solution, contents, question
+        case description, solution, contents, question
         case takeHome = "take_home"
         case padType = "pad_type"
         case candidateInstructions = "candidate_instructions"
@@ -248,26 +211,31 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validateQuestionContents(contents: contents, fileContents: fileContents)
+        let normalizedTitle = try title.map(validatedQuestionTitle)
+        let normalizedFileContents = try validatedFileContents(fileContents)
+        let normalizedCandidateInstructions = try validatedCandidateInstructions(candidateInstructions)
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(solution, forKey: .solution)
         try container.encodeIfPresent(contents, forKey: .contents)
         try container.encodeIfPresent(takeHome, forKey: .takeHome)
         try container.encodeIfPresent(padType, forKey: .padType)
-        try container.encodeIfPresent(candidateInstructions, forKey: .candidateInstructions)
+        try container.encodeIfPresent(normalizedCandidateInstructions, forKey: .candidateInstructions)
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
-        if title != nil || language != nil || fileContents != nil {
+        if normalizedTitle != nil || language != nil || normalizedFileContents != nil {
             var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
-            try question.encodeIfPresent(title, forKey: .title)
+            try question.encodeIfPresent(normalizedTitle, forKey: .title)
             try question.encodeIfPresent(language, forKey: .language)
-            try question.encodeIfPresent(fileContents, forKey: .fileContents)
+            try question.encodeIfPresent(normalizedFileContents, forKey: .fileContents)
         }
     }
 }
 
 /// One block of candidate instructions, as sent in a create/update request body.
 public nonisolated struct CandidateInstructionPayload: Codable, Sendable {
+    /// Maximum accepted size of `instructions`, measured as UTF-8 bytes (64 KiB).
+    public static let maximumByteCount = 64 * 1024
+
     public var instructions: String
     public var defaultVisible: Bool
 
@@ -324,16 +292,13 @@ public nonisolated struct PadCreate: Codable, Sendable {
         case teamID = "team_id"
     }
 
-    /// A pad seeded from a question: same title and language, with the question attached.
+    /// A pad seeded from a question: same title and language, with the question
+    /// attached. `isPrivate` and `executionEnabled` are left `nil` so the account's
+    /// configured defaults apply; pass them explicitly to override.
     public static func fromQuestion(_ question: Question) -> Self {
         Self(
             title: question.title,
             language: question.language,
-            ownerEmail: nil,
-            contents: nil,
-            notes: nil,
-            isPrivate: false,
-            executionEnabled: true,
             questionID: question.id
         )
     }
@@ -418,16 +383,18 @@ extension PadCreate {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validatePadContents(contents: contents, questionID: questionID)
+        let normalizedOwnerEmail = try validatedPadOwnerEmail(ownerEmail)
+        let normalizedTeamID = try validatedTeamID(teamID)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(title, forKey: .title)
         try container.encodeIfPresent(language, forKey: .language)
-        try container.encodeIfPresent(ownerEmail, forKey: .ownerEmail)
+        try container.encodeIfPresent(normalizedOwnerEmail, forKey: .ownerEmail)
         try container.encodeIfPresent(contents, forKey: .contents)
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encodeIfPresent(isPrivate, forKey: .isPrivate)
         try encodeExecutionEnabled(executionEnabled, into: &container, forKey: .executionEnabled)
         try container.encodeIfPresent(questionID, forKey: .questionID)
-        try container.encodeIfPresent(teamID, forKey: .teamID)
+        try container.encodeIfPresent(normalizedTeamID, forKey: .teamID)
     }
 }
 
@@ -450,11 +417,13 @@ extension PadUpdate {
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validatePadContents(contents: contents, questionID: questionID)
         try validatePadLifecycleFlags(ended: ended, deleted: deleted)
+        let normalizedOwnerEmail = try validatedPadOwnerEmail(ownerEmail)
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
+        // `id` is intentionally omitted: see the type doc above. `CodingKeys` still
+        // declares it so `init(from:)` can decode a round trip.
         try container.encodeIfPresent(title, forKey: .title)
         try container.encodeIfPresent(language, forKey: .language)
-        try container.encodeIfPresent(ownerEmail, forKey: .ownerEmail)
+        try container.encodeIfPresent(normalizedOwnerEmail, forKey: .ownerEmail)
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encodeIfPresent(isPrivate, forKey: .isPrivate)
         try encodeExecutionEnabled(executionEnabled, into: &container, forKey: .executionEnabled)
