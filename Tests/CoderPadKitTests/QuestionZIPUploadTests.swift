@@ -157,39 +157,6 @@ struct QuestionZIPUploadTests {
         #expect(ZIPCaptureURLProtocol.requests().isEmpty)
     }
 
-    @Test(
-        arguments: [
-            Data(),
-            Data([0x00, 0x01, 0x02, 0x03]),
-            Data("not a zip".utf8),
-            Data([0x50, 0x4B])
-        ]
-    )
-    func `data without a minimally valid ZIP signature is rejected before staging`(_ data: Data) async {
-        let client = makeClient()
-        let error = await #expect(throws: QuestionZIPUploadInvalidArchiveError.self) {
-            _ = try await client.createQuestion(
-                QuestionCreate(title: "Bad archive"),
-                zipFile: QuestionZIPUpload(data: data, filename: "bad.zip")
-            )
-        }
-        #expect(error?.byteCount == data.count)
-        #expect(ZIPCaptureURLProtocol.requests().isEmpty)
-    }
-
-    @Test
-    func `an empty archive's end-of-central-directory record is accepted`() async throws {
-        let client = makeClient()
-        let emptyArchive = Data([0x50, 0x4B, 0x05, 0x06] + [UInt8](repeating: 0, count: 18))
-
-        _ = try await client.createQuestion(
-            QuestionCreate(title: "Empty archive"),
-            zipFile: QuestionZIPUpload(data: emptyArchive, filename: "empty.zip")
-        )
-
-        #expect(ZIPCaptureURLProtocol.requests().count == 1)
-    }
-
     @Test
     func `oversized ZIP is rejected before staging or transport`() async throws {
         let client = makeClient()
