@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Encode pad ownership mutations as `user_email`, matching the Interview create/modify
+  pad contract. `PadCreate` and `PadUpdate` previously sent the response-only
+  `owner_email` field, so ownership changes could be ignored.
 - Add typed structured-file support to question creation and updates. Pass
   `QuestionFileContent` values through `QuestionCreate.fileContents` or
   `QuestionUpdate.fileContents`; CoderPadKit sends them as `question[file_contents]`
