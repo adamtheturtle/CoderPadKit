@@ -14,9 +14,11 @@ import Foundation
 /// ``CoderPadClient/createQuestion(_:zipFile:)`` or
 /// ``CoderPadClient/updateQuestion(_:zipFile:)``.
 public nonisolated struct QuestionZIPUpload: Sendable {
-    /// Maximum accepted archive size (50 MiB). Multipart headers and ordinary text
-    /// fields are staged separately and do not count against this archive ceiling.
+    /// Maximum accepted archive size (50 MiB).
     public static let maximumByteCount = 50 * 1024 * 1024
+    /// Maximum complete multipart body size, including the archive, text fields, and
+    /// framing. Text fields cannot use this headroom to bypass the archive ceiling.
+    public static let maximumMultipartByteCount = maximumByteCount + (5 * 1024 * 1024)
 
     /// The exact archive bytes sent to CoderPad. Empty data is allowed.
     public var data: Data
@@ -45,6 +47,21 @@ public nonisolated struct QuestionZIPUploadTooLargeError: LocalizedError, Equata
 
     public var errorDescription: String? {
         "Question ZIP is \(byteCount) bytes; the upload limit is \(limit) bytes."
+    }
+
+    public init(byteCount: Int, limit: Int) {
+        self.byteCount = byteCount
+        self.limit = limit
+    }
+}
+
+/// A staged multipart body exceeded ``QuestionZIPUpload/maximumMultipartByteCount``.
+public nonisolated struct MultipartFormDataTooLargeError: LocalizedError, Equatable, Sendable {
+    public let byteCount: Int
+    public let limit: Int
+
+    public var errorDescription: String? {
+        "Multipart upload is \(byteCount) bytes; the request limit is \(limit) bytes."
     }
 
     public init(byteCount: Int, limit: Int) {

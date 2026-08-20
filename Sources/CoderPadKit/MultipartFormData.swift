@@ -124,7 +124,13 @@ nonisolated struct MultipartFormData: Sendable {
 
     private static func write(_ data: Data, to handle: FileHandle, byteCount: inout Int) throws {
         let (nextCount, overflow) = byteCount.addingReportingOverflow(data.count)
-        guard !overflow else { throw CocoaError(.fileWriteOutOfSpace) }
+        let limit = QuestionZIPUpload.maximumMultipartByteCount
+        if overflow || nextCount > limit {
+            throw MultipartFormDataTooLargeError(
+                byteCount: overflow ? Int.max : nextCount,
+                limit: limit
+            )
+        }
         try handle.write(contentsOf: data)
         byteCount = nextCount
     }

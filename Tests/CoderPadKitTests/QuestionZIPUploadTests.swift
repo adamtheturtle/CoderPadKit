@@ -137,6 +137,7 @@ struct QuestionZIPUploadTests {
         requireSendable(QuestionUpdate.self)
         requireSendable(QuestionMutationValidationError.self)
         requireSendable(QuestionZIPUploadTooLargeError.self)
+        requireSendable(MultipartFormDataTooLargeError.self)
     }
 
     @Test
@@ -153,6 +154,25 @@ struct QuestionZIPUploadTests {
 
         #expect(error?.byteCount == QuestionZIPUpload.maximumByteCount + 1)
         #expect(error?.limit == QuestionZIPUpload.maximumByteCount)
+        #expect(ZIPCaptureURLProtocol.requests().isEmpty)
+    }
+
+    @Test
+    func `oversized multipart text fields are rejected during staging`() async throws {
+        let client = makeClient()
+        let oversizedDescription = String(
+            repeating: "a",
+            count: QuestionZIPUpload.maximumMultipartByteCount
+        )
+
+        let error = await #expect(throws: MultipartFormDataTooLargeError.self) {
+            _ = try await client.createQuestion(
+                QuestionCreate(title: "Tiny ZIP", description: oversizedDescription),
+                zipFile: QuestionZIPUpload(data: Data([0x50, 0x4B]), filename: "tiny.zip")
+            )
+        }
+
+        #expect(error?.limit == QuestionZIPUpload.maximumMultipartByteCount)
         #expect(ZIPCaptureURLProtocol.requests().isEmpty)
     }
 
