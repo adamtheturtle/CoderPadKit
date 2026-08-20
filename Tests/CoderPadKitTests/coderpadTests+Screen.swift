@@ -21,6 +21,9 @@ struct ScreenClientTests {
 
         #expect(configuration.timeoutIntervalForRequest == 60)
         #expect(configuration.timeoutIntervalForResource == 120)
+        #expect(configuration.urlCache == nil)
+        #expect(configuration.httpCookieStorage == nil)
+        #expect(configuration.requestCachePolicy == .reloadIgnoringLocalCacheData)
     }
 
     @Test
@@ -260,6 +263,21 @@ struct ScreenClientTests {
         await #expect(throws: CoderPadError.self) {
             _ = try await client.listCampaigns()
         }
+    }
+
+    @Test(arguments: ["   ", "\n\t", "key with space", "key\u{0007}"])
+    func `blank and non-printable API keys are rejected`(apiKey: String) async {
+        let client = ScreenClient(apiKey: apiKey, session: URLSession(configuration: .ephemeral))
+        #expect(client.apiKey.isEmpty)
+        await #expect(throws: CoderPadError.self) {
+            _ = try await client.listCampaigns()
+        }
+    }
+
+    @Test
+    func `API keys are trimmed before header construction`() {
+        let client = ScreenClient(apiKey: "  screen-key\n", session: URLSession(configuration: .ephemeral))
+        #expect(client.apiKey == "screen-key")
     }
 
     @Test
