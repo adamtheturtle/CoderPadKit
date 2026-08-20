@@ -92,7 +92,6 @@ struct PadMutationValidationTests {
 
         #expect(root["user_email"] as? String == "Interviewer@example.com")
         #expect(root["owner_email"] == nil)
-<<<<<<< Updated upstream
     }
 
     @Test
@@ -104,8 +103,6 @@ struct PadMutationValidationTests {
 
         #expect(root["user_email"] as? String == "owner@example.com")
         #expect(root["owner_email"] == nil)
-=======
->>>>>>> Stashed changes
     }
 
     @Test

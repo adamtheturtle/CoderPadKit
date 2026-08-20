@@ -56,10 +56,7 @@ public nonisolated struct PadUpdate: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id, title, language, notes, contents, ended, deleted
-<<<<<<< Updated upstream
         // Mutation requests use `user_email`; responses expose ownership as `owner_email`.
-=======
->>>>>>> Stashed changes
         case ownerEmail = "user_email"
         case isPrivate = "private"
         case executionEnabled = "execution_enabled"
@@ -317,10 +314,7 @@ public nonisolated struct PadCreate: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case title, language, contents, notes
-<<<<<<< Updated upstream
         // Mutation requests use `user_email`; responses expose ownership as `owner_email`.
-=======
->>>>>>> Stashed changes
         case ownerEmail = "user_email"
         case isPrivate = "private"
         case executionEnabled = "execution_enabled"

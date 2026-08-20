@@ -61,7 +61,7 @@ nonisolated func validatedScreenModelID(_ id: Int, kind: String) throws -> Int {
 
 extension ScreenEpochMilliseconds {
     /// Requires a present timestamp to fall in ``earliest``...``latest`` (#141).
-    public static func validated(_ value: Int?, name: String) throws -> Int? {
+    public nonisolated static func validated(_ value: Int?, name: String) throws -> Int? {
         guard let value else { return nil }
         guard (earliest ... latest).contains(value) else {
             throw ScreenModelValidationError.invalidTimestamp(name: name, value: value)
@@ -72,7 +72,7 @@ extension ScreenEpochMilliseconds {
 
 extension ScreenReportMetric {
     /// Requires a present integer metric to be nonnegative (#142).
-    public static func validatedNonnegative(_ value: Int?, name: String) throws -> Int? {
+    public nonisolated static func validatedNonnegative(_ value: Int?, name: String) throws -> Int? {
         guard let value else { return nil }
         guard value >= 0 else {
             throw ScreenModelValidationError.invalidMetric(
@@ -83,7 +83,7 @@ extension ScreenReportMetric {
     }
 
     /// Requires a present percentage to be finite and in `0...100` (#142).
-    public static func validatedPercentage(_ value: Double?, name: String) throws -> Double? {
+    public nonisolated static func validatedPercentage(_ value: Double?, name: String) throws -> Double? {
         guard let value else { return nil }
         guard value.isFinite, (0 ... 100).contains(value) else {
             throw ScreenModelValidationError.invalidMetric(
@@ -94,7 +94,7 @@ extension ScreenReportMetric {
     }
 
     /// Joint part/total check for public construction (#142).
-    public static func requireAtMost(
+    public nonisolated static func requireAtMost(
         _ value: Int?,
         atMost total: Int?,
         name: String

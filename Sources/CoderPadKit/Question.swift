@@ -156,7 +156,7 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
 /// `type` string, while questions expose a `take_home` boolean (and, on newer
 /// records, a `pad_type` string). ``InterviewType`` normalizes all of these so
 /// callers can present one consistent notion of type.
-public enum InterviewType: String, CaseIterable, Identifiable, Hashable, Sendable {
+public nonisolated enum InterviewType: String, CaseIterable, Identifiable, Hashable, Sendable {
     case live
     case takeHome = "take-home"
 

@@ -77,7 +77,7 @@ struct QuestionFilePathValidationTests {
                     title: "Q",
                     fileContents: [
                         .init(path: "main.py", contents: "A"),
-                        .init(path: "main.py", contents: "B"),
+                        .init(path: "main.py", contents: "B")
                     ]
                 )
             )
@@ -88,7 +88,7 @@ struct QuestionFilePathValidationTests {
                     title: "Q",
                     fileContents: [
                         .init(path: "src/main.py", contents: "A"),
-                        .init(path: "src\\main.py", contents: "B"),
+                        .init(path: "src\\main.py", contents: "B")
                     ]
                 )
             )

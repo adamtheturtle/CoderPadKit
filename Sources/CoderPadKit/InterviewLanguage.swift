@@ -26,7 +26,7 @@ public nonisolated enum InterviewLanguage {
         "vue",
         "multifile_c", "multifile_cpp", "multifile_csharp", "multifile_go",
         "multifile_java", "multifile_javascript", "multifile_python",
-        "multifile_ruby", "multifile_rust", "multifile_swift", "multifile_typescript",
+        "multifile_ruby", "multifile_rust", "multifile_swift", "multifile_typescript"
     ]
 
     /// Trims whitespace and requires a nonempty identifier. Unless `allowUnknown` is
