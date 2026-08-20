@@ -37,6 +37,94 @@ struct ScreenPaginationValidationTests {
         #expect(page.nextStart == 0)
     }
 
+    @Test(arguments: [500, 1])
+    func `limits up to the documented maximum are valid`(limit: Int) throws {
+        let page = try JSONDecoder().decode(
+            ScreenPagination.self,
+            from: Data(#"{"limit":\#(limit),"has_more_items":false}"#.utf8)
+        )
+
+        #expect(page.limit == limit)
+    }
+
+    @Test(arguments: [501, Int.max])
+    func `limits above the documented maximum are rejected`(limit: Int) {
+        let json = #"{"limit":\#(limit),"has_more_items":false}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenPagination.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test
+    func `start greater than total is rejected`() {
+        let json = #"{"start":10,"total":5,"has_more_items":false}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenPagination.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test(arguments: [10, 5])
+    func `start at or below total is valid`(total: Int) throws {
+        let page = try JSONDecoder().decode(
+            ScreenPagination.self,
+            from: Data(#"{"start":5,"total":\#(total),"has_more_items":false}"#.utf8)
+        )
+
+        #expect(page.start == 5)
+        #expect(page.total == total)
+    }
+
+    @Test
+    func `next_start behind start is rejected`() {
+        let json = #"{"start":10,"next_start":5,"has_more_items":true}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenPagination.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test
+    func `has more items false with a future next_start is rejected`() {
+        let json = #"{"start":5,"next_start":10,"has_more_items":false}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenPagination.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test
+    func `has more items true requires next_start to advance past start`() {
+        let json = #"{"start":5,"next_start":5,"has_more_items":true}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenPagination.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test
+    func `next_start past start with more items is valid`() throws {
+        let page = try JSONDecoder().decode(
+            ScreenPagination.self,
+            from: Data(#"{"start":5,"next_start":10,"has_more_items":true}"#.utf8)
+        )
+
+        #expect(page.start == 5)
+        #expect(page.nextStart == 10)
+    }
+
+    @Test
+    func `next_start equal to start with no more items is valid`() throws {
+        let page = try JSONDecoder().decode(
+            ScreenPagination.self,
+            from: Data(#"{"start":5,"next_start":5,"has_more_items":false}"#.utf8)
+        )
+
+        #expect(page.start == 5)
+        #expect(page.nextStart == 5)
+    }
+
     @Test(arguments: ["start", "limit", "total", "next_start"])
     func `present pagination integers reject strings`(field: String) {
         let json = #"{"has_more_items":false,"\#(field)":"1"}"#

@@ -37,4 +37,19 @@ public nonisolated enum ScreenReportMetric {
 
         return value
     }
+
+    /// Rejects a part/total pair (points/total_points, duration/total_duration) where the
+    /// part exceeds the total. Both sides are already known nonnegative by the time this
+    /// runs; only the joint relationship remains to be checked (#222, #223).
+    public static func requireAtMost<Key: CodingKey>(
+        _ value: Int?,
+        atMost total: Int?,
+        forKey key: Key,
+        in container: KeyedDecodingContainer<Key>,
+        debugDescription: String
+    ) throws {
+        guard let value, let total, value > total else { return }
+
+        throw DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: debugDescription)
+    }
 }

@@ -106,8 +106,30 @@ public nonisolated struct ScreenInvitationResult: Decodable, Hashable, Sendable 
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(Int.self, forKey: .id)
-        testURL = try container.decodeIfPresent(String.self, forKey: .testURL)
+        let decodedID = try container.decodeIfPresent(Int.self, forKey: .id)
+        if let decodedID {
+            id = try validatedScreenID(decodedID, codingPath: decoder.codingPath + [CodingKeys.id], kind: "invitation")
+        } else {
+            id = nil
+        }
+        if let rawTestURL = try container.decodeIfPresent(String.self, forKey: .testURL) {
+            let normalizedTestURL = rawTestURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !normalizedTestURL.isEmpty else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .testURL, in: container,
+                    debugDescription: "Screen invitation test_url must not be blank."
+                )
+            }
+            testURL = normalizedTestURL
+        } else {
+            testURL = nil
+        }
+        guard id != nil || testURL != nil else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .testURL, in: container,
+                debugDescription: "Screen invitation result must include an id or a test_url."
+            )
+        }
     }
 
     enum CodingKeys: String, CodingKey {
@@ -182,8 +204,22 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
         id = try validatedScreenID(
             container.decode(Int.self, forKey: .id), codingPath: decoder.codingPath + [CodingKeys.id], kind: "test"
         )
-        idTest = try container.decodeIfPresent(Int.self, forKey: .idTest)
-        organizationID = try container.decodeIfPresent(String.self, forKey: .organizationID)
+        let decodedIDTest = try container.decodeIfPresent(Int.self, forKey: .idTest)
+        if let decodedIDTest, decodedIDTest != id {
+            throw DecodingError.dataCorruptedError(
+                forKey: .idTest, in: container,
+                debugDescription: "Screen id_test must equal id when present."
+            )
+        }
+        idTest = decodedIDTest
+        let decodedOrganizationID = try container.decodeIfPresent(String.self, forKey: .organizationID)
+        if let decodedOrganizationID, UUID(uuidString: decodedOrganizationID) == nil {
+            throw DecodingError.dataCorruptedError(
+                forKey: .organizationID, in: container,
+                debugDescription: "Screen organization_id must be a canonical UUID when present."
+            )
+        }
+        organizationID = decodedOrganizationID
         campaignID = try container.decodeIfPresent(Int.self, forKey: .campaignID)
         candidateName = try container.decodeIfPresent(String.self, forKey: .candidateName)
         candidateEmail = try container.decodeIfPresent(String.self, forKey: .candidateEmail)
@@ -332,6 +368,14 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
             + technologies.values.reduce(0) { $0 + $1.omittedSkillCount }
         totalDuration = try ScreenReportMetric.nonnegativeInteger(from: container, forKey: .totalDuration)
         totalPoints = try ScreenReportMetric.nonnegativeInteger(from: container, forKey: .totalPoints)
+        try ScreenReportMetric.requireAtMost(
+            points, atMost: totalPoints, forKey: .points, in: container,
+            debugDescription: "Screen report points must not exceed total_points."
+        )
+        try ScreenReportMetric.requireAtMost(
+            duration, atMost: totalDuration, forKey: .duration, in: container,
+            debugDescription: "Screen report duration must not exceed total_duration."
+        )
         comparativeScore = try ScreenReportMetric.percentage(from: container, forKey: .comparativeScore)
         communityStats = try container.decodeIfPresent([Int].self, forKey: .communityStats)
     }
@@ -363,6 +407,10 @@ public nonisolated struct ScreenTechnologyResult: Decodable, Hashable, Sendable 
         skills = decodedSkills.values
         omittedSkillCount = decodedSkills.discardedCount
         totalPoints = try ScreenReportMetric.nonnegativeInteger(from: container, forKey: .totalPoints)
+        try ScreenReportMetric.requireAtMost(
+            points, atMost: totalPoints, forKey: .points, in: container,
+            debugDescription: "Screen technology points must not exceed total_points."
+        )
         comparativeScore = try ScreenReportMetric.percentage(from: container, forKey: .comparativeScore)
     }
 
@@ -384,6 +432,10 @@ public nonisolated struct ScreenSkillResult: Decodable, Hashable, Sendable {
         points = try ScreenReportMetric.nonnegativeInteger(from: container, forKey: .points)
         score = try ScreenReportMetric.percentage(from: container, forKey: .score)
         totalPoints = try ScreenReportMetric.nonnegativeInteger(from: container, forKey: .totalPoints)
+        try ScreenReportMetric.requireAtMost(
+            points, atMost: totalPoints, forKey: .points, in: container,
+            debugDescription: "Screen skill points must not exceed total_points."
+        )
     }
 
     enum CodingKeys: String, CodingKey {
