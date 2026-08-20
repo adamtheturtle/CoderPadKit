@@ -25,14 +25,19 @@ public nonisolated struct ScreenCampaign: Decodable, Identifiable, Hashable, Sen
     public let languages: [String]
     public let pinned: Bool
     public let archived: Bool
+    /// Count of `languages` elements that failed to decode as a string and
+    /// were dropped rather than failing the whole campaign (#219).
+    public let omittedLanguageCount: Int
 
     /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
-    public init(id: Int, name: String, languages: [String] = [], pinned: Bool = false, archived: Bool = false) {
+    public init(id: Int, name: String, languages: [String] = [], pinned: Bool = false, archived: Bool = false,
+                omittedLanguageCount: Int = 0) {
         self.id = id
         self.name = name
         self.languages = languages
         self.pinned = pinned
         self.archived = archived
+        self.omittedLanguageCount = omittedLanguageCount
     }
 
     public init(from decoder: any Decoder) throws {
@@ -49,7 +54,9 @@ public nonisolated struct ScreenCampaign: Decodable, Identifiable, Hashable, Sen
         }
 
         name = normalizedName
-        languages = try container.decodeIfPresent([String].self, forKey: .languages) ?? []
+        let decodedLanguages = try container.decodeIfPresent(TolerantScreenList<String>.self, forKey: .languages)
+        languages = decodedLanguages?.elements ?? []
+        omittedLanguageCount = decodedLanguages?.discardedCount ?? 0
         pinned = try container.decodeIfPresent(Bool.self, forKey: .pinned) ?? false
         archived = try container.decodeIfPresent(Bool.self, forKey: .archived) ?? false
     }
@@ -157,6 +164,9 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
     public let candidateName: String?
     public let candidateEmail: String?
     public let tags: [String]
+    /// Count of `tags` elements that failed to decode as a string and were
+    /// dropped rather than failing the whole session (#216).
+    public let omittedTagCount: Int
     /// Epoch-millisecond timestamps; use the `*Date` accessors for `Date` values.
     public let sendTime: Int?
     public let startTime: Int?
@@ -167,8 +177,14 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
     /// The candidate's chosen UI language, e.g. "en".
     public let candidateLanguage: String?
     public let questions: [ScreenTestQuestion]
+    /// Count of `questions` elements that failed to decode and were dropped
+    /// rather than failing the whole session (#215).
+    public let omittedQuestionCount: Int
     /// e.g. "TO_REVIEW", once a human review workflow applies.
     public let approvalStatus: String?
+    /// `true` when `report` was present but failed to decode, distinguishing
+    /// that case from a candidate who simply has no report yet (#217).
+    public let reportOmitted: Bool
 
     /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
     public init(id: Int, status: String = "waiting", report: ScreenReport? = nil,
@@ -193,14 +209,28 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
         self.testURL = testURL
         candidateLanguage = nil
         questions = []
+        omittedQuestionCount = 0
+        omittedTagCount = 0
         approvalStatus = nil
+        reportOmitted = false
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         status = try container.decodeIfPresent(String.self, forKey: .status) ?? "unknown"
         url = try container.decodeIfPresent(String.self, forKey: .url)
-        report = try container.decodeIfPresent(ScreenReport.self, forKey: .report)
+        let reportKeyPresent = container.contains(.report)
+        var reportPresent = false
+        if reportKeyPresent {
+            reportPresent = try !container.decodeNil(forKey: .report)
+        }
+        if reportPresent, let decodedReport = try? container.decode(ScreenReport.self, forKey: .report) {
+            report = decodedReport
+            reportOmitted = false
+        } else {
+            report = nil
+            reportOmitted = reportPresent
+        }
         id = try validatedScreenID(
             container.decode(Int.self, forKey: .id), codingPath: decoder.codingPath + [CodingKeys.id], kind: "test"
         )
@@ -223,14 +253,20 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
         campaignID = try container.decodeIfPresent(Int.self, forKey: .campaignID)
         candidateName = try container.decodeIfPresent(String.self, forKey: .candidateName)
         candidateEmail = try container.decodeIfPresent(String.self, forKey: .candidateEmail)
-        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        let decodedTags = try container.decodeIfPresent(TolerantScreenList<String>.self, forKey: .tags)
+        tags = decodedTags?.elements ?? []
+        omittedTagCount = decodedTags?.discardedCount ?? 0
         sendTime = try ScreenEpochMilliseconds.decode(from: container, forKey: .sendTime)
         startTime = try ScreenEpochMilliseconds.decode(from: container, forKey: .startTime)
         endTime = try ScreenEpochMilliseconds.decode(from: container, forKey: .endTime)
         lastActivityTime = try ScreenEpochMilliseconds.decode(from: container, forKey: .lastActivityTime)
         testURL = try container.decodeIfPresent(String.self, forKey: .testURL)
         candidateLanguage = try container.decodeIfPresent(String.self, forKey: .candidateLanguage)
-        questions = try container.decodeIfPresent([ScreenTestQuestion].self, forKey: .questions) ?? []
+        let decodedQuestions = try container.decodeIfPresent(
+            TolerantScreenList<ScreenTestQuestion>.self, forKey: .questions
+        )
+        questions = decodedQuestions?.elements ?? []
+        omittedQuestionCount = decodedQuestions?.discardedCount ?? 0
         approvalStatus = try container.decodeIfPresent(String.self, forKey: .approvalStatus)
     }
 
@@ -335,13 +371,16 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
     /// Score distribution buckets across the candidate community, when requested
     /// with `withCommunityStats`.
     public let communityStats: [Int]?
+    /// Count of `warnings` elements that failed to decode as a string and
+    /// were dropped rather than failing the whole report (#218).
+    public let omittedWarningCount: Int
 
     /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
     public init(score: Double? = nil, points: Int? = nil, duration: Int? = nil,
                 warnings: [String] = [], technologies: [String: ScreenTechnologyResult] = [:],
                 totalDuration: Int? = nil, totalPoints: Int? = nil,
                 comparativeScore: Double? = nil, communityStats: [Int]? = nil,
-                omittedBreakdownEntries: Int = 0) {
+                omittedBreakdownEntries: Int = 0, omittedWarningCount: Int = 0) {
         self.duration = duration
         self.warnings = warnings
         self.points = points
@@ -352,12 +391,15 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
         self.totalPoints = totalPoints
         self.comparativeScore = comparativeScore
         self.communityStats = communityStats
+        self.omittedWarningCount = omittedWarningCount
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         duration = try ScreenReportMetric.nonnegativeInteger(from: container, forKey: .duration)
-        warnings = try container.decodeIfPresent(BoundedScreenWarnings.self, forKey: .warnings)?.values ?? []
+        let decodedWarnings = try container.decodeIfPresent(BoundedScreenWarnings.self, forKey: .warnings)
+        warnings = decodedWarnings?.values ?? []
+        omittedWarningCount = decodedWarnings?.discardedCount ?? 0
         points = try ScreenReportMetric.nonnegativeInteger(from: container, forKey: .points)
         score = try ScreenReportMetric.percentage(from: container, forKey: .score)
         let decodedTechnologies = container.decodeLenientScreenDictionary(

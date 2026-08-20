@@ -54,8 +54,10 @@ public nonisolated struct ScreenTestsPage: Decodable, Hashable, Sendable {
 }
 
 /// A tolerantly decoded JSON array: malformed elements are skipped rather than
-/// failing the whole response, so one bad item can't hide every valid one
-/// (#764 for sessions, #896 for campaigns).
+/// failing the whole response, so one bad item can't hide every valid one.
+/// Used for top-level pages (#764 for sessions, #896 for campaigns) and for
+/// nested arrays within a single record (#215 questions, #216 tags, #219
+/// campaign languages).
 nonisolated struct TolerantScreenList<Element: Decodable>: Decodable {
     public let elements: [Element]
     public let discardedCount: Int
@@ -105,7 +107,11 @@ public nonisolated struct ScreenTestListResult: Equatable, Sendable {
     }
 }
 
-private nonisolated struct DiscardedScreenValue: Decodable {
+/// Consumes one JSON value of any shape without producing a typed result, so a
+/// malformed element can be skipped while leaving the decoder positioned at the
+/// next element. Shared by every tolerant list/collection decoder in this file
+/// and in `ScreenAPI+ReportBounds.swift`.
+nonisolated struct DiscardedScreenValue: Decodable {
     private static let maximumNestingDepth = 64
 
     init(from decoder: any Decoder) throws {
@@ -136,7 +142,7 @@ private nonisolated struct DiscardedScreenValue: Decodable {
     }
 }
 
-private nonisolated struct DiscardedScreenCodingKey: CodingKey {
+nonisolated struct DiscardedScreenCodingKey: CodingKey {
     public var stringValue: String
     public var intValue: Int?
 
