@@ -24,11 +24,15 @@ public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatab
 public nonisolated enum PadMutationValidationError: LocalizedError, Equatable, Sendable {
     /// Both literal editor contents and a question were supplied.
     case mutuallyExclusiveContentsAndQuestion
+    /// `ended` and `deleted` were both `true` in the same update.
+    case endedAndDeletedTogether
 
     public var errorDescription: String? {
         switch self {
         case .mutuallyExclusiveContentsAndQuestion:
             "Use only one of contents or questionID when creating or updating a pad."
+        case .endedAndDeletedTogether:
+            "Use only one of ended or deleted; a pad cannot be ended and deleted together."
         }
     }
 }
@@ -36,6 +40,12 @@ public nonisolated enum PadMutationValidationError: LocalizedError, Equatable, S
 private nonisolated func validatePadContents(contents: String?, questionID: Int?) throws {
     guard contents == nil || questionID == nil else {
         throw PadMutationValidationError.mutuallyExclusiveContentsAndQuestion
+    }
+}
+
+private nonisolated func validatePadLifecycleFlags(ended: Bool?, deleted: Bool?) throws {
+    guard !(ended == true && deleted == true) else {
+        throw PadMutationValidationError.endedAndDeletedTogether
     }
 }
 
@@ -181,8 +191,11 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
 }
 
 /// The request body for modifying a question. Like ``QuestionCreate``,
-/// `title`/`language` are nested under `question`. The `id` travels in the URL path;
-/// it is also encoded flat here for parity with the create payload. Encode-only.
+/// `title`/`language` are nested under `question`. The official "Modify a question"
+/// contract carries the question ID solely in the URL path and lists no `id` form
+/// field, so ``encode(to:)`` omits it, matching the ZIP multipart variant
+/// (``MultipartFormData``). The `id` property still exists for path construction.
+/// Encode-only.
 public nonisolated struct QuestionUpdate: Encodable, Sendable {
     public var id: Int
     public var title: String?
@@ -436,6 +449,7 @@ extension PadUpdate {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validatePadContents(contents: contents, questionID: questionID)
+        try validatePadLifecycleFlags(ended: ended, deleted: deleted)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(title, forKey: .title)
