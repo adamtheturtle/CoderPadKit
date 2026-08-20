@@ -68,6 +68,12 @@ public nonisolated struct ScreenCampaign: Decodable, Identifiable, Hashable, Sen
 
 // MARK: - Sending invitations
 
+/// Documented `report_type` values for Screen PDF export (#106).
+public nonisolated enum ScreenReportType: String, CaseIterable, Hashable, Sendable {
+    case full
+    case simplified
+}
+
 /// The request body for `POST /campaigns/:id/actions/send`. All fields are
 /// optional; omitting `candidateEmail` creates a test the recruiter can hand to
 /// a candidate manually rather than emailing an invitation.
