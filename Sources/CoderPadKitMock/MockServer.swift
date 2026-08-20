@@ -22,8 +22,9 @@ public nonisolated enum MockServer {
     }
 
     /// A session backed by the in-process fake API. When `unauthorized` is true the
-    /// server answers every request with 401, which drives the "bad key" demo:
+    /// server answers Interview REST requests with 401, which drives the "bad key" demo:
     /// the unauthorized banner and error states can be shown without a real revoked key.
+    /// Firebase history remains available: those URLs carry no Interview bearer token.
     public static func session(unauthorized: Bool = false) -> URLSession {
         let config = URLSessionConfiguration.ephemeral
         let proto: URLProtocol.Type = unauthorized ? MockUnauthorizedURLProtocol.self : MockURLProtocol.self
@@ -32,8 +33,13 @@ public nonisolated enum MockServer {
     }
 }
 
-/// Answers every CoderPad request with 401 Unauthorized, mimicking a revoked or
-/// invalid API key. Backs the "bad key" demo account.
+/// Answers every Interview REST request with 401 Unauthorized, mimicking a revoked
+/// or invalid API key. Backs the "bad key" demo account.
+///
+/// Firebase history requests are routed through the normal mock instead: the live
+/// editor-history fetch intentionally carries no Interview bearer token (it's a
+/// public Firebase URL), so an invalid Interview API key has no bearing on it. 401ing
+/// it here would make an otherwise public URL look authenticated.
 final nonisolated class MockUnauthorizedURLProtocol: URLProtocol {
     override static func canInit(with request: URLRequest) -> Bool {
         MockServer.handles(request)
@@ -46,6 +52,11 @@ final nonisolated class MockUnauthorizedURLProtocol: URLProtocol {
     override func startLoading() {
         guard let url = request.url else {
             client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+
+        if url.host == MockServer.historyHost {
+            MockURLProtocol.serve(request: request, url: url, client: client, protocolInstance: self)
             return
         }
 
@@ -81,6 +92,22 @@ final nonisolated class MockURLProtocol: URLProtocol {
             return
         }
 
+        Self.serve(request: request, url: url, client: client, protocolInstance: self)
+    }
+
+    override func stopLoading() {}
+
+    /// Routes `request` through the fake API and replays the response onto
+    /// `client`. Shared with `MockUnauthorizedURLProtocol`, which delegates its
+    /// Firebase-history requests here instead of 401ing them: those requests carry
+    /// no Interview bearer token even on the live API, so an invalid Interview key
+    /// has no bearing on them.
+    static func serve(
+        request: URLRequest,
+        url: URL,
+        client: (any URLProtocolClient)?,
+        protocolInstance: URLProtocol
+    ) {
         let path = url.path
         let method = request.httpMethod ?? "GET"
         let bodyData = request.httpBody ?? Self.drain(stream: request.httpBodyStream)
@@ -104,16 +131,14 @@ final nonisolated class MockURLProtocol: URLProtocol {
         guard let response = HTTPURLResponse(
             url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers
         ) else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            client?.urlProtocol(protocolInstance, didFailWithError: URLError(.badServerResponse))
             return
         }
 
-        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: body)
-        client?.urlProtocolDidFinishLoading(self)
+        client?.urlProtocol(protocolInstance, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(protocolInstance, didLoad: body)
+        client?.urlProtocolDidFinishLoading(protocolInstance)
     }
-
-    override func stopLoading() {}
 
     /// The API key from the request's `Authorization: Bearer <key>` header, used to
     /// pick the request's `MockState`. Falls back to "demo" when absent so a stray
