@@ -26,6 +26,9 @@ final nonisolated class MockState: @unchecked Sendable {
     var createdQuestions: [[String: Any]] = []
     var updatedQuestions: [Int: [String: Any]] = [:]
     var deletedQuestionIDs: Set<Int> = []
+    /// Events appended during this session (e.g. an `ended` event from a successful
+    /// `endPad`), layered after the canned seed timeline for that pad id.
+    var appendedPadEvents: [String: [[String: Any]]] = [:]
 
     /// Seed questions with this state's edits layered on and deletions removed.
     func allQuestions() -> [[String: Any]] {
@@ -67,6 +70,18 @@ final nonisolated class MockState: @unchecked Sendable {
 
             return !deletedPadIDs.contains(id)
         }
+    }
+
+    /// The canned seed timeline for `id` with this session's appended events (e.g.
+    /// from a successful `endPad`) layered on after it.
+    func events(forPad id: String) -> [[String: Any]] {
+        MockFixtures.events(forPad: id) + (appendedPadEvents[id] ?? [])
+    }
+
+    /// Records a lifecycle event for `id`, appended after its canned/previously
+    /// recorded timeline. Called when a pad mutation (e.g. ending a pad) succeeds.
+    func appendPadEvent(forPad id: String, _ event: [String: Any]) {
+        appendedPadEvents[id, default: []].append(event)
     }
 }
 
