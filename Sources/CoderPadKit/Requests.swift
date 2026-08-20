@@ -23,11 +23,17 @@ public nonisolated struct QuestionZIPUpload: Sendable {
     /// The exact archive bytes sent to CoderPad. Empty data is allowed.
     public var data: Data
     /// The filename reported in the multipart Content-Disposition header.
+    /// Must be a nonempty printable basename with no control or format characters.
     public var filename: String
 
     public init(data: Data, filename: String) {
         self.data = data
         self.filename = filename
+    }
+
+    func validate() throws {
+        try validateFilename()
+        try validateSize()
     }
 
     func validateSize() throws {
@@ -36,6 +42,27 @@ public nonisolated struct QuestionZIPUpload: Sendable {
                 byteCount: data.count,
                 limit: Self.maximumByteCount
             )
+        }
+    }
+
+    func validateFilename() throws {
+        let trimmed = filename.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw QuestionZIPUploadInvalidFilenameError(filename: filename)
+        }
+        guard !trimmed.contains("/"), !trimmed.contains("\\") else {
+            throw QuestionZIPUploadInvalidFilenameError(filename: filename)
+        }
+        for character in trimmed {
+            if character.isASCII, let ascii = character.asciiValue, ascii < 0x20 || ascii == 0x7F {
+                throw QuestionZIPUploadInvalidFilenameError(filename: filename)
+            }
+            if character.unicodeScalars.contains(where: { scalar in
+                let category = scalar.properties.generalCategory
+                return category == .control || category == .format
+            }) {
+                throw QuestionZIPUploadInvalidFilenameError(filename: filename)
+            }
         }
     }
 }
@@ -52,6 +79,20 @@ public nonisolated struct QuestionZIPUploadTooLargeError: LocalizedError, Equata
     public init(byteCount: Int, limit: Int) {
         self.byteCount = byteCount
         self.limit = limit
+    }
+}
+
+/// A question ZIP filename was empty, contained a path separator, or included a
+/// nonprinting control/format character.
+public nonisolated struct QuestionZIPUploadInvalidFilenameError: LocalizedError, Equatable, Sendable {
+    public let filename: String
+
+    public var errorDescription: String? {
+        "Question ZIP filename must be a nonempty printable basename."
+    }
+
+    public init(filename: String) {
+        self.filename = filename
     }
 }
 
