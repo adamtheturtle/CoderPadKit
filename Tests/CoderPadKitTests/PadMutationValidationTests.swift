@@ -57,6 +57,17 @@ struct PadMutationValidationTests {
             )
         }
     }
+
+    @Test
+    func `update encoding rejects ended and deleted together`() throws {
+        #expect(throws: PadMutationValidationError.endedAndDeletedTogether) {
+            _ = try CoderPadClient.encoder.encode(
+                PadUpdate(id: "PAD123", ended: true, deleted: true)
+            )
+        }
+        _ = try CoderPadClient.encoder.encode(PadUpdate(id: "PAD123", ended: true))
+        _ = try CoderPadClient.encoder.encode(PadUpdate(id: "PAD123", deleted: true))
+    }
 }
 
 private final nonisolated class UnexpectedPadMutationURLProtocol: URLProtocol {
