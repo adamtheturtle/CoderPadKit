@@ -44,6 +44,7 @@ public extension CoderPadClient {
         _ body: QuestionUpdate,
         zipFile: QuestionZIPUpload
     ) async throws -> Question {
+        try Self.validatePositiveResourceID(body.id, kind: "question")
         try await updateQuestionWithoutRefetch(body, zipFile: zipFile)
         do {
             return try await getQuestion(id: body.id)
@@ -57,6 +58,7 @@ public extension CoderPadClient {
         _ body: QuestionUpdate,
         zipFile: QuestionZIPUpload
     ) async throws {
+        try Self.validatePositiveResourceID(body.id, kind: "question")
         let request = try multipartQuestionRequest(
             method: "PUT",
             path: "/api/questions/\(body.id)",
