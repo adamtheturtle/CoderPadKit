@@ -11,14 +11,18 @@ nonisolated extension MockResponses {
     /// Reads either the client's JSON question body or its multipart text fields.
     /// The ZIP bytes themselves are deliberately ignored: the mock needs to preserve
     /// mutation semantics, not interpret archive contents.
+    ///
+    /// Returns `nil` for a missing, malformed, or wrong-shaped body so callers can
+    /// reject the request without mutating state.
     static func questionParams(body: Data?, contentType: String?) -> [String: Any]? {
-        guard let body else { return [:] }
+        guard let body, !body.isEmpty else { return nil }
         guard let contentType,
               contentType.hasPrefix("multipart/form-data;"),
               let boundary = contentType.components(separatedBy: "boundary=").last,
               !boundary.isEmpty else {
-            let object = (try? JSONSerialization.jsonObject(with: body) as? [String: Any]) ?? [:]
-            return flattenQuestionParams(object)
+            guard let object = try? JSONSerialization.jsonObject(with: body),
+                  let dict = object as? [String: Any] else { return nil }
+            return flattenQuestionParams(dict)
         }
 
         let raw = String(decoding: body, as: UTF8.self)
@@ -67,9 +71,13 @@ nonisolated extension MockResponses {
         return flattened
     }
 
+    /// Coerce only known boolean multipart fields. Literal `"true"`/`"false"` in a
+    /// text field such as `title` must stay strings.
     private static func multipartValue(_ value: String, name: String) -> Any {
-        if value == "true" { return true }
-        if value == "false" { return false }
+        if name == "take_home" {
+            if value == "true" { return true }
+            if value == "false" { return false }
+        }
         if name == "candidate_instructions",
            let data = value.data(using: .utf8),
            let object = try? JSONSerialization.jsonObject(with: data) {

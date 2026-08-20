@@ -120,6 +120,7 @@ public nonisolated enum MockFixtures {
                     updatedAt: String = "2026-06-10T08:00:00Z",
                     endedAt: String? = nil,
                     notes: String? = nil,
+                    contents: String? = nil,
                     drawing: String? = nil,
                     environmentIDs: [Int] = [1, 2],
                     activeEnvironmentID: Int = 1) -> [String: Any] {
@@ -146,7 +147,7 @@ public nonisolated enum MockFixtures {
             "history": "https://coderpad-1.firebaseio.com/\(id)/history.json",
             // The list response carries `contents`/`drawing` keys, null until the
             // pad has editor content or a whiteboard drawing.
-            "contents": NSNull(),
+            "contents": contents as Any? ?? NSNull(),
             "drawing": drawing as Any? ?? NSNull(),
             "created_at": createdAt,
             "updated_at": updatedAt,
