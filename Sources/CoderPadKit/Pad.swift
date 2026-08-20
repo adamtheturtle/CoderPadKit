@@ -103,6 +103,17 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
             ) ?? []
         activeEnvironmentID = container.loggedDecodeIfPresent(Int.self, forKey: .activeEnvironmentID)
         padEnvironmentIDs = container.loggedDecodeIfPresent([Int].self, forKey: .padEnvironmentIDs) ?? []
+        if let activeEnvironmentID {
+            let matches = padEnvironmentIDs.filter { $0 == activeEnvironmentID }
+            guard matches.count == 1 else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .activeEnvironmentID,
+                    in: container,
+                    debugDescription:
+                        "active_environment_id must occur exactly once in pad_environment_ids."
+                )
+            }
+        }
         questionIDs = container.loggedDecodeIfPresent([Int].self, forKey: .questionIDs) ?? []
         team = container.loggedDecodeIfPresent(PadTeam.self, forKey: .team)
     }
