@@ -185,7 +185,7 @@ struct QuestionZIPUploadTests {
         let error = await #expect(throws: MultipartFormDataTooLargeError.self) {
             _ = try await client.createQuestion(
                 QuestionCreate(title: "Tiny ZIP", description: oversizedDescription),
-                zipFile: QuestionZIPUpload(data: Data([0x50, 0x4B]), filename: "tiny.zip")
+                zipFile: QuestionZIPUpload(data: Data([0x50, 0x4B, 0x03, 0x04]), filename: "tiny.zip")
             )
         }
 
@@ -196,7 +196,7 @@ struct QuestionZIPUploadTests {
     @Test
     func `large ZIP uses a staged file instead of an aggregate request body`() async throws {
         let client = makeClient()
-        let archive = Data(repeating: 0xA5, count: 8 * 1024 * 1024)
+        let archive = Data([0x50, 0x4B, 0x03, 0x04]) + Data(repeating: 0xA5, count: 8 * 1024 * 1024)
 
         _ = try await client.createQuestion(
             QuestionCreate(title: "Large archive"),

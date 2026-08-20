@@ -41,7 +41,7 @@ struct MutationRefreshTests {
         let zipError = await #expect(throws: CoderPadMutationRefreshError.self) {
             _ = try await client.updateQuestion(
                 QuestionUpdate(id: 42, title: "Committed ZIP"),
-                zipFile: QuestionZIPUpload(data: Data([0x50, 0x4B]), filename: "question.zip")
+                zipFile: QuestionZIPUpload(data: Data([0x50, 0x4B, 0x03, 0x04]), filename: "question.zip")
             )
         }
         #expect(zipError?.target == .question(id: 42))
