@@ -139,6 +139,50 @@ struct MockFidelityTests {
         #expect(history.replay() == environment.fileContents.first?.contents)
     }
 
+    /// The live create-question response returns a shared, non-draft question, not
+    /// the mock's old `shared: false` / `is_draft: true` defaults.
+    @Test
+    func `a created question is shared and not a draft, like the live API`() async throws {
+        let created = try await client.createQuestion(QuestionCreate(title: "Newly created"))
+
+        #expect(created.shared == true)
+        #expect(created.isDraft == false)
+    }
+
+    /// The live create-pad response returns `state: pending`, not an already-started
+    /// pad, until an explicit start transition occurs.
+    @Test
+    func `a created pad starts pending rather than already started`() async throws {
+        let created = try await client.createPad(PadCreate(title: "Newly created pad"))
+
+        #expect(created.state == "pending")
+    }
+
+    /// Omitting `language` on create must fall back to the organization's own
+    /// default language, not a hardcoded one - the demo org advertises "go".
+    @Test
+    func `a created pad with no language falls back to the organization default`() async throws {
+        let org = try await client.organization()
+        let created = try await client.createPad(PadCreate(title: "No language specified"))
+
+        #expect(created.language == org.organizationDefaultLanguage)
+    }
+
+    /// `endPad` mutates state/ended_at, but the live API's event log also gains a
+    /// terminal `ended` event - previously the mock's events stayed a canned
+    /// per-pad timeline, unaffected by any lifecycle mutation made during the test.
+    @Test
+    func `ending a pad appends an ended event to its timeline`() async throws {
+        let before = try await client.padEvents(padID: "DEMOMS12")
+        #expect(!before.contains { $0.kind == "ended" })
+
+        try await client.endPad(id: "DEMOMS12")
+
+        let after = try await client.padEvents(padID: "DEMOMS12")
+        #expect(after.count == before.count + 1)
+        #expect(after.last?.kind == "ended")
+    }
+
     /// `interviewType` prefers `pad_type` over `take_home`, and every seeded and live
     /// question carries a `pad_type`, so an optimistic take-home flip that left
     /// `pad_type` alone was invisible to anything rendering from `interviewType`.

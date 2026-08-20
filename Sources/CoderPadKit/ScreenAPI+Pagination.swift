@@ -164,20 +164,47 @@ public nonisolated struct ScreenPagination: Decodable, Hashable, Sendable {
         let total = try container.decodeIfPresent(Int.self, forKey: .total)
         let nextStart = try container.decodeIfPresent(Int.self, forKey: .nextStart)
         guard start.map({ $0 >= 0 }) ?? true,
-              limit.map({ $0 > 0 }) ?? true,
+              limit.map({ (1 ... ScreenClient.maximumPageSize).contains($0) }) ?? true,
               total.map({ $0 >= 0 }) ?? true,
               nextStart.map({ $0 >= 0 }) ?? true else {
             throw DecodingError.dataCorruptedError(
                 forKey: .start,
                 in: container,
-                debugDescription: "Screen pagination offsets/counts must be nonnegative and limit must be positive."
+                debugDescription: """
+                Screen pagination offsets/counts must be nonnegative and limit must be between \
+                1 and \(ScreenClient.maximumPageSize).
+                """
             )
+        }
+
+        let hasMoreItems = try container.decode(Bool.self, forKey: .hasMoreItems)
+
+        if let start, let total, start > total {
+            throw DecodingError.dataCorruptedError(
+                forKey: .start,
+                in: container,
+                debugDescription: "Screen pagination start must not exceed total."
+            )
+        }
+
+        if let start, let nextStart {
+            let isCoherent = hasMoreItems ? nextStart > start : nextStart <= start
+            guard isCoherent else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .nextStart,
+                    in: container,
+                    debugDescription: """
+                    Screen pagination next_start must advance past start when has_more_items is true, \
+                    and must not advance past start when has_more_items is false.
+                    """
+                )
+            }
         }
 
         self.start = start
         self.limit = limit
         self.total = total
-        hasMoreItems = try container.decode(Bool.self, forKey: .hasMoreItems)
+        self.hasMoreItems = hasMoreItems
         self.nextStart = nextStart
     }
 
