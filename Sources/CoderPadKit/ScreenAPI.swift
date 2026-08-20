@@ -29,11 +29,16 @@ public nonisolated struct ScreenCampaign: Decodable, Identifiable, Hashable, Sen
     /// were dropped rather than failing the whole campaign (#219).
     public let omittedLanguageCount: Int
 
-    /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
+    /// Memberwise init for tests and previews; enforces the same ID and name
+    /// invariants as `init(from:)` (#140).
     public init(id: Int, name: String, languages: [String] = [], pinned: Bool = false, archived: Bool = false,
-                omittedLanguageCount: Int = 0) {
-        self.id = id
-        self.name = name
+                omittedLanguageCount: Int = 0) throws {
+        self.id = try validatedScreenModelID(id, kind: "campaign")
+        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedName.isEmpty else {
+            throw ScreenModelValidationError.blankCampaignName
+        }
+        self.name = normalizedName
         self.languages = languages
         self.pinned = pinned
         self.archived = archived
@@ -107,26 +112,37 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
     /// that case from a candidate who simply has no report yet (#217).
     public let reportOmitted: Bool
 
-    /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
+    /// Memberwise init for tests and previews; enforces positive IDs and
+    /// epoch-millisecond timestamp bounds like `init(from:)` (#141).
     public init(id: Int, status: String = "waiting", report: ScreenReport? = nil,
                 candidateName: String? = nil, candidateEmail: String? = nil, tags: [String] = [],
                 sendTime: Int? = nil, startTime: Int? = nil, endTime: Int? = nil,
                 lastActivityTime: Int? = nil, campaignID: Int? = nil,
-                url: String? = nil, testURL: String? = nil) {
-        self.id = id
+                url: String? = nil, testURL: String? = nil) throws {
+        self.id = try validatedScreenModelID(id, kind: "test")
         self.status = status
         self.url = url
         self.report = report
         idTest = nil
         organizationID = nil
-        self.campaignID = campaignID
+        if let campaignID {
+            self.campaignID = try validatedScreenModelID(campaignID, kind: "campaign")
+        } else {
+            self.campaignID = nil
+        }
         self.candidateName = candidateName
         self.candidateEmail = candidateEmail
         self.tags = tags
-        self.sendTime = sendTime
-        self.startTime = startTime
-        self.endTime = endTime
-        self.lastActivityTime = lastActivityTime
+        self.sendTime = try ScreenEpochMilliseconds.validated(sendTime, name: "send_time")
+        self.startTime = try ScreenEpochMilliseconds.validated(startTime, name: "start_time")
+        self.endTime = try ScreenEpochMilliseconds.validated(endTime, name: "end_time")
+        self.lastActivityTime = try ScreenEpochMilliseconds.validated(
+            lastActivityTime, name: "last_activity_time"
+        )
+        try Self.validateChronology(
+            sendTime: self.sendTime, startTime: self.startTime, endTime: self.endTime,
+            lastActivityTime: self.lastActivityTime, codingPath: []
+        )
         self.testURL = testURL
         candidateLanguage = nil
         questions = []
@@ -316,22 +332,44 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
     /// rather than failing the whole report (#218, #113).
     public let omittedWarningCount: Int
 
-    /// Memberwise init for tests and previews; the live decode path uses `init(from:)`.
+    /// Memberwise init for tests and previews; enforces the same metric invariants
+    /// as `init(from:)` (#142).
     public init(score: Double? = nil, points: Int? = nil, duration: Int? = nil,
                 warnings: [String] = [], technologies: [String: ScreenTechnologyResult] = [:],
                 totalDuration: Int? = nil, totalPoints: Int? = nil,
                 comparativeScore: Double? = nil, communityStats: [Int]? = nil,
-                omittedBreakdownEntries: Int = 0, omittedWarningCount: Int = 0) {
-        self.duration = duration
+                omittedBreakdownEntries: Int = 0, omittedWarningCount: Int = 0) throws {
+        self.duration = try ScreenReportMetric.validatedNonnegative(duration, name: "duration")
         self.warnings = warnings
-        self.points = points
-        self.score = score
+        self.points = try ScreenReportMetric.validatedNonnegative(points, name: "points")
+        self.score = try ScreenReportMetric.validatedPercentage(score, name: "score")
         self.technologies = technologies
-        self.omittedBreakdownEntries = omittedBreakdownEntries
-        self.totalDuration = totalDuration
-        self.totalPoints = totalPoints
-        self.comparativeScore = comparativeScore
-        self.communityStats = communityStats
+        self.omittedBreakdownEntries = try ScreenReportMetric.validatedNonnegative(
+            omittedBreakdownEntries, name: "omittedBreakdownEntries"
+        ) ?? 0
+        self.totalDuration = try ScreenReportMetric.validatedNonnegative(
+            totalDuration, name: "total_duration"
+        )
+        self.totalPoints = try ScreenReportMetric.validatedNonnegative(
+            totalPoints, name: "total_points"
+        )
+        try ScreenReportMetric.requireAtMost(self.points, atMost: self.totalPoints, name: "points")
+        try ScreenReportMetric.requireAtMost(
+            self.duration, atMost: self.totalDuration, name: "duration"
+        )
+        self.comparativeScore = try ScreenReportMetric.validatedPercentage(
+            comparativeScore, name: "comparative_score"
+        )
+        if let communityStats {
+            guard communityStats.allSatisfy({ $0 >= 0 }) else {
+                throw ScreenModelValidationError.invalidMetric(
+                    "Screen report community_stats buckets must not be negative."
+                )
+            }
+            self.communityStats = communityStats
+        } else {
+            self.communityStats = nil
+        }
         self.omittedWarningCount = omittedWarningCount
     }
 

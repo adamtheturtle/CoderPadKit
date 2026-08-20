@@ -72,7 +72,7 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
+        id = try container.decode(PositiveInt.self, forKey: .id).value
         title = container.loggedDecodeIfPresent(String.self, forKey: .title) ?? ""
         ownerEmail = container.loggedDecodeIfPresent(String.self, forKey: .ownerEmail) ?? ""
         language = container.loggedDecodeIfPresent(String.self, forKey: .language)
@@ -211,7 +211,9 @@ public enum PadState: Hashable, Identifiable, Codable, RawRepresentable, Sendabl
         case "ended", "finished", "completed": self = .ended
         case "pending", "draft": self = .pending
         case "deleted": self = .deleted
-        case let value: self = .other(value)
+        // Lowercase only for matching; preserve the original API spelling in `.other`
+        // so unrecognized values round-trip (#147).
+        default: self = .other(raw)
         }
     }
 
@@ -285,11 +287,26 @@ extension Question {
 
 /// A supplementary file attached to a question (downloadable by the candidate).
 public nonisolated struct QuestionCustomFile: Codable, Hashable, Identifiable, Sendable {
-    public let id: String?
+    /// The optional API `id` field from the wire payload. Renamed so ``id`` can
+    /// satisfy `Identifiable` with a stable non-optional value (#148).
+    public let apiID: String?
     public let title: String?
     public let description: String?
     public let filename: String?
     public let filesize: String?
+
+    /// Stable identity for collections. Prefers ``apiID``; otherwise a deterministic
+    /// key from the remaining fields so files without an API id do not collide.
+    public var id: String {
+        if let apiID, !apiID.isEmpty { return apiID }
+        return [title ?? "", description ?? "", filename ?? "", filesize ?? ""]
+            .joined(separator: "\u{1F}")
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case apiID = "id"
+        case title, description, filename, filesize
+    }
 }
 
 /// A custom database attached to a question.

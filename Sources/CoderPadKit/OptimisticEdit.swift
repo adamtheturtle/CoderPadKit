@@ -15,7 +15,8 @@
 import Foundation
 
 extension Pad {
-    /// Full memberwise initializer, alongside the decoding `init(from:)`.
+    /// Full memberwise initializer, alongside the decoding `init(from:)`. Rejects
+    /// pad IDs that cannot be reused as path components (#149).
     public init(
         id: String, title: String, state: String, ownerEmail: String, language: String?,
         participants: [String], url: String, playback: String?, events: String?, notes: String?,
@@ -27,6 +28,36 @@ extension Pad {
         omittedParticipantCount: Int = 0,
         omittedInterviewerNotificationCount: Int = 0,
         omittedPadEnvironmentIDCount: Int = 0
+    ) throws {
+        try CoderPadClient.validatePadID(id)
+        self.init(
+            uncheckedID: id, title: title, state: state, ownerEmail: ownerEmail,
+            language: language, participants: participants, url: url, playback: playback,
+            events: events, notes: notes, drawing: drawing, contents: contents,
+            history: history, createdAt: createdAt, updatedAt: updatedAt, endedAt: endedAt,
+            type: type, executionEnabled: executionEnabled, isPrivate: isPrivate,
+            activeEnvironmentID: activeEnvironmentID, padEnvironmentIDs: padEnvironmentIDs,
+            questionIDs: questionIDs, team: team,
+            restrictInterviewerAccess: restrictInterviewerAccess,
+            padInterviewerNotifications: padInterviewerNotifications,
+            omittedParticipantCount: omittedParticipantCount,
+            omittedInterviewerNotificationCount: omittedInterviewerNotificationCount,
+            omittedPadEnvironmentIDCount: omittedPadEnvironmentIDCount
+        )
+    }
+
+    /// Identity already validated (decode path or a prior throwing memberwise init).
+    nonisolated init(
+        uncheckedID id: String, title: String, state: String, ownerEmail: String,
+        language: String?, participants: [String], url: String, playback: String?,
+        events: String?, notes: String?, drawing: String?, contents: String?,
+        history: String?, createdAt: Date?, updatedAt: Date?, endedAt: Date?,
+        type: String?, executionEnabled: Bool?, isPrivate: Bool?,
+        activeEnvironmentID: Int?, padEnvironmentIDs: [Int], questionIDs: [Int],
+        team: PadTeam?, restrictInterviewerAccess: Bool?,
+        padInterviewerNotifications: [PadInterviewerNotification],
+        omittedParticipantCount: Int, omittedInterviewerNotificationCount: Int,
+        omittedPadEnvironmentIDCount: Int
     ) {
         self.id = id
         self.title = title
@@ -68,7 +99,7 @@ extension Pad {
         isPrivate: Bool? = nil, executionEnabled: Bool? = nil
     ) -> Pad {
         Pad(
-            id: id, title: title ?? self.title, state: state, ownerEmail: ownerEmail,
+            uncheckedID: id, title: title ?? self.title, state: state, ownerEmail: ownerEmail,
             language: language ?? self.language, participants: participants, url: url,
             playback: playback, events: events, notes: notes, drawing: drawing,
             contents: contents, history: history, createdAt: createdAt, updatedAt: updatedAt,
@@ -85,7 +116,8 @@ extension Pad {
 }
 
 extension Question {
-    /// Full memberwise initializer, alongside the decoding `init(from:)`.
+    /// Full memberwise initializer, alongside the decoding `init(from:)`. Rejects a
+    /// nonpositive question id (#149).
     public init(
         id: Int, title: String, ownerEmail: String, language: String?, description: String?,
         shared: Bool?, used: Int?, takeHome: Bool?, testCasesEnabled: Bool?, solution: String?,
@@ -98,6 +130,38 @@ extension Question {
         omittedCustomFileCount: Int = 0,
         omittedTestCaseCount: Int = 0,
         omittedCandidateInstructionCount: Int = 0
+    ) throws {
+        guard id > 0 else {
+            throw CoderPadError.decode("Interview question ID must be positive.")
+        }
+        self.init(
+            uncheckedID: id, title: title, ownerEmail: ownerEmail, language: language,
+            description: description, shared: shared, used: used, takeHome: takeHome,
+            testCasesEnabled: testCasesEnabled, solution: solution, padType: padType,
+            isDraft: isDraft, authorName: authorName, organizationName: organizationName,
+            contents: contents, contentsForTestCases: contentsForTestCases,
+            publicTakeHomeSettingID: publicTakeHomeSettingID, customFiles: customFiles,
+            testCases: testCases, createdAt: createdAt, updatedAt: updatedAt,
+            candidateInstructions: candidateInstructions,
+            aiAssistCustomSystemPrompt: aiAssistCustomSystemPrompt,
+            customDatabase: customDatabase,
+            omittedCustomFileCount: omittedCustomFileCount,
+            omittedTestCaseCount: omittedTestCaseCount,
+            omittedCandidateInstructionCount: omittedCandidateInstructionCount
+        )
+    }
+
+    nonisolated init(
+        uncheckedID id: Int, title: String, ownerEmail: String, language: String?,
+        description: String?, shared: Bool?, used: Int?, takeHome: Bool?,
+        testCasesEnabled: Bool?, solution: String?, padType: String?, isDraft: Bool?,
+        authorName: String?, organizationName: String?, contents: String?,
+        contentsForTestCases: String?, publicTakeHomeSettingID: Int?,
+        customFiles: [QuestionCustomFile], testCases: [QuestionTestCase],
+        createdAt: Date?, updatedAt: Date?, candidateInstructions: [CandidateInstruction],
+        aiAssistCustomSystemPrompt: String?, customDatabase: QuestionCustomDatabase?,
+        omittedCustomFileCount: Int, omittedTestCaseCount: Int,
+        omittedCandidateInstructionCount: Int
     ) {
         self.id = id
         self.title = title
@@ -145,7 +209,7 @@ extension Question {
     ) -> Question {
         let padType = padType ?? takeHome.map { $0 ? InterviewType.takeHome.rawValue : InterviewType.live.rawValue }
         return Question(
-            id: id, title: title ?? self.title, ownerEmail: ownerEmail,
+            uncheckedID: id, title: title ?? self.title, ownerEmail: ownerEmail,
             language: language ?? self.language, description: description ?? self.description,
             shared: shared, used: used, takeHome: takeHome ?? self.takeHome,
             testCasesEnabled: testCasesEnabled, solution: solution ?? self.solution,

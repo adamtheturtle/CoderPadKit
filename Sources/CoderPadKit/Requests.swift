@@ -15,6 +15,9 @@ public nonisolated struct PadUpdate: Codable, Sendable {
     public var id: String
     public var title: String?
     public var language: String?
+    /// When `true`, ``language`` may be any nonempty identifier; otherwise it must
+    /// be in ``InterviewLanguage/knownIdentifiers`` (#155). Not encoded.
+    public var allowUnknownLanguage: Bool
     public var ownerEmail: String?
     public var notes: String?
     public var isPrivate: Bool?
@@ -32,13 +35,15 @@ public nonisolated struct PadUpdate: Codable, Sendable {
     public var deleted: Bool?
 
     public init(
-        id: String, title: String? = nil, language: String? = nil, ownerEmail: String? = nil,
+        id: String, title: String? = nil, language: String? = nil,
+        allowUnknownLanguage: Bool = false, ownerEmail: String? = nil,
         notes: String? = nil, isPrivate: Bool? = nil, executionEnabled: Bool? = nil,
         contents: String? = nil, questionID: Int? = nil, ended: Bool? = nil, deleted: Bool? = nil
     ) {
         self.id = id
         self.title = title
         self.language = language
+        self.allowUnknownLanguage = allowUnknownLanguage
         self.ownerEmail = ownerEmail
         self.notes = notes
         self.isPrivate = isPrivate
@@ -51,7 +56,10 @@ public nonisolated struct PadUpdate: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id, title, language, notes, contents, ended, deleted
+<<<<<<< Updated upstream
         // Mutation requests use `user_email`; responses expose ownership as `owner_email`.
+=======
+>>>>>>> Stashed changes
         case ownerEmail = "user_email"
         case isPrivate = "private"
         case executionEnabled = "execution_enabled"
@@ -90,6 +98,9 @@ public nonisolated struct QuestionFileContent: Encodable, Sendable {
 public nonisolated struct QuestionCreate: Encodable, Sendable {
     public var title: String
     public var language: String?
+    /// When `true`, ``language`` may be any nonempty identifier; otherwise it must
+    /// be in ``InterviewLanguage/knownIdentifiers`` (#155). Not encoded.
+    public var allowUnknownLanguage: Bool
     public var description: String?
     public var solution: String?
     /// Starter code inserted into the interview session when this question is used.
@@ -104,7 +115,8 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
     public var aiAssistCustomSystemPrompt: String?
 
     public init(
-        title: String, language: String? = nil, description: String? = nil, solution: String? = nil,
+        title: String, language: String? = nil, allowUnknownLanguage: Bool = false,
+        description: String? = nil, solution: String? = nil,
         contents: String? = nil, fileContents: [QuestionFileContent]? = nil,
         takeHome: Bool? = nil, padType: String? = nil,
         candidateInstructions: [CandidateInstructionPayload]? = nil,
@@ -112,6 +124,7 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
     ) {
         self.title = title
         self.language = language
+        self.allowUnknownLanguage = allowUnknownLanguage
         self.description = description
         self.solution = solution
         self.contents = contents
@@ -137,7 +150,11 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validateQuestionContents(contents: contents, fileContents: fileContents)
+        try validateTakeHomePadType(takeHome: takeHome, padType: padType)
         let normalizedTitle = try validatedQuestionTitle(title)
+        let normalizedLanguage = try InterviewLanguage.validated(
+            language, allowUnknown: allowUnknownLanguage
+        )
         let normalizedFileContents = try validatedFileContents(fileContents)
         let normalizedCandidateInstructions = try validatedCandidateInstructions(candidateInstructions)
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -150,7 +167,7 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
         var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
         try question.encode(normalizedTitle, forKey: .title)
-        try question.encodeIfPresent(language, forKey: .language)
+        try question.encodeIfPresent(normalizedLanguage, forKey: .language)
         try question.encodeIfPresent(normalizedFileContents, forKey: .fileContents)
     }
 }
@@ -164,6 +181,9 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
     public var id: Int
     public var title: String?
     public var language: String?
+    /// When `true`, ``language`` may be any nonempty identifier; otherwise it must
+    /// be in ``InterviewLanguage/knownIdentifiers`` (#155). Not encoded.
+    public var allowUnknownLanguage: Bool
     public var description: String?
     public var solution: String?
     /// Starter code inserted into the interview session when this question is used.
@@ -178,7 +198,8 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
     public var aiAssistCustomSystemPrompt: String?
 
     public init(
-        id: Int, title: String? = nil, language: String? = nil, description: String? = nil,
+        id: Int, title: String? = nil, language: String? = nil,
+        allowUnknownLanguage: Bool = false, description: String? = nil,
         solution: String? = nil, contents: String? = nil,
         fileContents: [QuestionFileContent]? = nil, takeHome: Bool? = nil,
         padType: String? = nil, candidateInstructions: [CandidateInstructionPayload]? = nil,
@@ -187,6 +208,7 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         self.id = id
         self.title = title
         self.language = language
+        self.allowUnknownLanguage = allowUnknownLanguage
         self.description = description
         self.solution = solution
         self.contents = contents
@@ -212,7 +234,11 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validateQuestionContents(contents: contents, fileContents: fileContents)
+        try validateTakeHomePadType(takeHome: takeHome, padType: padType)
         let normalizedTitle = try title.map(validatedQuestionTitle)
+        let normalizedLanguage = try InterviewLanguage.validated(
+            language, allowUnknown: allowUnknownLanguage
+        )
         let normalizedFileContents = try validatedFileContents(fileContents)
         let normalizedCandidateInstructions = try validatedCandidateInstructions(candidateInstructions)
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -223,10 +249,10 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         try container.encodeIfPresent(padType, forKey: .padType)
         try container.encodeIfPresent(normalizedCandidateInstructions, forKey: .candidateInstructions)
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
-        if normalizedTitle != nil || language != nil || normalizedFileContents != nil {
+        if normalizedTitle != nil || normalizedLanguage != nil || normalizedFileContents != nil {
             var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
             try question.encodeIfPresent(normalizedTitle, forKey: .title)
-            try question.encodeIfPresent(language, forKey: .language)
+            try question.encodeIfPresent(normalizedLanguage, forKey: .language)
             try question.encodeIfPresent(normalizedFileContents, forKey: .fileContents)
         }
     }
@@ -255,6 +281,9 @@ public nonisolated struct CandidateInstructionPayload: Codable, Sendable {
 public nonisolated struct PadCreate: Codable, Sendable {
     public var title: String?
     public var language: String?
+    /// When `true`, ``language`` may be any nonempty identifier; otherwise it must
+    /// be in ``InterviewLanguage/knownIdentifiers`` (#155). Not encoded.
+    public var allowUnknownLanguage: Bool
     public var ownerEmail: String?
     public var contents: String?
     public var notes: String?
@@ -269,12 +298,14 @@ public nonisolated struct PadCreate: Codable, Sendable {
     public var teamID: String?
 
     public init(
-        title: String? = nil, language: String? = nil, ownerEmail: String? = nil,
-        contents: String? = nil, notes: String? = nil, isPrivate: Bool? = nil,
-        executionEnabled: Bool? = nil, questionID: Int? = nil, teamID: String? = nil
+        title: String? = nil, language: String? = nil, allowUnknownLanguage: Bool = false,
+        ownerEmail: String? = nil, contents: String? = nil, notes: String? = nil,
+        isPrivate: Bool? = nil, executionEnabled: Bool? = nil, questionID: Int? = nil,
+        teamID: String? = nil
     ) {
         self.title = title
         self.language = language
+        self.allowUnknownLanguage = allowUnknownLanguage
         self.ownerEmail = ownerEmail
         self.contents = contents
         self.notes = notes
@@ -286,7 +317,10 @@ public nonisolated struct PadCreate: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case title, language, contents, notes
+<<<<<<< Updated upstream
         // Mutation requests use `user_email`; responses expose ownership as `owner_email`.
+=======
+>>>>>>> Stashed changes
         case ownerEmail = "user_email"
         case isPrivate = "private"
         case executionEnabled = "execution_enabled"
@@ -301,6 +335,7 @@ public nonisolated struct PadCreate: Codable, Sendable {
         Self(
             title: question.title,
             language: question.language,
+            allowUnknownLanguage: true,
             questionID: question.id
         )
     }
@@ -374,6 +409,7 @@ extension PadCreate {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         title = try container.decodeIfPresent(String.self, forKey: .title)
         language = try container.decodeIfPresent(String.self, forKey: .language)
+        allowUnknownLanguage = false
         ownerEmail = try container.decodeIfPresent(String.self, forKey: .ownerEmail)
         contents = try container.decodeIfPresent(String.self, forKey: .contents)
         notes = try container.decodeIfPresent(String.self, forKey: .notes)
@@ -387,15 +423,19 @@ extension PadCreate {
         try validatePadContents(contents: contents, questionID: questionID)
         let normalizedOwnerEmail = try validatedPadOwnerEmail(ownerEmail)
         let normalizedTeamID = try validatedTeamID(teamID)
+        let normalizedQuestionID = try validatedPadQuestionID(questionID)
+        let normalizedLanguage = try InterviewLanguage.validated(
+            language, allowUnknown: allowUnknownLanguage
+        )
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(title, forKey: .title)
-        try container.encodeIfPresent(language, forKey: .language)
+        try container.encodeIfPresent(normalizedLanguage, forKey: .language)
         try container.encodeIfPresent(normalizedOwnerEmail, forKey: .ownerEmail)
         try container.encodeIfPresent(contents, forKey: .contents)
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encodeIfPresent(isPrivate, forKey: .isPrivate)
         try encodeExecutionEnabled(executionEnabled, into: &container, forKey: .executionEnabled)
-        try container.encodeIfPresent(questionID, forKey: .questionID)
+        try container.encodeIfPresent(normalizedQuestionID, forKey: .questionID)
         try container.encodeIfPresent(normalizedTeamID, forKey: .teamID)
     }
 }
@@ -406,6 +446,7 @@ extension PadUpdate {
         id = try container.decode(String.self, forKey: .id)
         title = try container.decodeIfPresent(String.self, forKey: .title)
         language = try container.decodeIfPresent(String.self, forKey: .language)
+        allowUnknownLanguage = false
         ownerEmail = try container.decodeIfPresent(String.self, forKey: .ownerEmail)
         notes = try container.decodeIfPresent(String.self, forKey: .notes)
         isPrivate = try container.decodeIfPresent(Bool.self, forKey: .isPrivate)
@@ -420,17 +461,21 @@ extension PadUpdate {
         try validatePadContents(contents: contents, questionID: questionID)
         try validatePadLifecycleFlags(ended: ended, deleted: deleted)
         let normalizedOwnerEmail = try validatedPadOwnerEmail(ownerEmail)
+        let normalizedQuestionID = try validatedPadQuestionID(questionID)
+        let normalizedLanguage = try InterviewLanguage.validated(
+            language, allowUnknown: allowUnknownLanguage
+        )
         var container = encoder.container(keyedBy: CodingKeys.self)
         // `id` is intentionally omitted: see the type doc above. `CodingKeys` still
         // declares it so `init(from:)` can decode a round trip.
         try container.encodeIfPresent(title, forKey: .title)
-        try container.encodeIfPresent(language, forKey: .language)
+        try container.encodeIfPresent(normalizedLanguage, forKey: .language)
         try container.encodeIfPresent(normalizedOwnerEmail, forKey: .ownerEmail)
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encodeIfPresent(isPrivate, forKey: .isPrivate)
         try encodeExecutionEnabled(executionEnabled, into: &container, forKey: .executionEnabled)
         try container.encodeIfPresent(contents, forKey: .contents)
-        try container.encodeIfPresent(questionID, forKey: .questionID)
+        try container.encodeIfPresent(normalizedQuestionID, forKey: .questionID)
         try container.encodeIfPresent(ended, forKey: .ended)
         try container.encodeIfPresent(deleted, forKey: .deleted)
     }

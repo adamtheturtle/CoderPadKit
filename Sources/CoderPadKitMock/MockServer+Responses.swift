@@ -164,8 +164,16 @@ nonisolated enum MockResponses {
         if let questionID = dict.removeValue(forKey: "question_id") {
             dict["question_ids"] = [questionID]
         }
+<<<<<<< Updated upstream
         // Successful updates advance `updated_at`, matching the live API (#192).
         dict["updated_at"] = updatedAt
+=======
+        // Mutation requests send ownership as `user_email`; pad responses expose
+        // `owner_email`, so remap before merging the overlay (#150).
+        if let userEmail = dict.removeValue(forKey: "user_email") {
+            dict["owner_email"] = userEmail
+        }
+>>>>>>> Stashed changes
         // Merge per-field rather than replacing the overlay. `PadUpdate` encodes only
         // its non-nil fields, so each PUT carries just the field being changed; the
         // live API applies that as a partial update, leaving every other field alone.
