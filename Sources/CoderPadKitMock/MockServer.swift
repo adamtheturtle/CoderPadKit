@@ -117,6 +117,23 @@ final nonisolated class MockURLProtocol: URLProtocol {
         client: (any URLProtocolClient)?,
         protocolInstance: URLProtocol
     ) {
+        // Firebase history is public and carries no Interview bearer. Interview REST
+        // requires exactly `Authorization: Bearer <nonempty key>` (#128).
+        if url.host?.lowercased() == MockServer.host, Self.bearerAPIKey(from: request) == nil {
+            let body = Data(#"{"status":"error","message":"Invalid API key"}"#.utf8)
+            let headers = ["Content-Type": "application/json"]
+            guard let response = HTTPURLResponse(
+                url: url, statusCode: 401, httpVersion: "HTTP/1.1", headerFields: headers
+            ) else {
+                client?.urlProtocol(protocolInstance, didFailWithError: URLError(.badServerResponse))
+                return
+            }
+            client?.urlProtocol(protocolInstance, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(protocolInstance, didLoad: body)
+            client?.urlProtocolDidFinishLoading(protocolInstance)
+            return
+        }
+
         let path = url.path
         let method = request.httpMethod ?? "GET"
         let bodyData = request.httpBody ?? Self.drain(stream: request.httpBodyStream)
@@ -127,7 +144,7 @@ final nonisolated class MockURLProtocol: URLProtocol {
 
         // Route to the per-API-key state (carried in the Authorization header the
         // client sets on every request), so each client - the app's demo account,
-        // and each test - sees an isolated store.
+        // and each test - sees an isolated store. History falls back to "demo".
         let state = MockStateRegistry.state(forKey: Self.apiKey(from: request))
         let (status, body) = MockResponses.respond(state: state,
                                                    method: method,
@@ -150,13 +167,19 @@ final nonisolated class MockURLProtocol: URLProtocol {
         client?.urlProtocolDidFinishLoading(protocolInstance)
     }
 
+    /// The bearer token when `Authorization` is exactly `Bearer <nonempty key>`.
+    private static func bearerAPIKey(from request: URLRequest) -> String? {
+        guard let header = request.value(forHTTPHeaderField: "Authorization"),
+              header.hasPrefix("Bearer ") else { return nil }
+        let key = String(header.dropFirst("Bearer ".count))
+        return key.isEmpty ? nil : key
+    }
+
     /// The API key from the request's `Authorization: Bearer <key>` header, used to
-    /// pick the request's `MockState`. Falls back to "demo" when absent so a stray
-    /// unauthenticated request still resolves to a valid store.
+    /// pick the request's `MockState`. Falls back to "demo" when absent so a Firebase
+    /// history request (which never carries an Interview bearer) still resolves.
     private static func apiKey(from request: URLRequest) -> String {
-        let header = request.value(forHTTPHeaderField: "Authorization") ?? ""
-        let key = header.hasPrefix("Bearer ") ? String(header.dropFirst("Bearer ".count)) : header
-        return key.isEmpty ? "demo" : key
+        bearerAPIKey(from: request) ?? "demo"
     }
 
     private static func drain(stream: InputStream?) -> Data? {

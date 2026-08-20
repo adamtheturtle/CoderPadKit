@@ -8,10 +8,13 @@
 import Foundation
 
 nonisolated extension MockResponses {
+    // Query is required for list sorting/pagination alongside the multipart body pair.
+    // swiftlint:disable:next cyclomatic_complexity function_parameter_count
     static func questionRoute(
         state: MockState,
         method: String,
         path: String,
+        query: [String: String],
         body: Data?,
         contentType: String?
     ) -> (Int, Data)? {
@@ -31,6 +34,9 @@ nonisolated extension MockResponses {
 
         if method == "DELETE", let id = match(path, pattern: #"^/api/questions/(\d+)/?$"#) {
             guard let idInt = Int(id) else { return invalidQuestionIDResponse }
+            guard state.allQuestions().contains(where: { ($0["id"] as? Int) == idInt }) else {
+                return (404, jsonString(["status": "error"]))
+            }
             state.deletedQuestionIDs.insert(idInt)
             return (200, jsonString(["status": "OK"]))
         }
@@ -46,7 +52,11 @@ nonisolated extension MockResponses {
         }
 
         if method == "GET", path == "/api/questions/" || path == "/api/questions" {
-            return ok(["status": "OK", "questions": state.allQuestions()])
+            let (sorted, error) = MockList.sorted(state.allQuestions(), query: query)
+            if let error { return error }
+            return MockList.page(
+                sorted ?? [], query: query, path: "/api/questions/", collectionKey: "questions"
+            )
         }
 
         return nil
@@ -62,13 +72,16 @@ nonisolated extension MockResponses {
         contentType: String?
     ) -> (Int, Data) {
         guard let bodyDict = questionParams(body: body, contentType: contentType) else {
-            return malformedMultipartResponse
+            return questionParamsError(contentType: contentType)
         }
         // Derive the id from seeds and this session's creations. Deleted ids remain
         // reserved because the live API never recycles an id it has handed out.
-        let existingIDs = (MockFixtures.questions() + state.createdQuestions)
-            .compactMap { $0["id"] as? Int }
-        let newID = (existingIDs.max() ?? 100) + 1
+        let existingIDs = Set(
+            (MockFixtures.questions() + state.createdQuestions).compactMap { $0["id"] as? Int }
+        )
+        let reserved = existingIDs.union(state.deletedQuestionIDs)
+        var newID = (existingIDs.max() ?? 100) + 1
+        while reserved.contains(newID) { newID += 1 }
         var question: [String: Any] = [
             "id": newID,
             "title": bodyDict["title"] as? String ?? "Untitled",
@@ -97,15 +110,12 @@ nonisolated extension MockResponses {
         body: Data?,
         contentType: String?
     ) -> (Int, Data) {
-        guard body != nil else {
-            return (400, jsonString(["status": "error"]))
-        }
-        // Existence before overlay writes, matching pad updates (#189).
+        // Existence before overlay writes, matching pad updates (#189 / #125).
         guard state.allQuestions().contains(where: { ($0["id"] as? Int) == idInt }) else {
             return (404, jsonString(["status": "error"]))
         }
         guard var params = questionParams(body: body, contentType: contentType) else {
-            return malformedMultipartResponse
+            return questionParamsError(contentType: contentType)
         }
 
         // Successful updates advance `updated_at`, matching the live API (#192).
@@ -114,6 +124,13 @@ nonisolated extension MockResponses {
         state.updatedQuestions[idInt, default: [:]]
             .merge(params) { _, new in new }
         return ok(["status": "OK"])
+    }
+
+    private static func questionParamsError(contentType: String?) -> (Int, Data) {
+        if contentType?.hasPrefix("multipart/form-data;") == true {
+            return malformedMultipartResponse
+        }
+        return invalidJSONBodyResponse
     }
 
     private static var malformedMultipartResponse: (Int, Data) {
