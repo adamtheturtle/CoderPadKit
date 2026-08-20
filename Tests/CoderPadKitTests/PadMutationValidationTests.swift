@@ -90,7 +90,19 @@ struct PadMutationValidationTests {
         )
         let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
 
-        #expect(root["owner_email"] as? String == "Interviewer@example.com")
+        #expect(root["user_email"] as? String == "Interviewer@example.com")
+        #expect(root["owner_email"] == nil)
+    }
+
+    @Test
+    func `update encodes owner email as the API's user_email field`() throws {
+        let data = try CoderPadClient.encoder.encode(
+            PadUpdate(id: "PAD123", ownerEmail: "owner@example.com")
+        )
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(root["user_email"] as? String == "owner@example.com")
+        #expect(root["owner_email"] == nil)
     }
 
     @Test
