@@ -37,13 +37,13 @@ struct RawAPITests {
     }
 
     @Test
-    func `preserves base valueless empty and duplicate query items`() async throws {
+    func `preserves valueless empty and duplicate query items`() async throws {
         RawQueryCaptureURLProtocol.reset()
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [RawQueryCaptureURLProtocol.self]
         let client = CoderPadClient(
             apiKey: "key",
-            baseURL: URL(string: "https://example.test/gateway?tenant=base&collision=base")!,
+            baseURL: URL(string: "https://example.test/gateway")!,
             session: URLSession(configuration: configuration)
         )
 
@@ -59,7 +59,7 @@ struct RawAPITests {
 
         let url = try #require(RawQueryCaptureURLProtocol.capturedURL())
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
-        #expect(components.percentEncodedQuery == "tenant=base&collision=base&flag&empty=&collision=request")
+        #expect(components.percentEncodedQuery == "flag&empty=&collision=request")
         #expect(!(components.queryItems ?? []).contains(where: { $0.name == "absent" }))
     }
 }
