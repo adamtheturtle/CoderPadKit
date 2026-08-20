@@ -13,7 +13,7 @@ struct QuestionZIPUploadTests {
     @Test
     func `create sends a complete multipart request with Unicode filename and empty data`() async throws {
         let client = makeClient()
-        let filename = "résumé \"draft\" \\.zip"
+        let filename = "résumé \"draft\".zip"
 
         _ = try await client.createQuestion(
             QuestionCreate(
@@ -48,8 +48,8 @@ struct QuestionZIPUploadTests {
                 ),
                 ("question[ai_assist_custom_system_prompt]", "Give hints")
             ],
-            escapedFilename: "r_sum_ \\\"draft\\\" \\\\.zip",
-            filenameStar: "r%C3%A9sum%C3%A9%20%22draft%22%20%5C.zip",
+            escapedFilename: "r_sum_ \\\"draft\\\".zip",
+            filenameStar: "r%C3%A9sum%C3%A9%20%22draft%22.zip",
             fileData: Data()
         )
 
@@ -138,7 +138,21 @@ struct QuestionZIPUploadTests {
         requireSendable(QuestionUpdate.self)
         requireSendable(QuestionMutationValidationError.self)
         requireSendable(QuestionZIPUploadTooLargeError.self)
+        requireSendable(QuestionZIPUploadInvalidFilenameError.self)
         requireSendable(MultipartFormDataTooLargeError.self)
+    }
+
+    @Test(arguments: ["", "   ", "a/b.zip", "a\\b.zip", "bad\u{0000}.zip", "zw\u{200B}j.zip"])
+    func `invalid ZIP filenames are rejected before staging`(_ filename: String) async {
+        let client = makeClient()
+        let error = await #expect(throws: QuestionZIPUploadInvalidFilenameError.self) {
+            _ = try await client.createQuestion(
+                QuestionCreate(title: "Bad name"),
+                zipFile: QuestionZIPUpload(data: Data([0x50, 0x4B]), filename: filename)
+            )
+        }
+        #expect(error?.filename == filename)
+        #expect(ZIPCaptureURLProtocol.requests().isEmpty)
     }
 
     @Test
