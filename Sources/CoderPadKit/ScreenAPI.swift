@@ -419,7 +419,7 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
             debugDescription: "Screen report duration must not exceed total_duration."
         )
         comparativeScore = try ScreenReportMetric.percentage(from: container, forKey: .comparativeScore)
-        communityStats = try container.decodeIfPresent([Int].self, forKey: .communityStats)
+        communityStats = try ScreenReportMetric.decodeCommunityStats(from: container, forKey: .communityStats)
     }
 
     enum CodingKeys: String, CodingKey {
