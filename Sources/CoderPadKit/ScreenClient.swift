@@ -113,8 +113,8 @@ public struct ScreenClient {
             try Self.requirePositiveID(campaignID, kind: "campaign")
         }
         let filters = try Self.normalizedListFilters(product: product, candidateEmail: candidateEmail)
-        if let start, start < 0 {
-            throw CoderPadError.decode("Screen pagination start must not be negative.")
+        if let start {
+            try Self.requirePaginationStart(start)
         }
         if let limit, !(1 ... Self.maximumPageSize).contains(limit) {
             throw CoderPadError.decode("Screen pagination limit must be between 1 and \(Self.maximumPageSize).")
@@ -295,8 +295,19 @@ public struct ScreenClient {
 
 private extension ScreenClient {
     public nonisolated static func validateTimeRange(from: Int?, until: Int?) throws {
-        guard from.map({ $0 >= 0 }) ?? true, until.map({ $0 >= 0 }) ?? true else {
-            throw CoderPadError.decode("Screen time filters must not be negative.")
+        if let from {
+            guard (ScreenEpochMilliseconds.earliest ... ScreenEpochMilliseconds.latest).contains(from) else {
+                throw CoderPadError.decode(
+                    "Screen time filters must be epoch milliseconds between 2000 and 2100."
+                )
+            }
+        }
+        if let until {
+            guard (ScreenEpochMilliseconds.earliest ... ScreenEpochMilliseconds.latest).contains(until) else {
+                throw CoderPadError.decode(
+                    "Screen time filters must be epoch milliseconds between 2000 and 2100."
+                )
+            }
         }
         guard from.map({ start in until.map { start <= $0 } ?? true }) ?? true else {
             throw CoderPadError.decode("Screen time filter start must not be later than its end.")
@@ -304,7 +315,19 @@ private extension ScreenClient {
     }
 
     public nonisolated static func requirePositiveID(_ id: Int, kind: String) throws {
-        guard id > 0 else { throw CoderPadError.decode("Screen \(kind) ID must be positive.") }
+        guard (1 ... maximumScreenID).contains(id) else {
+            throw CoderPadError.decode("Screen \(kind) ID must be a positive int32.")
+        }
+    }
+
+    public nonisolated static func requirePaginationStart(_ start: Int) throws {
+        guard start >= 0 else {
+            throw CoderPadError.decode("Screen pagination start must not be negative.")
+        }
+        // Keep start + maximumPageSize representable so mock/page math cannot trap (#211).
+        guard start <= Int.max - maximumPageSize else {
+            throw CoderPadError.decode("Screen pagination start is too large.")
+        }
     }
 
     public nonisolated static func normalizedFilter(

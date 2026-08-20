@@ -179,7 +179,15 @@ nonisolated enum MockScreenResponses {
         let total = tests.count
         let start = max(query["start"].flatMap(Int.init) ?? 0, 0)
         let limit = max(query["limit"].flatMap(Int.init) ?? total, 0)
-        let end = min(start + limit, total)
+        let end: Int
+        let (summed, overflow) = start.addingReportingOverflow(limit)
+        if overflow {
+            // A typed client should have rejected overflow-prone starts; still avoid
+            // trapping if a raw query arrives with Int.max (#211).
+            end = total
+        } else {
+            end = min(summed, total)
+        }
         let window = start < end ? Array(tests[start ..< end]) : []
         let hasMore = end < total
 
