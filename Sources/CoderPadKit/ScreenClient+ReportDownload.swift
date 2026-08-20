@@ -10,9 +10,9 @@ import Foundation
 #endif
 
 public extension ScreenClient {
-    /// Downloads report bytes to URLSession's temporary file, checking both the
-    /// advertised and actual size before materializing the PDF in memory (#2767).
-    public nonisolated func reportData(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    /// Streams report bytes while enforcing the 50 MiB success ceiling and the
+    /// shared error-body limit as headers/bytes arrive (#110, #2767).
+    nonisolated func reportData(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         try await withIdempotentGETRetry(method: request.httpMethod) {
             try await reportDataOnce(for: request)
         }
@@ -23,34 +23,25 @@ public extension ScreenClient {
         try await ScreenReportOperationLimiter.shared.acquire(id: operationID)
         defer { Task { await ScreenReportOperationLimiter.shared.release() } }
 
-        let fileURL: URL
-        let response: URLResponse
-        do {
-            (fileURL, response) = try await session.download(
-                for: request,
-                delegate: ScreenRedirectDelegate(requestURL: request.url)
-            )
-        } catch let urlError as URLError {
-            if urlError.code == .cancelled { throw CancellationError() }
-            throw CoderPadError.network(urlError)
-        } catch is CancellationError {
-            throw CancellationError()
-        }
-
-        guard let http = response as? HTTPURLResponse else {
-            throw CoderPadError.http(0, "No HTTP response")
-        }
+        let (data, http) = try await boundedBody(
+            for: request,
+            successLimit: ScreenReportFiles.maxReportBytes,
+            errorLimit: Self.maximumErrorBodyBytes
+        )
         guard (200 ..< 300).contains(http.statusCode) else {
-            // Preserve the HTTP status even when the temporary error body cannot be
-            // read, so callers still see `isUnauthorized` for 401/403 (#207).
-            throw CoderPadError.http(http.statusCode, Self.reportErrorBody(at: fileURL))
+            // Preserve the HTTP status even when the body is empty/truncated, so
+            // callers still see `isUnauthorized` for 401/403 (#207).
+            throw CoderPadError.http(http.statusCode, String(decoding: data, as: UTF8.self))
         }
-
-        return try (Self.reportSuccessData(at: fileURL, response: http), http)
+        guard Self.isAllowedReportSize(declared: http.expectedContentLength, actual: data.count) else {
+            throw CoderPadError.decode("The report is too large to open.")
+        }
+        return (data, http)
     }
 
-    /// Reads at most ``maximumErrorBodyBytes`` from a report error download. Unreadable
-    /// files yield an empty body so the caller can still surface the HTTP status (#207).
+    /// Reads at most ``maximumErrorBodyBytes`` from a temporary report-error file.
+    /// Unreadable files yield an empty body so the caller can still surface the
+    /// HTTP status (#207). Kept for tests and residual file-backed paths.
     nonisolated static func reportErrorBody(at fileURL: URL) -> String {
         do {
             let handle = try FileHandle(forReadingFrom: fileURL)
@@ -86,7 +77,7 @@ public extension ScreenClient {
         }
     }
 
-    public nonisolated static func isAllowedReportSize(declared: Int64, actual: Int) -> Bool {
+    nonisolated static func isAllowedReportSize(declared: Int64, actual: Int) -> Bool {
         let maximum = Int64(ScreenReportFiles.maxReportBytes)
         return actual >= 0 && Int64(actual) <= maximum
             && (declared < 0 || declared <= maximum)

@@ -21,42 +21,61 @@ nonisolated extension ScreenClient {
 
     @discardableResult
     private func dataOnce(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, http) = try await boundedBody(
+            for: request,
+            successLimit: maximumResponseBodyBytes,
+            errorLimit: Self.maximumErrorBodyBytes
+        )
+        guard (200 ..< 300).contains(http.statusCode) else {
+            throw CoderPadError.http(http.statusCode, String(decoding: data, as: UTF8.self))
+        }
+        return (data, http)
+    }
+
+    /// Streams a Screen response while enforcing separate success/error ceilings so
+    /// oversized bodies are rejected (or truncated for errors) as bytes arrive
+    /// (#110, #111, #205). Shared by JSON GETs and PDF report downloads.
+    func boundedBody(
+        for request: URLRequest,
+        successLimit: Int,
+        errorLimit: Int
+    ) async throws -> (Data, HTTPURLResponse) {
         #if canImport(FoundationNetworking)
-            // Stream with an enforced ceiling so a large 2xx body cannot allocate past
-            // ``maximumResponseBodyBytes`` before the check runs (#205).
-            let (data, http) = try await ScreenBoundedResponseLoader(
-                successLimit: maximumResponseBodyBytes,
-                errorLimit: Self.maximumErrorBodyBytes,
+            return try await ScreenBoundedResponseLoader(
+                successLimit: successLimit,
+                errorLimit: errorLimit,
                 requestURL: request.url
             ).load(
                 configuration: session.configuration,
                 delegateQueue: session.delegateQueue,
                 request: request
             )
-            guard (200 ..< 300).contains(http.statusCode) else {
-                throw CoderPadError.http(http.statusCode, String(decoding: data, as: UTF8.self))
-            }
-            return (data, http)
         #else
-        let bytes: URLSession.AsyncBytes
-        let response: URLResponse
-        do {
-            (bytes, response) = try await session.bytes(
-                for: request,
-                delegate: ScreenRedirectDelegate(requestURL: request.url)
+            let bytes: URLSession.AsyncBytes
+            let response: URLResponse
+            do {
+                (bytes, response) = try await session.bytes(
+                    for: request,
+                    delegate: ScreenRedirectDelegate(requestURL: request.url)
+                )
+            } catch let urlError as URLError {
+                if urlError.code == .cancelled { throw CancellationError() }
+                throw CoderPadError.network(urlError)
+            }
+            let limits = try responseMetadata(
+                for: response,
+                successLimit: successLimit,
+                errorLimit: errorLimit
             )
-        } catch let urlError as URLError {
-            if urlError.code == .cancelled { throw CancellationError() }
-            throw CoderPadError.network(urlError)
-        }
-        let (http, limit) = try responseMetadata(for: response)
-        let isSuccess = (200 ..< 300).contains(http.statusCode)
-
-        let data = try await responseBody(from: bytes, response: http, limit: limit, isSuccess: isSuccess)
-        guard isSuccess else {
-            throw CoderPadError.http(http.statusCode, String(decoding: data, as: UTF8.self))
-        }
-        return (data, http)
+            return (
+                try await responseBody(
+                    from: bytes,
+                    response: limits.http,
+                    limit: limits.limit,
+                    isSuccess: limits.isSuccess
+                ),
+                limits.http
+            )
         #endif
     }
 
@@ -89,16 +108,26 @@ nonisolated extension ScreenClient {
     }
     #endif
 
-    private func responseMetadata(for response: URLResponse) throws -> (HTTPURLResponse, Int) {
+    private struct ScreenResponseLimits {
+        let http: HTTPURLResponse
+        let limit: Int
+        let isSuccess: Bool
+    }
+
+    private func responseMetadata(
+        for response: URLResponse,
+        successLimit: Int,
+        errorLimit: Int
+    ) throws -> ScreenResponseLimits {
         guard let http = response as? HTTPURLResponse else {
             throw CoderPadError.http(0, "No HTTP response")
         }
         let isSuccess = (200 ..< 300).contains(http.statusCode)
-        let limit = isSuccess ? maximumResponseBodyBytes : Self.maximumErrorBodyBytes
+        let limit = isSuccess ? successLimit : errorLimit
         if isSuccess, http.expectedContentLength > Int64(limit) {
             throw CoderPadError.decode("The Screen response exceeded the \(limit)-byte limit.")
         }
-        return (http, limit)
+        return ScreenResponseLimits(http: http, limit: limit, isSuccess: isSuccess)
     }
 
     /// Bounded exponential backoff for idempotent Screen GETs (and PDF report downloads).
@@ -134,7 +163,8 @@ nonisolated extension ScreenClient {
 
 #if canImport(FoundationNetworking)
 /// Incrementally accumulates a Screen response and cancels once the applicable byte
-/// ceiling is exceeded, so success bodies cannot bypass ``maximumResponseBodyBytes``.
+/// ceiling is exceeded, so JSON bodies cannot bypass ``maximumResponseBodyBytes`` and
+/// report downloads cannot bypass ``ScreenReportFiles/maxReportBytes`` (#110, #111).
 final class ScreenBoundedResponseLoader: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private struct State {
         var continuation: CheckedContinuation<(Data, HTTPURLResponse), any Error>?
