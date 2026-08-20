@@ -235,7 +235,16 @@ nonisolated enum MockScreenResponses {
 
         switch method {
         case "GET":
-            return json(200, ["url": (state.webhookURL as Any?) ?? NSNull()])
+            // Documented "no webhook configuration" response (#213). A configured
+            // callback still returns 200 with a JSON body.
+            guard let url = state.webhookURL else {
+                return Result(
+                    status: 404,
+                    body: Data(#"{"code":"NotFound","message":"No webhook configuration"}"#.utf8),
+                    contentType: "application/json"
+                )
+            }
+            return json(200, ["url": url])
 
         case "POST":
             // The body is the URL as a bare JSON string, per the API contract.
