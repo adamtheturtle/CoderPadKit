@@ -290,6 +290,38 @@ struct DecodeToleranceTests {
     }
 
     @Test
+    func `Question rejects updated_at earlier than created_at`() throws {
+        let valid = try CoderPadClient.decoder.decode(
+            Question.self,
+            from: Data(
+                #"""
+                {
+                  "id": 11,
+                  "created_at": "2026-06-10T08:00:00Z",
+                  "updated_at": "2026-06-10T09:00:00Z"
+                }
+                """#.utf8
+            )
+        )
+        #expect(valid.updatedAt! > valid.createdAt!)
+
+        #expect(throws: DecodingError.self) {
+            try CoderPadClient.decoder.decode(
+                Question.self,
+                from: Data(
+                    #"""
+                    {
+                      "id": 12,
+                      "created_at": "2026-06-10T09:00:00Z",
+                      "updated_at": "2026-06-10T08:00:00Z"
+                    }
+                    """#.utf8
+                )
+            )
+        }
+    }
+
+    @Test
     func `Pad retains empirically observed access and notification metadata`() throws {
         let json = Data(
             #"""
