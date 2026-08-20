@@ -40,6 +40,11 @@ public nonisolated enum MockServer {
         config.protocolClasses = [proto] + (config.protocolClasses ?? [])
         return URLSession(configuration: config)
     }
+
+    /// Drops the Interview mock store for `key` so memory can be reclaimed (#138).
+    public static func resetState(forKey key: String) {
+        MockStateRegistry.removeState(forKey: key)
+    }
 }
 
 /// Answers every Interview REST request with 401 Unauthorized, mimicking a revoked
