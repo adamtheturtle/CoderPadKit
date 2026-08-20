@@ -33,7 +33,7 @@ struct ScreenResponseLimitTests {
     @Test
     func `a declared oversized success Content-Length fails before loading the body`() async throws {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [DeclaredOversizedScreenResponseURLProtocol.self]
+        configuration.protocolClasses = [OversizedScreenResponseURLProtocol.self]
         let client = ScreenClient(
             apiKey: "key",
             session: URLSession(configuration: configuration),
@@ -75,7 +75,7 @@ private final nonisolated class OversizedScreenResponseURLProtocol: URLProtocol 
     override func stopLoading() {}
 }
 
-private final nonisolated class DeclaredOversizedScreenResponseURLProtocol: URLProtocol {
+private final nonisolated class OversizedScreenResponseURLProtocol: URLProtocol {
     override static func canInit(with _: URLRequest) -> Bool { true }
 
     override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
