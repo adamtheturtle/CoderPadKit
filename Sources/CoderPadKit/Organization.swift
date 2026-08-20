@@ -30,6 +30,20 @@ public nonisolated struct Organization: Decodable, Hashable, Sendable {
         case singleSignOnSupported = "single_sign_on_supported"
         case singleSignInURL = "single_sign_in_url"
     }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        organizationName = try container.decode(String.self, forKey: .organizationName)
+        userCount = try container.decodeIfPresent(NonnegativeInt.self, forKey: .userCount)?.value
+        users = try container.decode([OrganizationUser].self, forKey: .users)
+        teams = try container.decode([PadTeam].self, forKey: .teams)
+        organizationDefaultLanguage = try container.decodeIfPresent(
+            String.self, forKey: .organizationDefaultLanguage
+        )
+        singleSignOnSupported = try container.decodeIfPresent(Bool.self, forKey: .singleSignOnSupported)
+        singleSignInURL = try container.decodeIfPresent(String.self, forKey: .singleSignInURL)
+    }
 }
 
 /// A user within an organization.
@@ -47,6 +61,14 @@ public nonisolated struct OrganizationUser: Decodable, Identifiable, Hashable, S
         case email, name, teams
         case padsCreated = "pads_created"
     }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        email = try container.decode(String.self, forKey: .email)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        teams = try container.decodeIfPresent([String].self, forKey: .teams)
+        padsCreated = try container.decodeIfPresent(NonnegativeInt.self, forKey: .padsCreated)?.value
+    }
 }
 
 /// Pad-usage statistics for an organization over a time window.
@@ -61,6 +83,14 @@ public nonisolated struct OrganizationStats: Decodable, Hashable, Sendable {
         case startTime = "start_time"
         case endTime = "end_time"
         case padsCreated = "pads_created"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        startTime = try container.decodeIfPresent(Date.self, forKey: .startTime)
+        endTime = try container.decodeIfPresent(Date.self, forKey: .endTime)
+        padsCreated = try container.decode(NonnegativeInt.self, forKey: .padsCreated).value
+        users = try container.decode([OrganizationUser].self, forKey: .users)
     }
 }
 
@@ -84,5 +114,25 @@ public nonisolated struct Quota: Decodable, Hashable, Sendable {
         case overagesEnabled = "overages_enabled"
         case padsRemaining = "pads_remaining"
         case billingCyclePadLimit = "billing_cycle_pad_limit"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        trialExpiresAt = try container.decodeIfPresent(Date.self, forKey: .trialExpiresAt)
+        padsUsed = try container.decodeIfPresent(NonnegativeInt.self, forKey: .padsUsed)?.value
+        quotaReset = try container.decodeIfPresent(Date.self, forKey: .quotaReset)
+        unlimited = try container.decodeIfPresent(Bool.self, forKey: .unlimited)
+        overagesEnabled = try container.decodeIfPresent(Bool.self, forKey: .overagesEnabled)
+        padsRemaining = try container.decodeIfPresent(NonnegativeInt.self, forKey: .padsRemaining)?.value
+        billingCyclePadLimit = try container.decodeIfPresent(
+            NonnegativeInt.self, forKey: .billingCyclePadLimit
+        )?.value
+        if let padsRemaining, let billingCyclePadLimit, padsRemaining > billingCyclePadLimit {
+            throw DecodingError.dataCorruptedError(
+                forKey: .padsRemaining,
+                in: container,
+                debugDescription: "pads_remaining must not exceed billing_cycle_pad_limit."
+            )
+        }
     }
 }

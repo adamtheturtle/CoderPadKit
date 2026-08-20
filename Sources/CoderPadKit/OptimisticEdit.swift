@@ -23,7 +23,10 @@ extension Pad {
         endedAt: Date?, type: String?, executionEnabled: Bool?, isPrivate: Bool?,
         activeEnvironmentID: Int?, padEnvironmentIDs: [Int], questionIDs: [Int], team: PadTeam?,
         restrictInterviewerAccess: Bool? = nil,
-        padInterviewerNotifications: [PadInterviewerNotification] = []
+        padInterviewerNotifications: [PadInterviewerNotification] = [],
+        omittedParticipantCount: Int = 0,
+        omittedInterviewerNotificationCount: Int = 0,
+        omittedPadEnvironmentIDCount: Int = 0
     ) {
         self.id = id
         self.title = title
@@ -31,6 +34,7 @@ extension Pad {
         self.ownerEmail = ownerEmail
         self.language = language
         self.participants = participants
+        self.omittedParticipantCount = omittedParticipantCount
         self.url = url
         self.playback = playback
         self.events = events
@@ -46,8 +50,10 @@ extension Pad {
         self.isPrivate = isPrivate
         self.restrictInterviewerAccess = restrictInterviewerAccess
         self.padInterviewerNotifications = padInterviewerNotifications
+        self.omittedInterviewerNotificationCount = omittedInterviewerNotificationCount
         self.activeEnvironmentID = activeEnvironmentID
         self.padEnvironmentIDs = padEnvironmentIDs
+        self.omittedPadEnvironmentIDCount = omittedPadEnvironmentIDCount
         self.questionIDs = questionIDs
         self.team = team
     }
@@ -70,7 +76,10 @@ extension Pad {
             isPrivate: isPrivate ?? self.isPrivate, activeEnvironmentID: activeEnvironmentID,
             padEnvironmentIDs: padEnvironmentIDs, questionIDs: questionIDs, team: team,
             restrictInterviewerAccess: restrictInterviewerAccess,
-            padInterviewerNotifications: padInterviewerNotifications
+            padInterviewerNotifications: padInterviewerNotifications,
+            omittedParticipantCount: omittedParticipantCount,
+            omittedInterviewerNotificationCount: omittedInterviewerNotificationCount,
+            omittedPadEnvironmentIDCount: omittedPadEnvironmentIDCount
         )
     }
 }
@@ -85,7 +94,10 @@ extension Question {
         customFiles: [QuestionCustomFile], testCases: [QuestionTestCase], createdAt: Date?,
         updatedAt: Date?, candidateInstructions: [CandidateInstruction],
         aiAssistCustomSystemPrompt: String? = nil,
-        customDatabase: QuestionCustomDatabase? = nil
+        customDatabase: QuestionCustomDatabase? = nil,
+        omittedCustomFileCount: Int = 0,
+        omittedTestCaseCount: Int = 0,
+        omittedCandidateInstructionCount: Int = 0
     ) {
         self.id = id
         self.title = title
@@ -105,10 +117,13 @@ extension Question {
         self.contentsForTestCases = contentsForTestCases
         self.publicTakeHomeSettingID = publicTakeHomeSettingID
         self.customFiles = customFiles
+        self.omittedCustomFileCount = omittedCustomFileCount
         self.testCases = testCases
+        self.omittedTestCaseCount = omittedTestCaseCount
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.candidateInstructions = candidateInstructions
+        self.omittedCandidateInstructionCount = omittedCandidateInstructionCount
         self.aiAssistCustomSystemPrompt = aiAssistCustomSystemPrompt
         self.customDatabase = customDatabase
     }
@@ -145,7 +160,10 @@ extension Question {
                 }
             } ?? candidateInstructions,
             aiAssistCustomSystemPrompt: aiAssistCustomSystemPrompt,
-            customDatabase: customDatabase
+            customDatabase: customDatabase,
+            omittedCustomFileCount: omittedCustomFileCount,
+            omittedTestCaseCount: omittedTestCaseCount,
+            omittedCandidateInstructionCount: omittedCandidateInstructionCount
         )
     }
 }
