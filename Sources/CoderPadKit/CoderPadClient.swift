@@ -302,10 +302,14 @@ public struct CoderPadClient {
         return try await rest.fetch(Pad.self, path: "/api/pads/\(id)")
     }
 
-    /// Fetches a pad's event log.
-    public func padEvents(padID: String) async throws -> [PadEvent] {
+    /// Fetches a pad's event log. `sort` accepts the same `field,direction` values as
+    /// ``listPads(sort:)`` (e.g. `"created_at,asc"` / `"created_at,desc"`); omit it to
+    /// use the service default (#191).
+    public func padEvents(padID: String, sort: String? = nil) async throws -> [PadEvent] {
         try Self.validatePadID(padID)
-        return try await rest.fetchAllPages(EventsPage.self, path: "/api/pads/\(padID)/events")
+        return try await rest.fetchAllPages(
+            EventsPage.self, path: "/api/pads/\(padID)/events", sort: sort
+        )
     }
 
     /// Fetches a single pad environment by id.

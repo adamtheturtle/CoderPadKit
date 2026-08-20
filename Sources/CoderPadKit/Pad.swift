@@ -400,11 +400,15 @@ public nonisolated struct PadHistory: Decodable, Hashable, Sendable, RandomAcces
     public typealias Index = Array<PadHistoryEntry>.Index
 
     public let entries: [PadHistoryEntry]
+    /// Count of Firebase nodes skipped because they were not valid history entries.
+    /// Valid siblings are still retained (#199).
+    public let omittedEntryCount: Int
 
-    public init(entries: [PadHistoryEntry] = []) {
+    public init(entries: [PadHistoryEntry] = [], omittedEntryCount: Int = 0) {
         self.entries = entries.sorted {
             ($0.timestamp, $0.id) < ($1.timestamp, $1.id)
         }
+        self.omittedEntryCount = omittedEntryCount
     }
 
     public var startIndex: Index { entries.startIndex }
@@ -412,6 +416,15 @@ public nonisolated struct PadHistory: Decodable, Hashable, Sendable, RandomAcces
     public subscript(position: Index) -> Element { entries[position] }
     public func index(after index: Index) -> Index { entries.index(after: index) }
     public func index(before index: Index) -> Index { entries.index(before: index) }
+
+    /// Describes skipped malformed history nodes, when any were omitted.
+    public var omittedEntriesDiagnostic: String? {
+        omittedJSONElementsDiagnostic(
+            count: omittedEntryCount,
+            singular: "history entry",
+            plural: "history entries"
+        )
+    }
 
     private struct WireEntry: Decodable {
         let author: String
@@ -425,17 +438,44 @@ public nonisolated struct PadHistory: Decodable, Hashable, Sendable, RandomAcces
         }
     }
 
+    private struct HistoryCodingKey: CodingKey {
+        var stringValue: String
+        var intValue: Int?
+
+        init?(stringValue: String) {
+            self.stringValue = stringValue
+        }
+
+        init?(intValue: Int) {
+            stringValue = String(intValue)
+            self.intValue = intValue
+        }
+    }
+
     public init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let values = try container.decode([String: WireEntry].self)
-        self.init(entries: values.map { id, value in
-            PadHistoryEntry(
-                id: id,
-                author: value.author,
-                operations: value.operations,
-                timestamp: value.timestamp
-            )
-        })
+        // Decode each Firebase node independently so one malformed entry cannot
+        // discard every valid editor operation in the response (#199).
+        let container = try decoder.container(keyedBy: HistoryCodingKey.self)
+        var entries: [PadHistoryEntry] = []
+        var omittedEntryCount = 0
+        for key in container.allKeys {
+            if let value = try? container.decode(WireEntry.self, forKey: key) {
+                entries.append(PadHistoryEntry(
+                    id: key.stringValue,
+                    author: value.author,
+                    operations: value.operations,
+                    timestamp: value.timestamp
+                ))
+            } else if (try? container.decode(DiscardedJSONValue.self, forKey: key)) != nil {
+                omittedEntryCount += 1
+            } else {
+                throw DecodingError.dataCorrupted(.init(
+                    codingPath: container.codingPath + [key],
+                    debugDescription: "Pad history contained an unreadable entry."
+                ))
+            }
+        }
+        self.init(entries: entries, omittedEntryCount: omittedEntryCount)
     }
 
     /// Replays every entry and returns the final file contents.
