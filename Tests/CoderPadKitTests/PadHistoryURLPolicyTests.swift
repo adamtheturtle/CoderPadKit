@@ -23,6 +23,20 @@ struct PadHistoryURLPolicyTests {
         #expect(allowed("https://coderpad-prod.europe-west1.firebasedatabase.app/abc/history.json"))
         #expect(allowed("https://app.coderpad.io/history/abc"))
         #expect(allowed("https://eu.app.coderpad.io/history/abc"))
+        #expect(allowed("https://coderpad.firebaseio.com/abc/history.json"))
+        #expect(allowed("https://coderpadproject.firebaseio.com/abc/history.json"))
+    }
+
+    @Test(arguments: [
+        "https://coderpad.firebaseio.com/abc/history.json",
+        "https://coderpadproject.firebaseio.com/abc/history.json"
+    ])
+    func `official legacy Firebase hosts reject credentials ports and fragments`(_ url: String) {
+        #expect(allowed(url))
+        #expect(!allowed(url.replacingOccurrences(of: "https://", with: "http://")))
+        #expect(!allowed(url.replacingOccurrences(of: "https://", with: "https://user:pass@")))
+        #expect(!allowed(url.replacingOccurrences(of: ".com/", with: ".com:444/")))
+        #expect(!allowed(url + "#fragment"))
     }
 
     @Test

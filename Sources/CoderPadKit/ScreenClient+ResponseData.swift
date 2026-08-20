@@ -11,8 +11,16 @@ import Foundation
 
 nonisolated extension ScreenClient {
     /// Runs a bounded request, mapping transport and HTTP failures onto CoderPadError.
+    /// Idempotent GETs retry transient 408/429/5xx and connectivity failures (#160).
     @discardableResult
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        try await withIdempotentGETRetry(method: request.httpMethod) {
+            try await dataOnce(for: request)
+        }
+    }
+
+    @discardableResult
+    private func dataOnce(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         #if canImport(FoundationNetworking)
             let data: Data
             let response: URLResponse
@@ -100,5 +108,35 @@ nonisolated extension ScreenClient {
             throw CoderPadError.decode("The Screen response exceeded the \(limit)-byte limit.")
         }
         return (http, limit)
+    }
+
+    /// Bounded exponential backoff for idempotent Screen GETs (and PDF report downloads).
+    func withIdempotentGETRetry<T>(
+        method: String?,
+        maxAttempts: Int = 3,
+        operation: () async throws -> T
+    ) async throws -> T {
+        let normalizedMethod = (method ?? "GET").uppercased()
+        guard normalizedMethod == "GET", maxAttempts > 0 else {
+            return try await operation()
+        }
+
+        var attempt = 0
+        while true {
+            do {
+                return try await operation()
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                attempt += 1
+                guard attempt < maxAttempts, CoderPadRetryPolicy.isTransient(error) else {
+                    throw error
+                }
+                apiLogger.debug(
+                    "Transient Screen GET failure; retry \(attempt)/\(maxAttempts - 1)"
+                )
+                try await Task.sleep(for: .seconds(CoderPadRetryPolicy.backoffDelay(retryNumber: attempt)))
+            }
+        }
     }
 }

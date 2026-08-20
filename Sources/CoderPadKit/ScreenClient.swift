@@ -54,7 +54,9 @@ public struct ScreenClient {
                             session: URLSession = Self.liveSession,
                             maximumResponseBodyBytes: Int = Self.defaultMaximumResponseBodyBytes) {
         precondition(maximumResponseBodyBytes >= 0, "Response limit must not be negative")
-        self.apiKey = apiKey
+        // Normalize once so whitespace-only and control-bearing keys cannot reach
+        // header construction (#161).
+        self.apiKey = APIKeyNormalization.normalized(apiKey) ?? ""
         self.baseURL = baseURL
         self.session = session
         self.maximumResponseBodyBytes = maximumResponseBodyBytes
@@ -63,11 +65,15 @@ public struct ScreenClient {
     /// The single construction point for the live session, mirroring `CoderPadClient`.
     public nonisolated static let liveSession: URLSession = .init(configuration: makeLiveConfiguration())
 
-    /// Kept separate from the session so timeout policy is directly testable.
+    /// Kept separate from the session so timeout and cache policy are directly testable
+    /// (#158 parity, #163).
     public nonisolated static func makeLiveConfiguration() -> URLSessionConfiguration {
-        let config = URLSessionConfiguration.default
+        let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 60
         config.timeoutIntervalForResource = 120
+        config.urlCache = nil
+        config.httpCookieStorage = nil
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
         return config
     }
 
