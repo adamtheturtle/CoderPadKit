@@ -48,7 +48,8 @@ struct QuestionZIPUploadTests {
                 ),
                 ("question[ai_assist_custom_system_prompt]", "Give hints")
             ],
-            escapedFilename: "résumé \\\"draft\\\" \\\\.zip",
+            escapedFilename: "r_sum_ \\\"draft\\\" \\\\.zip",
+            filenameStar: "r%C3%A9sum%C3%A9%20%22draft%22%20%5C.zip",
             fileData: Data()
         )
 
@@ -219,6 +220,7 @@ struct QuestionZIPUploadTests {
         boundary: String,
         fields: [(String, String)],
         escapedFilename: String,
+        filenameStar: String? = nil,
         fileData: Data
     ) -> Data {
         var result = Data()
@@ -229,15 +231,14 @@ struct QuestionZIPUploadTests {
             result.append(Data("\r\n".utf8))
         }
         result.append(Data("--\(boundary)\r\n".utf8))
-        result.append(
-            Data(
-                (
-                    "Content-Disposition: form-data; name=\"question[zip_file]\"; "
-                        + "filename=\"\(escapedFilename)\"\r\n"
-                        + "Content-Type: application/zip\r\n\r\n"
-                ).utf8
-            )
-        )
+        var disposition =
+            "Content-Disposition: form-data; name=\"question[zip_file]\"; "
+            + "filename=\"\(escapedFilename)\""
+        if let filenameStar {
+            disposition += "; filename*=UTF-8''\(filenameStar)"
+        }
+        disposition += "\r\nContent-Type: application/zip\r\n\r\n"
+        result.append(Data(disposition.utf8))
         result.append(fileData)
         result.append(Data("\r\n--\(boundary)--\r\n".utf8))
         return result
