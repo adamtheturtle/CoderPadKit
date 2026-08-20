@@ -69,7 +69,7 @@ struct ScreenClientTests {
             _ = try await client.sendInvitation(campaignID: id, ScreenInvitation(candidateEmail: "a@example.com"))
             Issue.record("Expected an invalid campaign ID to throw")
         } catch let error as CoderPadError {
-            #expect(error.description.contains("campaign ID must be positive"))
+            #expect(error.description.contains("campaign ID must be a positive int32"))
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
@@ -82,7 +82,7 @@ struct ScreenClientTests {
             _ = try await client.getTest(id: id)
             Issue.record("Expected an invalid test ID to throw")
         } catch let error as CoderPadError {
-            #expect(error.description.contains("test ID must be positive"))
+            #expect(error.description.contains("test ID must be a positive int32"))
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
