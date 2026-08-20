@@ -21,6 +21,22 @@ struct PadHistoryModelTests {
 
         #expect(history.map(\.id) == ["earlier", "later", "same-time-a", "same-time-b"])
         #expect(history.replay(initialContents: "h") == "hi!")
+        #expect(history.omittedEntryCount == 0)
+        #expect(history.omittedEntriesDiagnostic == nil)
+    }
+
+    @Test
+    func `history keeps valid entries when one sibling is malformed`() throws {
+        // One node is missing `o`; another has a wrong-typed timestamp. Valid nodes
+        // must still decode in chronological order (#199).
+        // swiftlint:disable:next line_length
+        let json = #"{"good":{"a":"author-1","o":[1,"!"],"t":2},"bad-missing-ops":{"a":"author-2","t":1},"bad-timestamp":{"a":"author-3","o":[1],"t":"nope"},"also-good":{"a":"author-4","o":[2],"t":3}}"#
+        let history = try CoderPadClient.decoder.decode(PadHistory.self, from: Data(json.utf8))
+
+        #expect(history.map(\.id) == ["good", "also-good"])
+        #expect(history.omittedEntryCount == 2)
+        #expect(history.omittedEntriesDiagnostic == "Ignored 2 malformed history entries.")
+        #expect(history.replay(initialContents: "h") == "h!")
     }
 
     @Test
