@@ -87,6 +87,13 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
         testCases = container.loggedDecodeIfPresent([QuestionTestCase].self, forKey: .testCases) ?? []
         createdAt = container.loggedDecodeIfPresent(Date.self, forKey: .createdAt)
         updatedAt = container.loggedDecodeIfPresent(Date.self, forKey: .updatedAt)
+        if let createdAt, let updatedAt, updatedAt < createdAt {
+            throw DecodingError.dataCorruptedError(
+                forKey: .updatedAt,
+                in: container,
+                debugDescription: "updated_at must not precede created_at."
+            )
+        }
         candidateInstructions = container
             .loggedDecodeIfPresent([CandidateInstruction].self, forKey: .candidateInstructions) ?? []
         aiAssistCustomSystemPrompt = container
