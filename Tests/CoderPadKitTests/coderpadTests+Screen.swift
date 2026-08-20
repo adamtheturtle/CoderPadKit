@@ -311,14 +311,14 @@ extension ScreenClientTests {
         defer { try? FileManager.default.removeItem(at: fileURL) }
         try Data(repeating: 97, count: 2 * 1024 * 1024).write(to: fileURL)
 
-        let body = try ScreenClient.reportErrorBody(at: fileURL)
+        let body = ScreenClient.reportErrorBody(at: fileURL)
 
         #expect(body.utf8.count == ScreenClient.maximumErrorBodyBytes)
         #expect(body.allSatisfy { $0 == "a" })
     }
 
     @Test
-    func `an unreadable report error body surfaces a distinct decode failure`() throws {
+    func `an unreadable report error body yields an empty diagnostic string`() throws {
         let fileURL = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         try Data("server diagnostic".utf8).write(to: fileURL)
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: fileURL.path)
@@ -327,14 +327,7 @@ extension ScreenClientTests {
             try? FileManager.default.removeItem(at: fileURL)
         }
 
-        let error = #expect(throws: CoderPadError.self) {
-            _ = try ScreenClient.reportErrorBody(at: fileURL)
-        }
-        if case let .decode(detail) = error {
-            #expect(detail == "The report error response body could not be read.")
-        } else {
-            Issue.record("Expected a .decode error, got \(String(describing: error))")
-        }
+        #expect(ScreenClient.reportErrorBody(at: fileURL).isEmpty)
     }
 
     @Test

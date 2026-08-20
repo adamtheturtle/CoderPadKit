@@ -110,6 +110,14 @@ nonisolated func validatedTeamID(_ teamID: String?) throws -> String? {
     return teamID
 }
 
+/// Rejects a negative body ceiling so configuration can fail without trapping (#206).
+nonisolated func validateNonNegativeResponseBodyLimit(_ bytes: Int) throws -> Int {
+    guard bytes >= 0 else {
+        throw CoderPadError.decode("Response limit must not be negative")
+    }
+    return bytes
+}
+
 nonisolated func validateQuestionContents(
     contents: String?, fileContents: [QuestionFileContent]?
 ) throws {
