@@ -100,6 +100,60 @@ struct ScreenReportMetricTests {
     }
 
     @Test
+    func `report rejects points above total_points`() {
+        let json = #"{"points":500,"total_points":100}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenReport.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test
+    func `report rejects duration above total_duration`() {
+        let json = #"{"duration":500,"total_duration":100}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenReport.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test(arguments: [(50, 100), (100, 100), (0, 0)])
+    func `report accepts points and duration at or below their totals`(points: Int, totalPoints: Int) throws {
+        let json = #"{"points":\#(points),"total_points":\#(totalPoints),"#
+            + #""duration":\#(points),"total_duration":\#(totalPoints)}"#
+        let report = try JSONDecoder().decode(ScreenReport.self, from: Data(json.utf8))
+
+        #expect(report.points == points)
+        #expect(report.totalPoints == totalPoints)
+        #expect(report.duration == points)
+        #expect(report.totalDuration == totalPoints)
+    }
+
+    @Test
+    func `technology points above total_points are dropped rather than failing the report`() throws {
+        let json = #"{"technologies":{"Valid":{"points":10,"total_points":20},"#
+            + #""Invalid":{"points":500,"total_points":100}}}"#
+        let report = try JSONDecoder().decode(ScreenReport.self, from: Data(json.utf8))
+
+        #expect(report.technologies["Valid"]?.points == 10)
+        #expect(report.technologies["Invalid"] == nil)
+    }
+
+    @Test
+    func `skill points above total_points are dropped rather than failing the technology`() throws {
+        let json = #"""
+        {"technologies":{"Java":{"skills":{
+            "Valid":{"points":10,"total_points":20},
+            "Invalid":{"points":500,"total_points":100}
+        }}}}
+        """#
+        let report = try JSONDecoder().decode(ScreenReport.self, from: Data(json.utf8))
+
+        #expect(report.technologies["Java"]?.skills["Valid"]?.points == 10)
+        #expect(report.technologies["Java"]?.skills["Invalid"] == nil)
+    }
+
+    @Test
     func `present numeric report fields reject the wrong JSON type`() {
         let fields = ["duration", "points", "score", "total_duration", "total_points", "comparative_score"]
         for field in fields {
