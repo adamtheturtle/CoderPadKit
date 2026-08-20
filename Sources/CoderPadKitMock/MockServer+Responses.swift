@@ -251,69 +251,6 @@ nonisolated enum MockResponses {
         return ok(response)
     }
 
-    /// A pad id no pad in this state already holds. The random suffix alone could
-    /// collide with a seeded or previously created pad, and a collision made the new
-    /// pad vanish from `listPads()` (the client de-duplicates by id). Deleted ids stay
-    /// reserved, because the live API never recycles an id it has handed out. The
-    /// counter suffix makes termination unconditional once the random space is
-    /// exhausted, rather than looping forever.
-    private static func newPadID(state: MockState) -> String {
-        let taken = Set(
-            (MockFixtures.seedPads() + state.createdPads).compactMap { $0["id"] as? String }
-        ).union(state.deletedPadIDs)
-        for _ in 0 ..< 100 {
-            let candidate = "DEMO\(Int.random(in: 1000 ... 9999))"
-            if !taken.contains(candidate) { return candidate }
-        }
-        var counter = 0
-        while taken.contains("DEMO\(counter)") { counter += 1 }
-        return "DEMO\(counter)"
-    }
-
-    // MARK: - Organization routes
-
-    private static func organizationRoute(
-        state: MockState,
-        method: String,
-        path: String,
-        query: [String: String]
-    ) -> (Int, Data)? {
-        if method == "GET", path == "/api/quota" {
-            return ok(MockFixtures.quota())
-        }
-
-        if method == "GET", path == "/api/organization" {
-            return ok(MockFixtures.organization())
-        }
-
-        if method == "GET", path == "/api/organization/stats" {
-            return ok(MockFixtures.organizationStats(query: query))
-        }
-
-        if method == "GET", path == "/api/organization/pads" {
-            return listed(
-                state.allPads(), query: query, path: "/api/organization/pads", key: "pads"
-            )
-        }
-
-        if method == "GET", path == "/api/organization/questions" {
-            return listed(
-                state.allQuestions(), query: query,
-                path: "/api/organization/questions", key: "questions"
-            )
-        }
-
-        if method == "GET", path == "/api/organization/users" {
-            let users = MockFixtures.users()
-            if let email = query["email"] {
-                return ok(["status": "OK", "users": users.filter { ($0["email"] as? String) == email }])
-            }
-            return ok(["status": "OK", "users": users])
-        }
-
-        return nil
-    }
-
     // MARK: - Helpers
 
     static func ok(_ value: Any) -> (Int, Data) {
