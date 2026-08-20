@@ -7,25 +7,58 @@
 
 import Foundation
 
-/// A question mutation selected incompatible sources for its starter content.
+/// A question mutation selected incompatible sources for its starter content, or
+/// supplied blank, nonprinting, or oversized text fields.
 public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatable, Sendable {
     /// More than one starter-content representation was supplied.
     case mutuallyExclusiveContentSources
+    /// The title was empty after trimming whitespace, or contained a control or
+    /// format character (NUL, other C0/C1 controls, bidi overrides, etc.).
+    case blankOrControlTitle
+    /// A candidate instructions block was empty after trimming whitespace, or
+    /// contained a control or format character.
+    case blankOrControlCandidateInstructions
+    /// A candidate instructions block exceeded ``CandidateInstructionPayload/maximumByteCount``.
+    case candidateInstructionsTooLarge(byteCount: Int, limit: Int)
+    /// The structured file list exceeded ``QuestionFileContent/maximumFileCount``.
+    case tooManyFileContents(count: Int, limit: Int)
+    /// One file's contents exceeded ``QuestionFileContent/maximumFileByteCount``.
+    case fileContentTooLarge(path: String, byteCount: Int, limit: Int)
+    /// The combined size of every file's contents exceeded
+    /// ``QuestionFileContent/maximumAggregateByteCount``.
+    case fileContentsTooLarge(byteCount: Int, limit: Int)
 
     public var errorDescription: String? {
         switch self {
         case .mutuallyExclusiveContentSources:
             "Use only one of contents, structured file contents, or a question ZIP upload."
+        case .blankOrControlTitle:
+            "Question title must not be blank or contain control characters."
+        case .blankOrControlCandidateInstructions:
+            "Candidate instructions must not be blank or contain control characters."
+        case let .candidateInstructionsTooLarge(byteCount, limit):
+            "Candidate instructions are \(byteCount) bytes; the limit is \(limit) bytes."
+        case let .tooManyFileContents(count, limit):
+            "Question has \(count) structured files; the limit is \(limit) files."
+        case let .fileContentTooLarge(path, byteCount, limit):
+            "File '\(path)' is \(byteCount) bytes; the per-file limit is \(limit) bytes."
+        case let .fileContentsTooLarge(byteCount, limit):
+            "Structured file contents total \(byteCount) bytes; the limit is \(limit) bytes."
         }
     }
 }
 
-/// A pad mutation selected incompatible sources for its initial editor contents.
+/// A pad mutation selected incompatible sources for its initial editor contents, sent
+/// an implausible owner email or team ID, or set contradictory lifecycle flags.
 public nonisolated enum PadMutationValidationError: LocalizedError, Equatable, Sendable {
     /// Both literal editor contents and a question were supplied.
     case mutuallyExclusiveContentsAndQuestion
     /// `ended` and `deleted` were both `true` in the same update.
     case endedAndDeletedTogether
+    /// `ownerEmail` was present but not a plausible email address.
+    case implausibleOwnerEmail
+    /// `teamID` was present but not a canonical UUID.
+    case invalidTeamID
 
     public var errorDescription: String? {
         switch self {
@@ -33,6 +66,10 @@ public nonisolated enum PadMutationValidationError: LocalizedError, Equatable, S
             "Use only one of contents or questionID when creating or updating a pad."
         case .endedAndDeletedTogether:
             "Use only one of ended or deleted; a pad cannot be ended and deleted together."
+        case .implausibleOwnerEmail:
+            "Pad owner email must be a plausible email address."
+        case .invalidTeamID:
+            "Pad team ID must be a canonical UUID."
         }
     }
 }
@@ -49,8 +86,33 @@ private nonisolated func validatePadLifecycleFlags(ended: Bool?, deleted: Bool?)
     }
 }
 
+/// The address trimmed and domain-lowercased via ``EmailValidation/normalized(_:)``,
+/// then checked with ``EmailValidation/isPlausibleAddress(_:)``. `nil` passes through
+/// unchanged: an absent owner email means "use the account default".
+private nonisolated func validatedPadOwnerEmail(_ ownerEmail: String?) throws -> String? {
+    guard let ownerEmail else { return nil }
+    let normalized = EmailValidation.normalized(ownerEmail)
+    guard EmailValidation.isPlausibleAddress(normalized) else {
+        throw PadMutationValidationError.implausibleOwnerEmail
+    }
+    return normalized
+}
+
+/// Requires a present `teamID` to be a canonical UUID, matching the official Interview
+/// API's documented `team_id` type. `nil` passes through unchanged: an absent team ID
+/// means "use the account's default team".
+private nonisolated func validatedTeamID(_ teamID: String?) throws -> String? {
+    guard let teamID else { return nil }
+    guard UUID(uuidString: teamID) != nil else {
+        throw PadMutationValidationError.invalidTeamID
+    }
+    return teamID
+}
+
 /// The request body for modifying a pad (`PUT /api/pads/:id`). Only the non-nil
-/// fields are sent. The `id` travels in the URL path as well as the body.
+/// fields are sent. The official "Modify a pad" contract carries the pad ID solely in
+/// the URL path and documents no `id` body parameter, so ``encode(to:)`` omits it; the
+/// `id` property still exists for path construction and for decoding round trips.
 public nonisolated struct PadUpdate: Codable, Sendable {
     public var id: String
     public var title: String?
@@ -104,6 +166,15 @@ public nonisolated struct PadUpdate: Codable, Sendable {
 /// ``QuestionCustomFile``, which describes downloadable file metadata returned by
 /// the API rather than starter-code files sent in a question mutation.
 public nonisolated struct QuestionFileContent: Encodable, Sendable {
+    /// Maximum number of structured files accepted by a single mutation. Unlike a ZIP
+    /// upload, the structured path has no archive framing to bound it otherwise.
+    public static let maximumFileCount = 200
+    /// Maximum accepted size of one file's `contents`, measured as UTF-8 bytes (1 MiB).
+    public static let maximumFileByteCount = 1024 * 1024
+    /// Maximum accepted combined size of every file's `contents` in one mutation,
+    /// measured as UTF-8 bytes (10 MiB).
+    public static let maximumAggregateByteCount = 10 * 1024 * 1024
+
     public var path: String
     public var contents: String
 
@@ -119,6 +190,85 @@ private nonisolated func validateQuestionContents(
     guard contents == nil || fileContents == nil else {
         throw QuestionMutationValidationError.mutuallyExclusiveContentSources
     }
+}
+
+/// Trims surrounding whitespace and rejects text that is empty afterward or that
+/// contains any control or format character (NUL, other C0/C1 controls, bidi
+/// overrides, zero-width joiners, etc.) anywhere in the trimmed text.
+private nonisolated func normalizedNonBlankText(_ value: String) -> String? {
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty, !trimmed.unicodeScalars.contains(where: { scalar in
+        let category = scalar.properties.generalCategory
+        return category == .control || category == .format
+    }) else {
+        return nil
+    }
+    return trimmed
+}
+
+/// The normalized title for a question mutation. Not private: used from both
+/// `Requests.swift` (JSON encode) and `MultipartFormData.swift` (multipart fields).
+nonisolated func validatedQuestionTitle(_ title: String) throws -> String {
+    guard let normalized = normalizedNonBlankText(title) else {
+        throw QuestionMutationValidationError.blankOrControlTitle
+    }
+    return normalized
+}
+
+/// Normalized, size-checked candidate instructions. Not private: used from both
+/// `Requests.swift` (JSON encode) and `MultipartFormData.swift` (multipart fields).
+nonisolated func validatedCandidateInstructions(
+    _ instructions: [CandidateInstructionPayload]?
+) throws -> [CandidateInstructionPayload]? {
+    guard let instructions else { return nil }
+    return try instructions.map { payload in
+        guard let normalized = normalizedNonBlankText(payload.instructions) else {
+            throw QuestionMutationValidationError.blankOrControlCandidateInstructions
+        }
+        let byteCount = normalized.utf8.count
+        guard byteCount <= CandidateInstructionPayload.maximumByteCount else {
+            throw QuestionMutationValidationError.candidateInstructionsTooLarge(
+                byteCount: byteCount,
+                limit: CandidateInstructionPayload.maximumByteCount
+            )
+        }
+        return CandidateInstructionPayload(instructions: normalized, defaultVisible: payload.defaultVisible)
+    }
+}
+
+/// Bounds a structured file list by count, per-file size, and aggregate size before it
+/// reaches the encoder. `fileContents` is otherwise passed through unchanged: paths and
+/// contents are not normalized, only measured.
+private nonisolated func validatedFileContents(
+    _ fileContents: [QuestionFileContent]?
+) throws -> [QuestionFileContent]? {
+    guard let fileContents else { return nil }
+    guard fileContents.count <= QuestionFileContent.maximumFileCount else {
+        throw QuestionMutationValidationError.tooManyFileContents(
+            count: fileContents.count,
+            limit: QuestionFileContent.maximumFileCount
+        )
+    }
+    var aggregateByteCount = 0
+    for file in fileContents {
+        let byteCount = file.contents.utf8.count
+        guard byteCount <= QuestionFileContent.maximumFileByteCount else {
+            throw QuestionMutationValidationError.fileContentTooLarge(
+                path: file.path,
+                byteCount: byteCount,
+                limit: QuestionFileContent.maximumFileByteCount
+            )
+        }
+        let (nextAggregate, overflow) = aggregateByteCount.addingReportingOverflow(byteCount)
+        aggregateByteCount = overflow ? Int.max : nextAggregate
+        guard aggregateByteCount <= QuestionFileContent.maximumAggregateByteCount else {
+            throw QuestionMutationValidationError.fileContentsTooLarge(
+                byteCount: aggregateByteCount,
+                limit: QuestionFileContent.maximumAggregateByteCount
+            )
+        }
+    }
+    return fileContents
 }
 
 /// The request body for creating a question. `title`, `language`, and ``fileContents``
@@ -175,27 +325,29 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validateQuestionContents(contents: contents, fileContents: fileContents)
+        let normalizedTitle = try validatedQuestionTitle(title)
+        let normalizedFileContents = try validatedFileContents(fileContents)
+        let normalizedCandidateInstructions = try validatedCandidateInstructions(candidateInstructions)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(solution, forKey: .solution)
         try container.encodeIfPresent(contents, forKey: .contents)
         try container.encodeIfPresent(takeHome, forKey: .takeHome)
         try container.encodeIfPresent(padType, forKey: .padType)
-        try container.encodeIfPresent(candidateInstructions, forKey: .candidateInstructions)
+        try container.encodeIfPresent(normalizedCandidateInstructions, forKey: .candidateInstructions)
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
         var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
-        try question.encode(title, forKey: .title)
+        try question.encode(normalizedTitle, forKey: .title)
         try question.encodeIfPresent(language, forKey: .language)
-        try question.encodeIfPresent(fileContents, forKey: .fileContents)
+        try question.encodeIfPresent(normalizedFileContents, forKey: .fileContents)
     }
 }
 
 /// The request body for modifying a question. Like ``QuestionCreate``,
 /// `title`/`language` are nested under `question`. The official "Modify a question"
 /// contract carries the question ID solely in the URL path and lists no `id` form
-/// field, so ``encode(to:)`` omits it, matching the ZIP multipart variant
-/// (``MultipartFormData``). The `id` property still exists for path construction.
-/// Encode-only.
+/// field, so ``encode(to:)`` omits it, matching the ZIP multipart variant. The `id`
+/// property still exists for path construction. Encode-only.
 public nonisolated struct QuestionUpdate: Encodable, Sendable {
     public var id: Int
     public var title: String?
@@ -234,7 +386,7 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, description, solution, contents, question
+        case description, solution, contents, question
         case takeHome = "take_home"
         case padType = "pad_type"
         case candidateInstructions = "candidate_instructions"
@@ -248,26 +400,31 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validateQuestionContents(contents: contents, fileContents: fileContents)
+        let normalizedTitle = try title.map(validatedQuestionTitle)
+        let normalizedFileContents = try validatedFileContents(fileContents)
+        let normalizedCandidateInstructions = try validatedCandidateInstructions(candidateInstructions)
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(solution, forKey: .solution)
         try container.encodeIfPresent(contents, forKey: .contents)
         try container.encodeIfPresent(takeHome, forKey: .takeHome)
         try container.encodeIfPresent(padType, forKey: .padType)
-        try container.encodeIfPresent(candidateInstructions, forKey: .candidateInstructions)
+        try container.encodeIfPresent(normalizedCandidateInstructions, forKey: .candidateInstructions)
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
-        if title != nil || language != nil || fileContents != nil {
+        if normalizedTitle != nil || language != nil || normalizedFileContents != nil {
             var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
-            try question.encodeIfPresent(title, forKey: .title)
+            try question.encodeIfPresent(normalizedTitle, forKey: .title)
             try question.encodeIfPresent(language, forKey: .language)
-            try question.encodeIfPresent(fileContents, forKey: .fileContents)
+            try question.encodeIfPresent(normalizedFileContents, forKey: .fileContents)
         }
     }
 }
 
 /// One block of candidate instructions, as sent in a create/update request body.
 public nonisolated struct CandidateInstructionPayload: Codable, Sendable {
+    /// Maximum accepted size of `instructions`, measured as UTF-8 bytes (64 KiB).
+    public static let maximumByteCount = 64 * 1024
+
     public var instructions: String
     public var defaultVisible: Bool
 
@@ -324,16 +481,13 @@ public nonisolated struct PadCreate: Codable, Sendable {
         case teamID = "team_id"
     }
 
-    /// A pad seeded from a question: same title and language, with the question attached.
+    /// A pad seeded from a question: same title and language, with the question
+    /// attached. `isPrivate` and `executionEnabled` are left `nil` so the account's
+    /// configured defaults apply; pass them explicitly to override.
     public static func fromQuestion(_ question: Question) -> Self {
         Self(
             title: question.title,
             language: question.language,
-            ownerEmail: nil,
-            contents: nil,
-            notes: nil,
-            isPrivate: false,
-            executionEnabled: true,
             questionID: question.id
         )
     }
@@ -418,16 +572,18 @@ extension PadCreate {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validatePadContents(contents: contents, questionID: questionID)
+        let normalizedOwnerEmail = try validatedPadOwnerEmail(ownerEmail)
+        let normalizedTeamID = try validatedTeamID(teamID)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(title, forKey: .title)
         try container.encodeIfPresent(language, forKey: .language)
-        try container.encodeIfPresent(ownerEmail, forKey: .ownerEmail)
+        try container.encodeIfPresent(normalizedOwnerEmail, forKey: .ownerEmail)
         try container.encodeIfPresent(contents, forKey: .contents)
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encodeIfPresent(isPrivate, forKey: .isPrivate)
         try encodeExecutionEnabled(executionEnabled, into: &container, forKey: .executionEnabled)
         try container.encodeIfPresent(questionID, forKey: .questionID)
-        try container.encodeIfPresent(teamID, forKey: .teamID)
+        try container.encodeIfPresent(normalizedTeamID, forKey: .teamID)
     }
 }
 
@@ -450,11 +606,13 @@ extension PadUpdate {
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validatePadContents(contents: contents, questionID: questionID)
         try validatePadLifecycleFlags(ended: ended, deleted: deleted)
+        let normalizedOwnerEmail = try validatedPadOwnerEmail(ownerEmail)
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
+        // `id` is intentionally omitted: see the type doc above. `CodingKeys` still
+        // declares it so `init(from:)` can decode a round trip.
         try container.encodeIfPresent(title, forKey: .title)
         try container.encodeIfPresent(language, forKey: .language)
-        try container.encodeIfPresent(ownerEmail, forKey: .ownerEmail)
+        try container.encodeIfPresent(normalizedOwnerEmail, forKey: .ownerEmail)
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encodeIfPresent(isPrivate, forKey: .isPrivate)
         try encodeExecutionEnabled(executionEnabled, into: &container, forKey: .executionEnabled)
