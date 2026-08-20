@@ -419,35 +419,7 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
             debugDescription: "Screen report duration must not exceed total_duration."
         )
         comparativeScore = try ScreenReportMetric.percentage(from: container, forKey: .comparativeScore)
-        communityStats = try Self.decodeCommunityStats(from: container)
-    }
-
-    private static let maximumCommunityStatBuckets = 100
-
-    private static func decodeCommunityStats(
-        from container: KeyedDecodingContainer<CodingKeys>
-    ) throws -> [Int]? {
-        guard let buckets = try container.decodeIfPresent([Int].self, forKey: .communityStats) else {
-            return nil
-        }
-        guard buckets.count <= maximumCommunityStatBuckets else {
-            throw DecodingError.dataCorruptedError(
-                forKey: .communityStats,
-                in: container,
-                debugDescription: """
-                Screen report community_stats must contain at most \
-                \(maximumCommunityStatBuckets) buckets.
-                """
-            )
-        }
-        guard buckets.allSatisfy({ $0 >= 0 }) else {
-            throw DecodingError.dataCorruptedError(
-                forKey: .communityStats,
-                in: container,
-                debugDescription: "Screen report community_stats buckets must not be negative."
-            )
-        }
-        return buckets
+        communityStats = try ScreenReportMetric.decodeCommunityStats(from: container, forKey: .communityStats)
     }
 
     enum CodingKeys: String, CodingKey {
