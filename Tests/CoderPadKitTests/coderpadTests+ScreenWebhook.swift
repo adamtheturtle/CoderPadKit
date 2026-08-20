@@ -4,6 +4,8 @@
 //
 
 @testable import CoderPadKit
+import Foundation
+import Synchronization
 import Testing
 
 @Suite("Screen webhook validation")
@@ -45,4 +47,85 @@ struct ScreenWebhookValidationTests {
             try ScreenClient.validatedWebhookURL(url)
         }
     }
+
+    @Test
+    func `mock getter returns nil before a webhook is configured and the URL after`() async throws {
+        let client = ScreenClient.mock(key: "webhook-absent-\(UUID().uuidString)")
+        #expect(try await client.webhookURL() == nil)
+        try await client.setWebhookURL("https://coderpad.io/configured")
+        #expect(try await client.webhookURL() == "https://coderpad.io/configured")
+        try await client.deleteWebhook()
+        #expect(try await client.webhookURL() == nil)
+    }
+}
+
+@Suite("Screen webhook status contracts", .serialized)
+struct ScreenWebhookStatusContractTests {
+    @Test
+    func `getter maps a documented 404 to nil rather than an HTTP error`() async throws {
+        let client = webhookStatusClient(status: 404, body: Data(#"{"code":"NotFound"}"#.utf8))
+        #expect(try await client.webhookURL() == nil)
+    }
+
+    @Test
+    func `getter maps a documented 204 success to nil rather than a decode error`() async throws {
+        let client = webhookStatusClient(status: 204, body: Data())
+        #expect(try await client.webhookURL() == nil)
+    }
+
+    @Test
+    func `getter still returns a configured callback from a 200 JSON body`() async throws {
+        let client = webhookStatusClient(
+            status: 200,
+            body: Data(#"{"url":"https://coderpad.io/hook"}"#.utf8)
+        )
+        #expect(try await client.webhookURL() == "https://coderpad.io/hook")
+    }
+}
+
+private nonisolated struct WebhookStatusResponse: Sendable {
+    let status: Int
+    let body: Data
+}
+
+private final nonisolated class WebhookStatusURLProtocol: URLProtocol {
+    private static let stub = Mutex<WebhookStatusResponse?>(nil)
+
+    static func install(status: Int, body: Data) {
+        stub.withLock { $0 = WebhookStatusResponse(status: status, body: body) }
+    }
+
+    override static func canInit(with _: URLRequest) -> Bool { true }
+
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let stub = Self.stub.withLock { $0 }
+        guard let stub, let url = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+        let response = HTTPURLResponse(
+            url: url,
+            statusCode: stub.status,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: stub.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+private nonisolated func webhookStatusClient(status: Int, body: Data) -> ScreenClient {
+    WebhookStatusURLProtocol.install(status: status, body: body)
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [WebhookStatusURLProtocol.self]
+    return ScreenClient(
+        apiKey: "webhook-status",
+        baseURL: URL(string: "https://www.codingame.com")!,
+        session: URLSession(configuration: configuration)
+    )
 }

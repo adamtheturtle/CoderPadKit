@@ -212,7 +212,7 @@ public struct ScreenClient {
 
     /// Builds an authorized request, attaching the `API-Key` header that every
     /// Screen endpoint requires.
-    private nonisolated func authorizedRequest(path: String,
+    nonisolated func authorizedRequest(path: String,
                                                method: String,
                                                query: [URLQueryItem] = [],
                                                accept: String = "application/json") throws -> URLRequest {
@@ -280,7 +280,7 @@ public struct ScreenClient {
     private nonisolated static let decoder = JSONDecoder()
     private nonisolated static let encoder = JSONEncoder()
 
-    private nonisolated func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+    nonisolated func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         do {
             return try Self.decoder.decode(type, from: data)
         } catch {
