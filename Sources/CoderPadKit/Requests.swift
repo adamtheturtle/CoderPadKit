@@ -175,21 +175,18 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validateQuestionContents(contents: contents, fileContents: fileContents)
-        let normalizedTitle = try validatedQuestionTitle(title)
-        let normalizedFileContents = try validatedFileContents(fileContents)
-        let normalizedCandidateInstructions = try validatedCandidateInstructions(candidateInstructions)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(solution, forKey: .solution)
         try container.encodeIfPresent(contents, forKey: .contents)
         try container.encodeIfPresent(takeHome, forKey: .takeHome)
         try container.encodeIfPresent(padType, forKey: .padType)
-        try container.encodeIfPresent(normalizedCandidateInstructions, forKey: .candidateInstructions)
+        try container.encodeIfPresent(candidateInstructions, forKey: .candidateInstructions)
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
         var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
-        try question.encode(normalizedTitle, forKey: .title)
+        try question.encode(title, forKey: .title)
         try question.encodeIfPresent(language, forKey: .language)
-        try question.encodeIfPresent(normalizedFileContents, forKey: .fileContents)
+        try question.encodeIfPresent(fileContents, forKey: .fileContents)
     }
 }
 
