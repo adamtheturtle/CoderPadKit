@@ -55,7 +55,7 @@ public extension ScreenClient {
                 guard let chunk = try handle.read(upToCount: remaining), !chunk.isEmpty else { break }
                 body.append(chunk)
             }
-            return String(bytes: body, encoding: .utf8) ?? ""
+            return String(decoding: body, as: UTF8.self)
         } catch {
             throw CoderPadError.decode("The report error response body could not be read.")
         }

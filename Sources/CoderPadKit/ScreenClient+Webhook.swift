@@ -40,7 +40,7 @@ public extension ScreenClient {
         default:
             throw CoderPadError.http(
                 response.statusCode,
-                String(bytes: data, encoding: .utf8) ?? ""
+                String(decoding: data, as: UTF8.self)
             )
         }
     }
