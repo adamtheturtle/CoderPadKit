@@ -316,9 +316,13 @@ public nonisolated struct QuestionCustomDatabase: Codable, Hashable, Identifiabl
         description = container.loggedDecodeIfPresent(String.self, forKey: .description)
         language = container.loggedDecodeIfPresent(String.self, forKey: .language)
         schema = container.loggedDecodeIfPresent(String.self, forKey: .schema)
-        schemaJSON = container.loggedDecodeIfPresent(
-            QuestionCustomDatabaseSchema.self, forKey: .schemaJSON
-        )
+        if container.contains(.schemaJSON), try !container.decodeNil(forKey: .schemaJSON) {
+            // Present-but-invalid schema_json must fail rather than look like an
+            // empty arrangement (#174). Absence or null still means "no schema".
+            schemaJSON = try container.decode(QuestionCustomDatabaseSchema.self, forKey: .schemaJSON)
+        } else {
+            schemaJSON = nil
+        }
     }
 }
 
@@ -339,12 +343,16 @@ public nonisolated struct QuestionCustomDatabaseSchema: Codable, Hashable, Senda
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        if let tables = try? container.decode([QuestionCustomDatabaseTable].self, forKey: .arrangement) {
-            arrangement = tables
-        } else if let nested = try? container.decode(ArrangementContainer.self, forKey: .arrangement) {
-            arrangement = nested.tables
+        if container.contains(.arrangement), try !container.decodeNil(forKey: .arrangement) {
+            do {
+                arrangement = try container.decode([QuestionCustomDatabaseTable].self, forKey: .arrangement)
+            } catch {
+                arrangement = try container.decode(ArrangementContainer.self, forKey: .arrangement).tables
+            }
+        } else if container.contains(.tables), try !container.decodeNil(forKey: .tables) {
+            arrangement = try container.decode([QuestionCustomDatabaseTable].self, forKey: .tables)
         } else {
-            arrangement = (try? container.decode([QuestionCustomDatabaseTable].self, forKey: .tables)) ?? []
+            arrangement = []
         }
     }
 
@@ -403,7 +411,23 @@ public nonisolated struct CandidateInstruction: Codable, Hashable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        instructions = (try? container.decodeIfPresent(String.self, forKey: .instructions)) ?? ""
-        defaultVisible = (try? container.decodeIfPresent(Bool.self, forKey: .defaultVisible)) ?? true
+        if container.contains(.instructions) {
+            if try container.decodeNil(forKey: .instructions) {
+                instructions = ""
+            } else {
+                instructions = try container.decode(String.self, forKey: .instructions)
+            }
+        } else {
+            instructions = ""
+        }
+        if container.contains(.defaultVisible) {
+            if try container.decodeNil(forKey: .defaultVisible) {
+                defaultVisible = true
+            } else {
+                defaultVisible = try container.decode(Bool.self, forKey: .defaultVisible)
+            }
+        } else {
+            defaultVisible = true
+        }
     }
 }
