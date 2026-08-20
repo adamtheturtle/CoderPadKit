@@ -90,7 +90,7 @@ nonisolated enum MockResponses {
 
             return ok([
                 "status": "OK",
-                "events": MockFixtures.events(forPad: id)
+                "events": state.events(forPad: id)
             ])
         }
 
@@ -128,8 +128,20 @@ nonisolated enum MockResponses {
             return (200, jsonString(["status": "OK"]))
         }
         if dict["ended"] as? Bool == true {
+            let endedAt = Date.now.formatted(.iso8601)
             dict["state"] = "ended"
-            dict["ended_at"] = Date.now.formatted(.iso8601)
+            dict["ended_at"] = endedAt
+            // Mirror the live API's event log: ending a pad appends a terminal
+            // `ended` event, not just the state/ended_at overlay.
+            if let pad = state.allPads().first(where: { ($0["id"] as? String) == id }) {
+                let ownerEmail = pad["owner_email"] as? String
+                let ownerName = ownerEmail.flatMap(MockFixtures.personName(forEmail:)) ?? ownerEmail ?? "Unknown"
+                state.appendPadEvent(forPad: id, [
+                    "message": "Pad ended", "kind": "ended",
+                    "user_name": ownerName, "user_email": ownerEmail as Any? ?? NSNull(),
+                    "created_at": endedAt
+                ])
+            }
         }
         // The create/modify API takes a singular `question_id`; the pad body
         // exposes it as the `question_ids` array, so mirror it on merge.
@@ -154,9 +166,9 @@ nonisolated enum MockResponses {
         var pad = MockFixtures.pad(
             id: id,
             title: create.title ?? "Demo Pad \(id)",
-            language: create.language ?? "python3",
+            language: create.language ?? MockFixtures.organizationDefaultLanguage,
             ownerEmail: create.ownerEmail ?? MockFixtures.demoUserEmail,
-            state: "started",
+            state: "pending",
             isPrivate: create.isPrivate ?? false,
             executionEnabled: create.executionEnabled ?? true
         )
