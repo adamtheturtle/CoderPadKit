@@ -324,6 +324,30 @@ struct DecodeToleranceTests {
         #expect(file.path == "image.png")
         #expect(file.contents == nil)
         #expect(file.binary == true)
+        #expect(environment.omittedFileCount == 0)
+        #expect(environment.omittedFilesDiagnostic == nil)
+    }
+
+    @Test
+    func `environment keeps valid files when one sibling is malformed`() throws {
+        let json = Data(
+            #"""
+            {
+              "id": 8,
+              "file_contents": [
+                {"path":"main.py","contents":"print(1)"},
+                "not-a-file",
+                {"path":"helper.py","contents":"print(2)","binary":"nope"},
+                {"path":"ok.py","contents":"print(3)"}
+              ]
+            }
+            """#.utf8
+        )
+        let environment = try CoderPadClient.decoder.decode(PadEnvironment.self, from: json)
+
+        #expect(environment.fileContents.map(\.path) == ["main.py", "ok.py"])
+        #expect(environment.omittedFileCount == 2)
+        #expect(environment.omittedFilesDiagnostic == "Ignored 2 malformed environment files.")
     }
 
     @Test
