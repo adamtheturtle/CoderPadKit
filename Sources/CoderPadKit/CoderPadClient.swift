@@ -180,15 +180,15 @@ public struct CoderPadClient {
     nonisolated let rest: PaginatedRESTClient
     nonisolated let historyRest: PaginatedRESTClient
 
-    /// The standard hosted CoderPad endpoint, used when an account doesn't
-    /// override it (e.g. a self-hosted or regional deployment).
-    public static let defaultBaseURL = URL(string: "https://app.coderpad.io") ?? URL(fileURLWithPath: "/")
-
     public init(apiKey: String,
                 baseURL: URL = Self.defaultBaseURL,
                 session: URLSession = Self.liveSession,
                 maximumHistoryResponseBodyBytes: Int = Self.defaultMaximumHistoryResponseBodyBytes) {
         precondition(maximumHistoryResponseBodyBytes >= 0, "History response limit must not be negative")
+        precondition(
+            Self.isAllowedBaseURL(baseURL),
+            "CoderPadClient base URL must be a credential-free HTTPS origin without query or fragment."
+        )
         self.apiKey = apiKey
         self.baseURL = baseURL
         self.session = session

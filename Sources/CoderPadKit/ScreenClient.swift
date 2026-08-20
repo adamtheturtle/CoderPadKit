@@ -69,7 +69,11 @@ public struct ScreenClient {
     }
 
     public nonisolated static func live(apiKey: String, baseURL: URL = Self.defaultBaseURL) -> Self {
-        Self(apiKey: apiKey, baseURL: baseURL, session: liveSession)
+        precondition(
+            isAllowedProductionBaseURL(baseURL),
+            "ScreenClient.live base URL must be a credential-free HTTPS Screen origin."
+        )
+        return Self(apiKey: apiKey, baseURL: baseURL, session: liveSession)
     }
 
     // MARK: Campaigns
