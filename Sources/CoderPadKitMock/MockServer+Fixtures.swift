@@ -246,6 +246,12 @@ public nonisolated enum MockFixtures {
         ]
     }
 
+    /// A terminal `ended` event, in the same shape as the canned timelines above -
+    /// used to record a real `endPad` mutation in a pad's mutable event overlay.
+    static func endedEvent(ownerName: String, ownerEmail: String?, endedAt: String) -> [String: Any] {
+        event("Pad ended", "ended", ownerName, ownerEmail, endedAt)
+    }
+
     private static func event(_ message: String, _ kind: String, _ userName: String,
                               _ userEmail: String?, _ createdAt: String,
                               metadata: String? = nil) -> [String: Any] {

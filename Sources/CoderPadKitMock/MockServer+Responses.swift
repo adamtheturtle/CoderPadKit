@@ -90,7 +90,7 @@ nonisolated enum MockResponses {
 
             return ok([
                 "status": "OK",
-                "events": MockFixtures.events(forPad: id)
+                "events": state.events(forPad: id)
             ])
         }
 
@@ -129,7 +129,19 @@ nonisolated enum MockResponses {
         }
         if dict["ended"] as? Bool == true {
             dict["state"] = "ended"
-            dict["ended_at"] = Date.now.formatted(.iso8601)
+            let endedAt = Date.now.formatted(.iso8601)
+            dict["ended_at"] = endedAt
+            // Record a terminal `ended` event in this pad's mutable timeline, mirroring
+            // the live API, which appends one whenever a pad transitions to ended -
+            // not just for the four seed pads whose canned timelines already end that way.
+            if let pad = state.allPads().first(where: { ($0["id"] as? String) == id }) {
+                let ownerEmail = pad["owner_email"] as? String
+                let ownerName = ownerEmail.flatMap(MockFixtures.personName(forEmail:)) ?? ownerEmail ?? "Unknown"
+                state.appendPadEvent(
+                    padID: id,
+                    MockFixtures.endedEvent(ownerName: ownerName, ownerEmail: ownerEmail, endedAt: endedAt)
+                )
+            }
         }
         // The create/modify API takes a singular `question_id`; the pad body
         // exposes it as the `question_ids` array, so mirror it on merge.
@@ -154,9 +166,9 @@ nonisolated enum MockResponses {
         var pad = MockFixtures.pad(
             id: id,
             title: create.title ?? "Demo Pad \(id)",
-            language: create.language ?? "python3",
+            language: create.language ?? MockFixtures.organizationDefaultLanguage,
             ownerEmail: create.ownerEmail ?? MockFixtures.demoUserEmail,
-            state: "started",
+            state: "pending",
             isPrivate: create.isPrivate ?? false,
             executionEnabled: create.executionEnabled ?? true
         )

@@ -16,6 +16,11 @@ nonisolated extension MockFixtures {
     public static let orgName = "Fawlty Towers"
     static let orgDomain = "fawltytowers.co.uk"
 
+    /// Deliberately not the New Pad/Question sheets' hardcoded "python3" fallback,
+    /// so a pad created with no language matches the org's own default - the same
+    /// value `organization()` advertises as `organization_default_language`.
+    static let organizationDefaultLanguage = "go"
+
     /// One interview team. Pads and people reference these by `id`, and the org
     /// payload lists them so the team filter can resolve ids to display names.
     static let teams: [(id: String, name: String)] = [
@@ -70,6 +75,13 @@ nonisolated extension MockFixtures {
         people.map { ["email": $0.email, "name": $0.name, "pads_created": $0.padsCreated] }
     }
 
+    /// The demo org member's display name for an email, if any - used to attribute
+    /// session-recorded lifecycle events (e.g. a pad's `ended` event) to the same
+    /// name the org directory shows for that address.
+    static func personName(forEmail email: String) -> String? {
+        people.first { $0.email == email }?.name
+    }
+
     private static func teamPayload() -> [[String: Any]] {
         teams.map { ["id": $0.id, "name": $0.name] }
     }
@@ -82,9 +94,7 @@ nonisolated extension MockFixtures {
             "child_organizations": [],
             "user_count": users().count,
             "users": users(),
-            // Deliberately not the New Pad/Question sheets' hardcoded "python3"
-            // fallback, so the org-default pre-selection is visible in the demo.
-            "organization_default_language": "go",
+            "organization_default_language": organizationDefaultLanguage,
             // SSO enabled with a portal URL so the Organization view's sign-on row
             // and "Open sign-in portal" action are exercised in the demo.
             "single_sign_on_supported": true,
