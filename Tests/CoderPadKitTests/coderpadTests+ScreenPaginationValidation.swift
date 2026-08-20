@@ -37,7 +37,7 @@ struct ScreenPaginationValidationTests {
         #expect(page.nextStart == 0)
     }
 
-    @Test(arguments: [500, 1])
+    @Test(arguments: [ScreenClient.maximumPageSize, 1])
     func `limits up to the documented maximum are valid`(limit: Int) throws {
         let page = try JSONDecoder().decode(
             ScreenPagination.self,
@@ -47,7 +47,7 @@ struct ScreenPaginationValidationTests {
         #expect(page.limit == limit)
     }
 
-    @Test(arguments: [501, Int.max])
+    @Test(arguments: [ScreenClient.maximumPageSize + 1, Int.max])
     func `limits above the documented maximum are rejected`(limit: Int) {
         let json = #"{"limit":\#(limit),"has_more_items":false}"#
 

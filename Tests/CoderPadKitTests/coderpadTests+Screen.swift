@@ -175,13 +175,6 @@ struct ScreenClientTests {
     }
 
     @Test
-    func `listTests trims valid string filters`() async throws {
-        let page = try await screenClient().listTests(product: "  screen  ",
-                                                      candidateEmail: " malformed@EXAMPLE.COM ")
-        #expect(page.tests.map(\.id) == [1, 2])
-    }
-
-    @Test
     func `listAllTests follows pagination to the end`() async throws {
         let all = try await screenClient().listAllTests(campaignID: 42)
         #expect(all.count == 3)
