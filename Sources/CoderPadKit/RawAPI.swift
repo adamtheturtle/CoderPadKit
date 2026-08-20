@@ -108,6 +108,12 @@ extension CoderPadClient {
             return CoderPadRawResponse(status: response.statusCode, data: response.data)
         } catch is RESTResponseTooLargeError {
             throw CoderPadResponseTooLargeError(limit: responseLimit)
+        } catch let urlError as URLError {
+            // Preserve raw HTTP status/body on success paths; only remap transport
+            // failures so callers see the same ``CoderPadError.network`` taxonomy as
+            // typed methods (#159).
+            if urlError.code == .cancelled { throw CancellationError() }
+            throw CoderPadError.network(urlError)
         }
     }
 

@@ -108,4 +108,30 @@ struct ScreenSessionValidationTests {
             try JSONDecoder().decode(ScreenInvitationResult.self, from: Data(json.utf8))
         }
     }
+
+    @Test(arguments: [0, -1, Int(Int32.max) + 1])
+    func `campaign_id rejects values outside the positive int32 range`(campaignID: Int) {
+        let json = #"{"id":1,"campaign_id":\#(campaignID)}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenTestSession.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test
+    func `campaign_id accepts a positive int32`() throws {
+        let session = try JSONDecoder().decode(
+            ScreenTestSession.self, from: Data(#"{"id":1,"campaign_id":42}"#.utf8)
+        )
+        #expect(session.campaignID == 42)
+    }
+
+    @Test(arguments: [0, -3])
+    func `id_test rejects nonpositive values even when matching would be impossible`(idTest: Int) {
+        let json = #"{"id":1,"id_test":\#(idTest)}"#
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenTestSession.self, from: Data(json.utf8))
+        }
+    }
 }

@@ -16,7 +16,10 @@ public nonisolated enum PadHistoryURLPolicy {
     private static let trustedOrigins = [
         "https://app.coderpad.io",
         "https://eu.app.coderpad.io",
-        "https://coderpad-prod.europe-west1.firebasedatabase.app"
+        "https://coderpad-prod.europe-west1.firebasedatabase.app",
+        // Official Interview API examples still return these legacy Firebase hosts.
+        "https://coderpad.firebaseio.com",
+        "https://coderpadproject.firebaseio.com"
     ]
 
     private static let trustedOriginPolicy = URLPolicy(

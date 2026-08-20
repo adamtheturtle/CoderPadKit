@@ -95,7 +95,6 @@ private nonisolated struct EventsPage: PagedResponse {
 // Small decode-only response shapes shared across endpoints. `nonisolated` so they're
 // Sendable and can be decoded off the main actor (see `CoderPadClient.perform`).
 private nonisolated struct StatusOnly: Decodable { let status: String? }
-private nonisolated struct Wrapper: Decodable { let users: [OrganizationUser] }
 
 // MARK: - Error mapping
 
@@ -120,27 +119,10 @@ private struct CoderPadErrorMapping: RESTTransportErrorMapping {
         CoderPadError.network(error)
     }
 
-    /// GET requests are idempotent, so transient failures (5xx, 429, timeouts) are retried
-    /// before surfacing. Recognizes both the mapped ``CoderPadError`` cases and a raw
-    /// `NSURLErrorDomain` error, matching the prior transport behavior.
+    /// GET requests are idempotent, so transient failures (5xx, 429, timeouts, brief
+    /// DNS/reachability loss) are retried before surfacing (#164).
     nonisolated func isTransient(_ error: any Error) -> Bool {
-        if let api = error as? CoderPadError {
-            if case let .http(code, _) = api {
-                // 408 Request Timeout is retry-worthy for the same reason as 5xx/429.
-                return (500 ... 599).contains(code) || code == 429 || code == 408 || code == 0
-            }
-            if case let .network(urlError) = api {
-                return [.timedOut, .networkConnectionLost, .cannotConnectToHost].contains(urlError.code)
-            }
-            return false
-        }
-        let nsError = error as NSError
-        if nsError.domain == NSURLErrorDomain {
-            return [NSURLErrorTimedOut,
-                    NSURLErrorNetworkConnectionLost,
-                    NSURLErrorCannotConnectToHost].contains(nsError.code)
-        }
-        return false
+        CoderPadRetryPolicy.isTransient(error)
     }
 }
 
@@ -189,12 +171,15 @@ public struct CoderPadClient {
             Self.isAllowedBaseURL(baseURL),
             "CoderPadClient base URL must be a credential-free HTTPS origin without query or fragment."
         )
-        self.apiKey = apiKey
+        // Normalize once so rawRequest, multipart uploads, and deleteQuestion use the
+        // same credential as PaginatedRESTClient (#157).
+        let normalizedKey = APIKeyNormalization.normalized(apiKey) ?? ""
+        self.apiKey = normalizedKey
         self.baseURL = baseURL
         self.session = session
         self.maximumHistoryResponseBodyBytes = historyLimit
         rest = PaginatedRESTClient(
-            apiKey: apiKey,
+            apiKey: normalizedKey,
             baseURL: baseURL,
             transport: URLSessionTransport(session: session),
             decoderFactory: Self.makeDecoder,
@@ -203,7 +188,7 @@ public struct CoderPadClient {
             log: { apiLogger.debug($0) }
         )
         historyRest = PaginatedRESTClient(
-            apiKey: apiKey,
+            apiKey: normalizedKey,
             baseURL: baseURL,
             transport: URLSessionTransport(
                 session: session,
@@ -221,12 +206,23 @@ public struct CoderPadClient {
     /// process-wide `URLSession.shared` singleton.
     public static let liveSession: URLSession = makeLiveSession()
 
-    private static func makeLiveSession() -> URLSession {
-        let config = URLSessionConfiguration.default
+    /// Kept separate from the session so timeout and cache policy are directly testable
+    /// (#158, #162).
+    public static func makeLiveConfiguration() -> URLSessionConfiguration {
+        let config = URLSessionConfiguration.ephemeral
         // The retry layer handles transient timeouts, so keep the standard 60s
-        // per-request timeout rather than failing fast.
+        // per-request timeout rather than failing fast. Bound the whole resource so a
+        // peer that keeps making partial progress cannot hold the transfer open for days.
         config.timeoutIntervalForRequest = 60
-        return URLSession(configuration: config)
+        config.timeoutIntervalForResource = 120
+        config.urlCache = nil
+        config.httpCookieStorage = nil
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return config
+    }
+
+    private static func makeLiveSession() -> URLSession {
+        URLSession(configuration: makeLiveConfiguration())
     }
 
     /// A live client against the hosted (or a custom) CoderPad endpoint.
@@ -476,18 +472,5 @@ public struct CoderPadClient {
     /// Every organization question visible to you. Paginated like ``listQuestions(sort:)``.
     public func listOrganizationQuestions(sort: String? = nil) async throws -> [Question] {
         try await rest.fetchAllPages(QuestionsPage.self, path: "/api/organization/questions", sort: sort)
-    }
-
-    /// The organization's users. Passing `email` returns only the matching user, the
-    /// reliable way to resolve which user an API key belongs to.
-    public func organizationUsers(email: String? = nil) async throws -> [OrganizationUser] {
-        guard !apiKey.isEmpty else { throw CoderPadError.missingAPIKey }
-
-        var comps = URLComponents(url: baseURL.appending(path: "/api/organization/users"),
-                                  resolvingAgainstBaseURL: false)
-        if let email { comps?.queryItems = [URLQueryItem(name: "email", value: email)] }
-        guard let url = comps?.url else { throw CoderPadError.http(0, "Invalid URL") }
-
-        return try await rest.performWithRetry(Wrapper.self, request: rest.authorizedGET(url)).users
     }
 }

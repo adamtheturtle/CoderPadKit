@@ -13,6 +13,12 @@ public extension ScreenClient {
     /// Downloads report bytes to URLSession's temporary file, checking both the
     /// advertised and actual size before materializing the PDF in memory (#2767).
     public nonisolated func reportData(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        try await withIdempotentGETRetry(method: request.httpMethod) {
+            try await reportDataOnce(for: request)
+        }
+    }
+
+    private nonisolated func reportDataOnce(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let operationID = UUID()
         try await ScreenReportOperationLimiter.shared.acquire(id: operationID)
         defer { Task { await ScreenReportOperationLimiter.shared.release() } }
@@ -56,7 +62,7 @@ public extension ScreenClient {
                 guard let chunk = try handle.read(upToCount: remaining), !chunk.isEmpty else { break }
                 body.append(chunk)
             }
-            return String(bytes: body, encoding: .utf8) ?? ""
+            return String(decoding: body, as: UTF8.self)
         } catch {
             return ""
         }

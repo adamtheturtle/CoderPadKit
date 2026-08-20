@@ -11,8 +11,16 @@ import Foundation
 
 nonisolated extension ScreenClient {
     /// Runs a bounded request, mapping transport and HTTP failures onto CoderPadError.
+    /// Idempotent GETs retry transient 408/429/5xx and connectivity failures (#160).
     @discardableResult
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        try await withIdempotentGETRetry(method: request.httpMethod) {
+            try await dataOnce(for: request)
+        }
+    }
+
+    @discardableResult
+    private func dataOnce(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         #if canImport(FoundationNetworking)
             // Stream with an enforced ceiling so a large 2xx body cannot allocate past
             // ``maximumResponseBodyBytes`` before the check runs (#205).
@@ -26,7 +34,7 @@ nonisolated extension ScreenClient {
                 request: request
             )
             guard (200 ..< 300).contains(http.statusCode) else {
-                throw CoderPadError.http(http.statusCode, String(bytes: data, encoding: .utf8) ?? "")
+                throw CoderPadError.http(http.statusCode, String(decoding: data, as: UTF8.self))
             }
             return (data, http)
         #else
@@ -46,7 +54,7 @@ nonisolated extension ScreenClient {
 
         let data = try await responseBody(from: bytes, response: http, limit: limit, isSuccess: isSuccess)
         guard isSuccess else {
-            throw CoderPadError.http(http.statusCode, String(bytes: data, encoding: .utf8) ?? "")
+            throw CoderPadError.http(http.statusCode, String(decoding: data, as: UTF8.self))
         }
         return (data, http)
         #endif
@@ -79,6 +87,7 @@ nonisolated extension ScreenClient {
         }
         return data
     }
+    #endif
 
     private func responseMetadata(for response: URLResponse) throws -> (HTTPURLResponse, Int) {
         guard let http = response as? HTTPURLResponse else {
@@ -91,7 +100,36 @@ nonisolated extension ScreenClient {
         }
         return (http, limit)
     }
-    #endif
+
+    /// Bounded exponential backoff for idempotent Screen GETs (and PDF report downloads).
+    func withIdempotentGETRetry<T>(
+        method: String?,
+        maxAttempts: Int = 3,
+        operation: () async throws -> T
+    ) async throws -> T {
+        let normalizedMethod = (method ?? "GET").uppercased()
+        guard normalizedMethod == "GET", maxAttempts > 0 else {
+            return try await operation()
+        }
+
+        var attempt = 0
+        while true {
+            do {
+                return try await operation()
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                attempt += 1
+                guard attempt < maxAttempts, CoderPadRetryPolicy.isTransient(error) else {
+                    throw error
+                }
+                apiLogger.debug(
+                    "Transient Screen GET failure; retry \(attempt)/\(maxAttempts - 1)"
+                )
+                try await Task.sleep(for: .seconds(CoderPadRetryPolicy.backoffDelay(retryNumber: attempt)))
+            }
+        }
+    }
 }
 
 #if canImport(FoundationNetworking)

@@ -24,14 +24,7 @@ nonisolated struct DynamicScreenCodingKey: CodingKey {
 /// accessibility labels. Canonical composition also makes equivalent spellings
 /// collide predictably in the sorted decoder.
 nonisolated func normalizedScreenDictionaryKey(_ raw: String) -> String? {
-    let scrubbed = raw.unicodeScalars.map { scalar -> String in
-        switch scalar.properties.generalCategory {
-        case .control, .format, .privateUse, .surrogate, .unassigned:
-            " "
-        default:
-            String(scalar)
-        }
-    }.joined()
+    let scrubbed = scrubbedScreenDisplayText(raw)
     let normalized = scrubbed.precomposedStringWithCanonicalMapping
         .components(separatedBy: .whitespacesAndNewlines)
         .filter { !$0.isEmpty }
@@ -39,4 +32,18 @@ nonisolated func normalizedScreenDictionaryKey(_ raw: String) -> String? {
     guard !normalized.isEmpty else { return nil }
 
     return String(normalized.prefix(100))
+}
+
+/// Replaces control, format (including bidirectional overrides), surrogate,
+/// private-use, and unassigned scalars with spaces so warning text and dictionary
+/// keys cannot reorder surrounding UI (#170).
+nonisolated func scrubbedScreenDisplayText(_ raw: String) -> String {
+    String(raw.unicodeScalars.map { scalar -> Character in
+        switch scalar.properties.generalCategory {
+        case .control, .format, .privateUse, .surrogate, .unassigned:
+            " "
+        default:
+            Character(scalar)
+        }
+    })
 }
