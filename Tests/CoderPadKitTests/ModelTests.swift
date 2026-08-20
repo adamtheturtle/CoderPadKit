@@ -322,6 +322,71 @@ struct DecodeToleranceTests {
     }
 
     @Test
+    func `Pad rejects impossible lifecycle timestamps and active pads with ended_at`() throws {
+        let ended = try CoderPadClient.decoder.decode(
+            Pad.self,
+            from: Data(
+                #"""
+                {
+                  "id": "P-ended",
+                  "state": "ended",
+                  "created_at": "2026-06-10T08:00:00Z",
+                  "updated_at": "2026-06-10T10:00:00Z",
+                  "ended_at": "2026-06-10T09:00:00Z"
+                }
+                """#.utf8
+            )
+        )
+        #expect(ended.endedAt != nil)
+
+        #expect(throws: DecodingError.self) {
+            try CoderPadClient.decoder.decode(
+                Pad.self,
+                from: Data(
+                    #"""
+                    {
+                      "id": "P-update-before-create",
+                      "created_at": "2026-06-10T09:00:00Z",
+                      "updated_at": "2026-06-10T08:00:00Z"
+                    }
+                    """#.utf8
+                )
+            )
+        }
+
+        #expect(throws: DecodingError.self) {
+            try CoderPadClient.decoder.decode(
+                Pad.self,
+                from: Data(
+                    #"""
+                    {
+                      "id": "P-end-before-create",
+                      "state": "ended",
+                      "created_at": "2026-06-10T09:00:00Z",
+                      "ended_at": "2026-06-10T08:00:00Z"
+                    }
+                    """#.utf8
+                )
+            )
+        }
+
+        #expect(throws: DecodingError.self) {
+            try CoderPadClient.decoder.decode(
+                Pad.self,
+                from: Data(
+                    #"""
+                    {
+                      "id": "P-active-ended",
+                      "state": "started",
+                      "ended_at": "2026-06-10T09:00:00Z"
+                    }
+                    """#.utf8
+                )
+            )
+        }
+    }
+
+    @Test
     func `Pad retains empirically observed access and notification metadata`() throws {
         let json = Data(
             #"""

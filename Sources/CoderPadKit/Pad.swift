@@ -89,6 +89,13 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         createdAt = container.loggedDecodeIfPresent(Date.self, forKey: .createdAt)
         updatedAt = container.loggedDecodeIfPresent(Date.self, forKey: .updatedAt)
         endedAt = container.loggedDecodeIfPresent(Date.self, forKey: .endedAt)
+        try Self.validateLifecycleTimestamps(
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            endedAt: endedAt,
+            state: state,
+            in: container
+        )
         type = container.loggedDecodeIfPresent(String.self, forKey: .type)
         // The pad endpoints take `execution_enabled` as the JSON *string* "true"/"false"
         // (see `encodeExecutionEnabled`), and echo that back. Decode it tolerantly, as
@@ -116,6 +123,41 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         }
         questionIDs = container.loggedDecodeIfPresent([Int].self, forKey: .questionIDs) ?? []
         team = container.loggedDecodeIfPresent(PadTeam.self, forKey: .team)
+    }
+
+    private static func validateLifecycleTimestamps(
+        createdAt: Date?,
+        updatedAt: Date?,
+        endedAt: Date?,
+        state: String,
+        in container: KeyedDecodingContainer<CodingKeys>
+    ) throws {
+        if let createdAt, let updatedAt, updatedAt < createdAt {
+            throw DecodingError.dataCorruptedError(
+                forKey: .updatedAt,
+                in: container,
+                debugDescription: "updated_at must not precede created_at."
+            )
+        }
+        if let createdAt, let endedAt, endedAt < createdAt {
+            throw DecodingError.dataCorruptedError(
+                forKey: .endedAt,
+                in: container,
+                debugDescription: "ended_at must not precede created_at."
+            )
+        }
+        if endedAt != nil {
+            switch state.lowercased() {
+            case "started", "active", "running", "pending", "draft":
+                throw DecodingError.dataCorruptedError(
+                    forKey: .endedAt,
+                    in: container,
+                    debugDescription: "ended_at is inconsistent with an active or pending pad state."
+                )
+            default:
+                break
+            }
+        }
     }
 }
 
