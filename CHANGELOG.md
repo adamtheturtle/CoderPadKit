@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.14
+
 - Encode pad ownership mutations as `user_email`, matching the Interview create/modify
   pad contract. `PadCreate` and `PadUpdate` previously sent the response-only
   `owner_email` field, so ownership changes could be ignored.
