@@ -48,16 +48,59 @@ final nonisolated class MockScreenState: @unchecked Sendable {
 /// Maps an `API-Key` to its `MockScreenState`, creating one on first use. The app's demo
 /// account uses the stable key "demo" (one shared store for the session); tests can pass
 /// a unique key each so their mutations never collide.
+///
+/// Retention is bounded (#138): least-recently-used keys are evicted past
+/// ``maximumRetainedKeys``, and ``removeState(forKey:)`` drops a key explicitly.
 nonisolated enum MockScreenStateRegistry {
-    private static let lock = Mutex([String: MockScreenState]())
+    private struct Storage {
+        var states: [String: MockScreenState] = [:]
+        /// LRU order — least recently used at the front.
+        var order: [String] = []
+    }
+
+    private static let lock = Mutex(Storage())
+
+    /// Cap on concurrently retained per-key stores so long-lived hosts cannot grow
+    /// without bound when each test uses a unique key (#138).
+    static let maximumRetainedKeys = 256
 
     static func state(forKey key: String) -> MockScreenState {
-        lock.withLock { registry in
-            if let existing = registry[key] { return existing }
+        lock.withLock { storage in
+            if let existing = storage.states[key] {
+                touch(&storage, key: key)
+                return existing
+            }
 
             let created = MockScreenState()
-            registry[key] = created
+            storage.states[key] = created
+            storage.order.append(key)
+            evictIfNeeded(&storage)
             return created
+        }
+    }
+
+    static func removeState(forKey key: String) {
+        lock.withLock { storage in
+            storage.states.removeValue(forKey: key)
+            storage.order.removeAll { $0 == key }
+        }
+    }
+
+    static var retainedKeyCount: Int {
+        lock.withLock { $0.states.count }
+    }
+
+    private static func touch(_ storage: inout Storage, key: String) {
+        if let index = storage.order.firstIndex(of: key) {
+            storage.order.remove(at: index)
+        }
+        storage.order.append(key)
+    }
+
+    private static func evictIfNeeded(_ storage: inout Storage) {
+        while storage.order.count > maximumRetainedKeys {
+            let evicted = storage.order.removeFirst()
+            storage.states.removeValue(forKey: evicted)
         }
     }
 }

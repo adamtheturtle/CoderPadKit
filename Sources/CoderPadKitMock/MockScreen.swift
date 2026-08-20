@@ -54,6 +54,11 @@ public extension ScreenClient {
              baseURL: MockScreen.baseURL,
              session: MockScreen.session(unauthorized: unauthorized))
     }
+
+    /// Drops the Screen mock store for `key` so memory can be reclaimed (#138).
+    static func resetMockState(forKey key: String) {
+        MockScreenStateRegistry.removeState(forKey: key)
+    }
 }
 
 /// Answers every Screen request with 401 Unauthorized, mimicking a revoked or invalid
