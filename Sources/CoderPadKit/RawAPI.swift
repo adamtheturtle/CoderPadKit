@@ -70,6 +70,7 @@ extension CoderPadClient {
         guard responseLimit > 0 else {
             throw CoderPadError.http(0, "responseLimit must be positive")
         }
+        let method = try Self.validatedHTTPMethod(method)
         guard var components = URLComponents(
             url: baseURL.appending(path: path),
             resolvingAgainstBaseURL: false
@@ -114,5 +115,31 @@ extension CoderPadClient {
             if urlError.code == .cancelled { throw CancellationError() }
             throw CoderPadError.network(urlError)
         }
+    }
+
+    /// Requires a nonempty RFC 7230 `token` and returns it uppercased.
+    ///
+    /// Rejects empty strings, surrounding whitespace, and any character outside the
+    /// `tchar` set — including CR/LF — so a caller cannot smuggle header lines through
+    /// the method field (#204).
+    nonisolated static func validatedHTTPMethod(_ method: String) throws -> String {
+        let trimmed = method.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed == method else {
+            throw CoderPadError.decode("HTTP method must be a nonempty RFC 7230 token.")
+        }
+        let isToken = trimmed.unicodeScalars.allSatisfy { scalar in
+            switch scalar {
+            case "a" ... "z", "A" ... "Z", "0" ... "9",
+                 "!", "#", "$", "%", "&", "'", "*", "+", "-", ".",
+                 "^", "_", "`", "|", "~":
+                true
+            default:
+                false
+            }
+        }
+        guard isToken else {
+            throw CoderPadError.decode("HTTP method must be a nonempty RFC 7230 token.")
+        }
+        return trimmed.uppercased()
     }
 }

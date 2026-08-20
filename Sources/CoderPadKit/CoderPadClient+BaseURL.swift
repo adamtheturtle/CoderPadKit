@@ -22,4 +22,9 @@ public extension CoderPadClient {
             && url.query == nil
             && url.fragment == nil
     }
+
+    /// Validates a response-body ceiling for callers that prefer an error over clamping (#206).
+    public nonisolated static func validatedResponseBodyLimit(_ bytes: Int) throws -> Int {
+        try validateNonNegativeResponseBodyLimit(bytes)
+    }
 }

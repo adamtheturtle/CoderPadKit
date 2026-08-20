@@ -33,24 +33,25 @@ public extension ScreenClient {
         } catch let urlError as URLError {
             if urlError.code == .cancelled { throw CancellationError() }
             throw CoderPadError.network(urlError)
+        } catch is CancellationError {
+            throw CancellationError()
         }
 
         guard let http = response as? HTTPURLResponse else {
             throw CoderPadError.http(0, "No HTTP response")
         }
         guard (200 ..< 300).contains(http.statusCode) else {
-            throw CoderPadError.http(http.statusCode, try Self.reportErrorBody(at: fileURL))
+            // Preserve the HTTP status even when the temporary error body cannot be
+            // read, so callers still see `isUnauthorized` for 401/403 (#207).
+            throw CoderPadError.http(http.statusCode, Self.reportErrorBody(at: fileURL))
         }
 
-        let fileSize = try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? -1
-        guard Self.isAllowedReportSize(declared: http.expectedContentLength, actual: fileSize) else {
-            throw CoderPadError.decode("The report is too large to open.")
-        }
-
-        return try (Data(contentsOf: fileURL), http)
+        return try (Self.reportSuccessData(at: fileURL, response: http), http)
     }
 
-    nonisolated static func reportErrorBody(at fileURL: URL) throws -> String {
+    /// Reads at most ``maximumErrorBodyBytes`` from a report error download. Unreadable
+    /// files yield an empty body so the caller can still surface the HTTP status (#207).
+    nonisolated static func reportErrorBody(at fileURL: URL) -> String {
         do {
             let handle = try FileHandle(forReadingFrom: fileURL)
             defer { try? handle.close() }
@@ -63,7 +64,25 @@ public extension ScreenClient {
             }
             return String(decoding: body, as: UTF8.self)
         } catch {
-            throw CoderPadError.decode("The report error response body could not be read.")
+            return ""
+        }
+    }
+
+    /// Loads a successful report file, mapping Cocoa I/O failures into ``CoderPadError``
+    /// while preserving cancellation (#208).
+    nonisolated static func reportSuccessData(at fileURL: URL, response: HTTPURLResponse) throws -> Data {
+        do {
+            let fileSize = try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? -1
+            guard Self.isAllowedReportSize(declared: response.expectedContentLength, actual: fileSize) else {
+                throw CoderPadError.decode("The report is too large to open.")
+            }
+            return try Data(contentsOf: fileURL)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as CoderPadError {
+            throw error
+        } catch {
+            throw CoderPadError.decode("The report response could not be read.")
         }
     }
 

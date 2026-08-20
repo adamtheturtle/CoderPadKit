@@ -48,20 +48,21 @@ public struct ScreenClient {
     public nonisolated static let allowedProductFilters: Set<String> = ["screen", "map"]
     public nonisolated static let defaultMaximumResponseBodyBytes = 10 * 1024 * 1024
     public nonisolated static let maximumErrorBodyBytes = 16 * 1024
-    public nonisolated static let maximumFullListPages = 100
+    /// Enough pages for ``maximumFullListItems`` at ``maximumPageSize`` sessions each (#209).
+    public nonisolated static let maximumFullListPages = 200
     public nonisolated static let maximumFullListItems = 10000
 
     public nonisolated init(apiKey: String,
                             baseURL: URL = Self.defaultBaseURL,
                             session: URLSession = Self.liveSession,
                             maximumResponseBodyBytes: Int = Self.defaultMaximumResponseBodyBytes) {
-        precondition(maximumResponseBodyBytes >= 0, "Response limit must not be negative")
+        // Clamp rather than trap: limits can arrive from defaults or remote policy (#206).
+        self.maximumResponseBodyBytes = max(0, maximumResponseBodyBytes)
         // Normalize once so whitespace-only and control-bearing keys cannot reach
         // header construction (#161).
         self.apiKey = APIKeyNormalization.normalized(apiKey) ?? ""
         self.baseURL = baseURL
         self.session = session
-        self.maximumResponseBodyBytes = maximumResponseBodyBytes
     }
 
     /// The single construction point for the live session, mirroring `CoderPadClient`.
@@ -85,6 +86,11 @@ public struct ScreenClient {
             "ScreenClient.live base URL must be a credential-free HTTPS Screen origin."
         )
         return Self(apiKey: apiKey, baseURL: baseURL, session: liveSession)
+    }
+
+    /// Validates a response-body ceiling for callers that prefer an error over clamping (#206).
+    public nonisolated static func validatedResponseBodyLimit(_ bytes: Int) throws -> Int {
+        try validateNonNegativeResponseBodyLimit(bytes)
     }
 
     // MARK: Campaigns

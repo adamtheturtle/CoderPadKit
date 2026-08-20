@@ -165,7 +165,8 @@ public struct CoderPadClient {
                 baseURL: URL = Self.defaultBaseURL,
                 session: URLSession = Self.liveSession,
                 maximumHistoryResponseBodyBytes: Int = Self.defaultMaximumHistoryResponseBodyBytes) {
-        precondition(maximumHistoryResponseBodyBytes >= 0, "History response limit must not be negative")
+        // Clamp rather than trap: limits can arrive from defaults or remote policy (#206).
+        let historyLimit = max(0, maximumHistoryResponseBodyBytes)
         precondition(
             Self.isAllowedBaseURL(baseURL),
             "CoderPadClient base URL must be a credential-free HTTPS origin without query or fragment."
@@ -176,7 +177,7 @@ public struct CoderPadClient {
         self.apiKey = normalizedKey
         self.baseURL = baseURL
         self.session = session
-        self.maximumHistoryResponseBodyBytes = maximumHistoryResponseBodyBytes
+        self.maximumHistoryResponseBodyBytes = historyLimit
         rest = PaginatedRESTClient(
             apiKey: normalizedKey,
             baseURL: baseURL,
@@ -191,7 +192,7 @@ public struct CoderPadClient {
             baseURL: baseURL,
             transport: URLSessionTransport(
                 session: session,
-                successResponseLimit: maximumHistoryResponseBodyBytes
+                successResponseLimit: historyLimit
             ),
             decoderFactory: Self.makeDecoder,
             encoderFactory: Self.makeEncoder,

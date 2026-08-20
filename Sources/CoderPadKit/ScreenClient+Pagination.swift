@@ -33,9 +33,11 @@ public extension ScreenClient {
             }
 
             pageCount += 1
+            // Request the documented page maximum so page and item ceilings agree (#209).
             let page = try await listTests(campaignID: campaignID, product: product,
                                            candidateEmail: candidateEmail, from: from,
-                                           until: until, start: start)
+                                           until: until, start: start,
+                                           limit: Self.maximumPageSize)
             let additions = page.tests.filter { seenIDs.insert($0.id).inserted }
             guard additions.count == page.tests.count else {
                 throw CoderPadError.decode("Screen pagination repeated a session while loading pages.")
