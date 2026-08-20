@@ -223,8 +223,13 @@ struct ListSortValidationTests {
             _ = try await client.listQuestions(sort: "created_at,up")
         }
         var iterator = client.listPadsIncrementally(sort: "nope").makeAsyncIterator()
-        await #expect(throws: CoderPadError.self) {
+        do {
             _ = try await iterator.next()
+            Issue.record("Expected unsupported sort to throw before networking")
+        } catch is CoderPadError {
+            // Expected client-side validation failure.
+        } catch {
+            Issue.record("Unexpected error: \(error)")
         }
     }
 }
