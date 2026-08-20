@@ -316,8 +316,9 @@ public struct CoderPadClient {
 
     /// Fetches a single pad environment by id.
     public func padEnvironment(id: Int) async throws -> PadEnvironment {
+        try Self.validatePositiveResourceID(id, kind: "pad environment")
         // The live API returns the environment's fields flat at the top level.
-        try await rest.fetch(PadEnvironment.self, path: "/api/pad_environments/\(id)")
+        return try await rest.fetch(PadEnvironment.self, path: "/api/pad_environments/\(id)")
     }
 
     /// Creates a pad and returns it.
@@ -365,15 +366,6 @@ public struct CoderPadClient {
                                 body: PadUpdate(id: id, deleted: true))
     }
 
-    nonisolated static func validatePadID(_ id: String) throws {
-        let allowed = id.unicodeScalars.allSatisfy { scalar in
-            scalar.isASCII && (CharacterSet.alphanumerics.contains(scalar) || "-._~".unicodeScalars.contains(scalar))
-        }
-        guard !id.isEmpty, id != ".", id != "..", allowed else {
-            throw CoderPadError.decode("Pad ID must be one non-empty URL path component.")
-        }
-    }
-
     // MARK: Questions
 
     /// Lists the API key owner's questions. All pages are followed.
@@ -390,9 +382,10 @@ public struct CoderPadClient {
 
     /// Fetches a single question by id.
     public func getQuestion(id: Int) async throws -> Question {
+        try Self.validatePositiveResourceID(id, kind: "question")
         // The live API returns the question's fields flat at the top level (alongside
         // "status"), not nested under a "question" key.
-        try await rest.fetch(Question.self, path: "/api/questions/\(id)")
+        return try await rest.fetch(Question.self, path: "/api/questions/\(id)")
     }
 
     /// Creates a question and returns it.
@@ -405,6 +398,7 @@ public struct CoderPadClient {
     /// Modifies a question and returns its fresh server state. The live API replies
     /// `{"status":"OK"}` with no question body, so the question is re-fetched.
     public func updateQuestion(_ body: QuestionUpdate) async throws -> Question {
+        try Self.validatePositiveResourceID(body.id, kind: "question")
         _ = try await rest.send(StatusOnly.self, method: "PUT", path: "/api/questions/\(body.id)", body: body)
         do {
             return try await getQuestion(id: body.id)
@@ -416,11 +410,13 @@ public struct CoderPadClient {
     /// Sends the modify-question PUT without the follow-up GET, for inline per-field
     /// editors that hold an authoritative optimistic copy and merge the change locally.
     public func updateQuestionWithoutRefetch(_ body: QuestionUpdate) async throws {
+        try Self.validatePositiveResourceID(body.id, kind: "question")
         _ = try await rest.send(StatusOnly.self, method: "PUT", path: "/api/questions/\(body.id)", body: body)
     }
 
     /// Deletes a question.
     public func deleteQuestion(id: Int) async throws {
+        try Self.validatePositiveResourceID(id, kind: "question")
         guard !apiKey.isEmpty else { throw CoderPadError.missingAPIKey }
 
         let request = RESTRequest(
