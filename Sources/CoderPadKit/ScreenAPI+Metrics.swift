@@ -52,4 +52,35 @@ public nonisolated enum ScreenReportMetric {
 
         throw DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: debugDescription)
     }
+
+    private static let maximumCommunityStatBuckets = 100
+
+    /// Score-distribution buckets from `withCommunityStats`. Rejects negatives and
+    /// oversized arrays so report metrics stay coherent (#116).
+    public static func decodeCommunityStats<Key: CodingKey>(
+        from container: KeyedDecodingContainer<Key>,
+        forKey key: Key
+    ) throws -> [Int]? {
+        guard let buckets = try container.decodeIfPresent([Int].self, forKey: key) else {
+            return nil
+        }
+        guard buckets.count <= maximumCommunityStatBuckets else {
+            throw DecodingError.dataCorruptedError(
+                forKey: key,
+                in: container,
+                debugDescription: """
+                Screen report community_stats must contain at most \
+                \(maximumCommunityStatBuckets) buckets.
+                """
+            )
+        }
+        guard buckets.allSatisfy({ $0 >= 0 }) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: key,
+                in: container,
+                debugDescription: "Screen report community_stats buckets must not be negative."
+            )
+        }
+        return buckets
+    }
 }

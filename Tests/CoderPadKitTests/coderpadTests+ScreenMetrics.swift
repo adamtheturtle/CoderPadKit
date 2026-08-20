@@ -170,4 +170,31 @@ struct ScreenReportMetricTests {
             )
         }
     }
+
+    @Test
+    func `report rejects negative community statistic buckets`() {
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ScreenReport.self, from: Data(#"{"community_stats":[2,-1,4]}"#.utf8))
+        }
+    }
+
+    @Test
+    func `report accepts nonnegative community statistic buckets`() throws {
+        let report = try JSONDecoder().decode(
+            ScreenReport.self,
+            from: Data(#"{"community_stats":[0,1,2]}"#.utf8)
+        )
+        #expect(report.communityStats == [0, 1, 2])
+    }
+
+    @Test
+    func `report rejects oversized community statistic arrays`() {
+        let buckets = Array(repeating: 1, count: 101).map(String.init).joined(separator: ",")
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(
+                ScreenReport.self,
+                from: Data(#"{"community_stats":[\#(buckets)]}"#.utf8)
+            )
+        }
+    }
 }

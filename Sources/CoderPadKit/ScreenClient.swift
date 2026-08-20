@@ -104,6 +104,7 @@ public struct ScreenClient {
     public nonisolated func sendInvitation(campaignID: Int,
                                            _ invitation: ScreenInvitation) async throws -> ScreenInvitationResult {
         try Self.requirePositiveID(campaignID, kind: "campaign")
+        let invitation = try Self.validatedInvitation(invitation)
         return try await send(ScreenInvitationResult.self,
                               method: "POST",
                               path: "/campaigns/\(campaignID)/actions/send",
@@ -188,14 +189,14 @@ public struct ScreenClient {
     /// PDF bytes; `reportType` selects the report variant when the API offers more
     /// than one.
     public nonisolated func testReport(id: Int,
-                                       reportType: String? = nil,
+                                       reportType: ScreenReportType? = nil,
                                        anonymous: Bool? = nil,
                                        includeRank: Bool? = nil,
                                        includeComparativeScore: Bool? = nil) async throws -> Data {
         try Self.requirePositiveID(id, kind: "test")
         var query: [URLQueryItem] = []
         if let reportType {
-            query.append(URLQueryItem(name: "report_type", value: reportType))
+            query.append(URLQueryItem(name: "report_type", value: reportType.rawValue))
         }
         if let anonymous {
             query.append(URLQueryItem(name: "anonymous", value: String(anonymous)))
@@ -391,6 +392,35 @@ private extension ScreenClient {
             throw CoderPadError.decode(
                 "Screen product filter must be one of: \(allowedProductFilters.sorted().joined(separator: ", "))."
             )
+        }
+        return normalized
+    }
+
+    /// Normalizes invitation emails and rejects contradictory delivery options before
+    /// transport (#105, #108).
+    public nonisolated static func validatedInvitation(_ invitation: ScreenInvitation) throws -> ScreenInvitation {
+        var invitation = invitation
+        invitation.candidateEmail = try validatedInvitationEmail(
+            invitation.candidateEmail, kind: "candidate"
+        )
+        invitation.recruiterEmail = try validatedInvitationEmail(
+            invitation.recruiterEmail, kind: "recruiter"
+        )
+        if invitation.sendInvitationEmail == true, invitation.candidateEmail == nil {
+            throw CoderPadError.decode(
+                "Screen send_invitation_email requires a candidate email."
+            )
+        }
+        return invitation
+    }
+
+    private nonisolated static func validatedInvitationEmail(_ raw: String?, kind: String) throws -> String? {
+        guard let raw else { return nil }
+        let normalized = try normalizedFilter(
+            raw, name: "\(kind) email", maximumLength: maximumEmailFilterLength
+        ).map(EmailValidation.normalized)
+        guard let normalized, EmailValidation.isPlausibleAddress(normalized) else {
+            throw CoderPadError.decode("Screen \(kind) email is invalid or too long.")
         }
         return normalized
     }

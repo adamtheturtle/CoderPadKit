@@ -15,6 +15,9 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
     public let ownerEmail: String
     public let language: String?
     public let participants: [String]
+    /// Count of `participants` elements skipped because they were not strings.
+    /// Valid siblings are still retained.
+    public let omittedParticipantCount: Int
     public let url: String
     public let playback: String?
     /// API URL for this pad's event log. Convenience field; `padEvents(padID:)`
@@ -42,8 +45,12 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
     /// Interviewer-facing alerts recorded for the pad, such as suspicious
     /// candidate activity. Empirically observed; not in the published contract.
     public let padInterviewerNotifications: [PadInterviewerNotification]
+    /// Count of `pad_interviewer_notifications` elements skipped as malformed.
+    public let omittedInterviewerNotificationCount: Int
     public let activeEnvironmentID: Int?
     public let padEnvironmentIDs: [Int]
+    /// Count of `pad_environment_ids` elements skipped as malformed or nonpositive.
+    public let omittedPadEnvironmentIDCount: Int
     /// The pad-level list of attached question ids. The detail loads questions via
     /// each environment's own `questionID`, so this isn't read for display, but it is
     /// the pad-level reflection of an attached question (exercised by the create/update
@@ -74,11 +81,13 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         state = container.loggedDecodeIfPresent(String.self, forKey: .state) ?? "unknown"
         ownerEmail = container.loggedDecodeIfPresent(String.self, forKey: .ownerEmail) ?? ""
         language = container.loggedDecodeIfPresent(String.self, forKey: .language)
-        // The live API can include `null` entries in `participants` (e.g. an
-        // anonymous or not-yet-named guest), so decode as optional strings and
-        // drop the nulls rather than letting one null fail the whole array.
-        participants = (container.loggedDecodeIfPresent([String?].self, forKey: .participants) ?? [])
-            .compactMap(\.self)
+        // Decode participants element-by-element so a non-string entry (or null)
+        // cannot erase every valid name. Null / wrong-typed elements are omitted.
+        let decodedParticipants = container.decodeTolerantArrayIfPresent(
+            String.self, forKey: .participants
+        )
+        participants = decodedParticipants.elements
+        omittedParticipantCount = decodedParticipants.omittedCount
         url = container.loggedDecodeIfPresent(String.self, forKey: .url) ?? ""
         playback = container.loggedDecodeIfPresent(String.self, forKey: .playback)
         events = container.loggedDecodeIfPresent(String.self, forKey: .events)
@@ -104,12 +113,17 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         isPrivate = container.loggedDecodeIfPresent(Bool.self, forKey: .isPrivate)
         restrictInterviewerAccess = container
             .loggedDecodeIfPresent(Bool.self, forKey: .restrictInterviewerAccess)
-        padInterviewerNotifications = container
-            .loggedDecodeIfPresent(
-                [PadInterviewerNotification].self, forKey: .padInterviewerNotifications
-            ) ?? []
+        let decodedNotifications = container.decodeTolerantArrayIfPresent(
+            PadInterviewerNotification.self, forKey: .padInterviewerNotifications
+        )
+        padInterviewerNotifications = decodedNotifications.elements
+        omittedInterviewerNotificationCount = decodedNotifications.omittedCount
         activeEnvironmentID = container.loggedDecodeIfPresent(Int.self, forKey: .activeEnvironmentID)
-        padEnvironmentIDs = container.loggedDecodeIfPresent([Int].self, forKey: .padEnvironmentIDs) ?? []
+        let decodedEnvironmentIDs = container.decodeTolerantArrayIfPresent(
+            PositiveInt.self, forKey: .padEnvironmentIDs
+        )
+        padEnvironmentIDs = decodedEnvironmentIDs.elements.map(\.value)
+        omittedPadEnvironmentIDCount = decodedEnvironmentIDs.omittedCount
         if let activeEnvironmentID {
             let matches = padEnvironmentIDs.filter { $0 == activeEnvironmentID }
             guard matches.count == 1 else {
@@ -123,6 +137,33 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         }
         questionIDs = container.loggedDecodeIfPresent([Int].self, forKey: .questionIDs) ?? []
         team = container.loggedDecodeIfPresent(PadTeam.self, forKey: .team)
+    }
+
+    /// Describes skipped malformed `participants` entries, when any were omitted.
+    public var omittedParticipantsDiagnostic: String? {
+        omittedJSONElementsDiagnostic(
+            count: omittedParticipantCount,
+            singular: "participant",
+            plural: "participants"
+        )
+    }
+
+    /// Describes skipped malformed interviewer notifications, when any were omitted.
+    public var omittedNotificationsDiagnostic: String? {
+        omittedJSONElementsDiagnostic(
+            count: omittedInterviewerNotificationCount,
+            singular: "interviewer notification",
+            plural: "interviewer notifications"
+        )
+    }
+
+    /// Describes skipped malformed `pad_environment_ids` entries, when any were omitted.
+    public var omittedPadEnvironmentIDsDiagnostic: String? {
+        omittedJSONElementsDiagnostic(
+            count: omittedPadEnvironmentIDCount,
+            singular: "pad environment id",
+            plural: "pad environment ids"
+        )
     }
 
     private static func validateLifecycleTimestamps(
@@ -224,7 +265,7 @@ public nonisolated struct PadInterviewerNotification: Codable, Identifiable, Has
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
+        id = try container.decode(PositiveInt.self, forKey: .id).value
         title = container.loggedDecodeIfPresent(String.self, forKey: .title) ?? ""
         message = container.loggedDecodeIfPresent(String.self, forKey: .message) ?? ""
         // This undocumented live-response field has appeared as both a JSON number
@@ -243,11 +284,11 @@ public nonisolated struct PadInterviewerNotification: Codable, Identifiable, Has
 }
 
 /// One entry in a pad's event log: a join, a code run, a question being added, and so on.
-public nonisolated struct PadEvent: Decodable, Identifiable, Hashable, Sendable {
-    public var id: String {
-        "\(createdAt?.timeIntervalSince1970 ?? 0)-\(kind)-\(userName ?? "")-\(message)"
-    }
-
+///
+/// Events are not ``Identifiable``: the API does not assign a stable event id, and
+/// synthesizing one from timestamp/kind/actor/message can collide for distinct rows
+/// (#101). Callers that need collection identity should use positional indices.
+public nonisolated struct PadEvent: Decodable, Hashable, Sendable {
     public let message: String
     public let kind: String
     /// Event-specific context: the language run for `ran`, the question ID for

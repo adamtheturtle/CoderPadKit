@@ -81,10 +81,9 @@ private nonisolated struct EventsPage: PagedResponse {
     static var pageSize: Int { coderPadPageSize }
 
     // `identity(of:)` is deliberately not implemented, so the event log takes the
-    // sequential `next_page` walk rather than the parallel path. An event carries no
-    // server-assigned id - ``PadEvent`` derives one from its timestamp, kind, actor, and
-    // message - and de-duplicating on a *derived* key would silently drop a second
-    // genuine event that happened to match an earlier one on all four. A timeline that
+    // sequential `next_page` walk rather than the parallel path. Pad events have no
+    // server-assigned id (#101), so de-duplicating on derived content would risk
+    // dropping a genuine second event that matched an earlier row. A timeline that
     // quietly loses a row is a worse failure than one that loads a little slower, and the
     // sequential path never requests a page speculatively, so it needs no de-duplication.
 
