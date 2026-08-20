@@ -95,7 +95,6 @@ private nonisolated struct EventsPage: PagedResponse {
 // Small decode-only response shapes shared across endpoints. `nonisolated` so they're
 // Sendable and can be decoded off the main actor (see `CoderPadClient.perform`).
 private nonisolated struct StatusOnly: Decodable { let status: String? }
-private nonisolated struct Wrapper: Decodable { let users: [OrganizationUser] }
 
 // MARK: - Error mapping
 
@@ -475,18 +474,5 @@ public struct CoderPadClient {
     /// Every organization question visible to you. Paginated like ``listQuestions(sort:)``.
     public func listOrganizationQuestions(sort: String? = nil) async throws -> [Question] {
         try await rest.fetchAllPages(QuestionsPage.self, path: "/api/organization/questions", sort: sort)
-    }
-
-    /// The organization's users. Passing `email` returns only the matching user, the
-    /// reliable way to resolve which user an API key belongs to.
-    public func organizationUsers(email: String? = nil) async throws -> [OrganizationUser] {
-        guard !apiKey.isEmpty else { throw CoderPadError.missingAPIKey }
-
-        var comps = URLComponents(url: baseURL.appending(path: "/api/organization/users"),
-                                  resolvingAgainstBaseURL: false)
-        if let email { comps?.queryItems = [URLQueryItem(name: "email", value: email)] }
-        guard let url = comps?.url else { throw CoderPadError.http(0, "Invalid URL") }
-
-        return try await rest.performWithRetry(Wrapper.self, request: rest.authorizedGET(url)).users
     }
 }
