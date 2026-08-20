@@ -60,13 +60,16 @@ nonisolated enum MockResponses {
             return (404, jsonString(["error": "not handled by mock history host: \(method) \(path)"]))
         }
         if normalizedHost == MockServer.host || normalizedHost == nil {
-            if let result = padRoute(state: state, method: method, path: path, body: body) {
+            if let result = padRoute(
+                state: state, method: method, path: path, query: query, body: body
+            ) {
                 return result
             }
             if let result = questionRoute(
                 state: state,
                 method: method,
                 path: path,
+                query: query,
                 body: body,
                 contentType: contentType
             ) {
@@ -81,7 +84,13 @@ nonisolated enum MockResponses {
 
     // MARK: - Pad routes
 
-    private static func padRoute(state: MockState, method: String, path: String, body: Data?) -> (Int, Data)? {
+    private static func padRoute(
+        state: MockState,
+        method: String,
+        path: String,
+        query: [String: String],
+        body: Data?
+    ) -> (Int, Data)? {
         // Modify a pad: the live API carries the pad id in the URL path
         // (`PUT /api/pads/:id`), with the changed attributes in the body.
         if method == "PUT", let id = match(path, pattern: #"^/api/pads/([^/]+)/?$"#), !id.isEmpty {
@@ -98,11 +107,12 @@ nonisolated enum MockResponses {
             guard state.allPads().contains(where: { ($0["id"] as? String) == id }) else {
                 return (404, jsonString(["status": "error", "message": "pad not found"]))
             }
-
-            return ok([
-                "status": "OK",
-                "events": state.events(forPad: id)
-            ])
+            return MockList.page(
+                state.events(forPad: id),
+                query: query,
+                path: path.hasSuffix("/") ? path : path + "/",
+                collectionKey: "events"
+            )
         }
 
         if method == "GET", let id = match(path, pattern: #"^/api/pads/([^/]+)/?$"#), !id.isEmpty {
@@ -115,31 +125,47 @@ nonisolated enum MockResponses {
         }
 
         if method == "GET", path == "/api/pads/" || path == "/api/pads" {
-            return ok(["status": "OK", "pads": state.allPads()])
+            return listed(state.allPads(), query: query, path: "/api/pads/", key: "pads")
         }
 
         if method == "GET", let id = match(path, pattern: #"^/api/pad_environments/(\d+)/?$"#) {
-            guard let idInt = Int(id) else {
-                return (400, jsonString(["status": "error", "message": "invalid environment ID"]))
-            }
-            // Prefer a session-created environment so newly minted pads do not share
-            // the seeded demo buffers (#190).
-            var env = state.createdEnvironments[idInt] ?? MockFixtures.padEnvironment(id: idInt)
-            env["status"] = "OK"
-            return ok(env)
+            return padEnvironment(state: state, id: id)
         }
 
         return nil
     }
 
+    /// Resolves a pad environment by id: session-created first (#190), else only IDs
+    /// referenced by a seeded/created pad (#121).
+    private static func padEnvironment(state: MockState, id: String) -> (Int, Data) {
+        guard let idInt = Int(id) else {
+            return (400, jsonString(["status": "error", "message": "invalid environment ID"]))
+        }
+        if var env = state.createdEnvironments[idInt] {
+            env["status"] = "OK"
+            return ok(env)
+        }
+        let known = Set(
+            state.allPads().compactMap { $0["pad_environment_ids"] as? [Int] }.flatMap { $0 }
+        )
+        guard known.contains(idInt) else {
+            return (404, jsonString(["status": "error", "message": "environment not found"]))
+        }
+        var env = MockFixtures.padEnvironment(id: idInt)
+        env["status"] = "OK"
+        return ok(env)
+    }
+
     private static func modifyPad(state: MockState, id: String, body: Data?) -> (Int, Data) {
         // Existence must be checked before any overlay write: a 404 for an unknown id
-        // must not leave attacker-controlled state behind (#189).
+        // must not leave attacker-controlled state behind (#189 / #120).
         guard let pad = state.allPads().first(where: { ($0["id"] as? String) == id }) else {
             return (404, jsonString(["status": "error", "message": "pad not found"]))
         }
-
-        var dict = (body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }) ?? [:]
+        guard let params = jsonObject(from: body) else {
+            return invalidJSONBodyResponse
+        }
+        var dict = params
         // The live API mirrors `deleted`/`ended` as side effects, not stored fields.
         if dict["deleted"] as? Bool == true {
             state.deletedPadIDs.insert(id)
@@ -166,6 +192,11 @@ nonisolated enum MockResponses {
         }
         // Successful updates advance `updated_at`, matching the live API (#192).
         dict["updated_at"] = updatedAt
+        // Mutation requests send ownership as `user_email`; pad responses expose
+        // `owner_email`, so remap before merging the overlay (#150).
+        if let userEmail = dict.removeValue(forKey: "user_email") {
+            dict["owner_email"] = userEmail
+        }
         // Merge per-field rather than replacing the overlay. `PadUpdate` encodes only
         // its non-nil fields, so each PUT carries just the field being changed; the
         // live API applies that as a partial update, leaving every other field alone.
@@ -176,7 +207,13 @@ nonisolated enum MockResponses {
     }
 
     private static func createPad(state: MockState, body: Data?) -> (Int, Data) {
-        let create = (try? JSONDecoder().decode(PadCreate.self, from: body ?? Data())) ?? PadCreate()
+        // Require a real JSON object. Missing/malformed/wrong-shaped bodies must not
+        // silently become a default pad the way `try? … ?? PadCreate()` used to (#117).
+        guard jsonObject(from: body) != nil,
+              let body,
+              let create = try? JSONDecoder().decode(PadCreate.self, from: body) else {
+            return invalidJSONBodyResponse
+        }
         let id = newPadID(state: state)
         let language = create.language ?? MockFixtures.organizationDefaultLanguage
         let environment = MockFixtures.createdPadEnvironment(
@@ -197,6 +234,8 @@ nonisolated enum MockResponses {
             state: "pending",
             isPrivate: create.isPrivate ?? false,
             executionEnabled: create.executionEnabled ?? true,
+            notes: create.notes,
+            contents: create.contents,
             environmentIDs: [environmentID],
             activeEnvironmentID: environmentID
         )
@@ -252,11 +291,16 @@ nonisolated enum MockResponses {
         }
 
         if method == "GET", path == "/api/organization/pads" {
-            return ok(["status": "OK", "pads": state.allPads()])
+            return listed(
+                state.allPads(), query: query, path: "/api/organization/pads", key: "pads"
+            )
         }
 
         if method == "GET", path == "/api/organization/questions" {
-            return ok(["status": "OK", "questions": state.allQuestions()])
+            return listed(
+                state.allQuestions(), query: query,
+                path: "/api/organization/questions", key: "questions"
+            )
         }
 
         if method == "GET", path == "/api/organization/users" {

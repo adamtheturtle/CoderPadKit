@@ -39,15 +39,15 @@ struct QuestionZIPUploadTests {
             fields: [
                 ("question[title]", "Unicode π"),
                 ("question[language]", "multifile_python"),
-                ("question[description]", "Two files"),
-                ("question[solution]", "Done"),
-                ("question[take_home]", "false"),
-                ("question[pad_type]", "live"),
+                ("description", "Two files"),
+                ("solution", "Done"),
+                ("take_home", "false"),
+                ("pad_type", "live"),
                 (
-                    "question[candidate_instructions]",
+                    "candidate_instructions",
                     #"[{"default_visible":true,"instructions":"Start here"}]"#
                 ),
-                ("question[ai_assist_custom_system_prompt]", "Give hints")
+                ("ai_assist_custom_system_prompt", "Give hints")
             ],
             escapedFilename: "r_sum_ \\\"draft\\\".zip",
             filenameStar: "r%C3%A9sum%C3%A9%20%22draft%22.zip",

@@ -47,7 +47,7 @@ public nonisolated struct PadEnvironment: Decodable, Identifiable, Hashable, Sen
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
+        id = try container.decode(PositiveInt.self, forKey: .id).value
         padID = container.loggedDecodeIfPresent(Int.self, forKey: .padID)
         questionID = container.loggedDecodeIfPresent(Int.self, forKey: .questionID)
         exampleQuestionID = container.loggedDecodeIfPresent(String.self, forKey: .exampleQuestionID)

@@ -93,7 +93,8 @@ struct MockServerTests {
 
     @Test
     func `padEnvironment distinguishes a binary file with unavailable contents`() async throws {
-        let environment = try await client.padEnvironment(id: 4)
+        // Environment 34 is the multi-file web project on DEMOPLY3 (logo.png is binary).
+        let environment = try await client.padEnvironment(id: 34)
         let binaryFile = try #require(environment.fileContents.first { $0.binary == true })
         #expect(binaryFile.path == "logo.png")
         #expect(binaryFile.contents == nil)

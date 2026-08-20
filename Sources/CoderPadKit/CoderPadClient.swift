@@ -281,9 +281,11 @@ public struct CoderPadClient {
 
     /// Lists the API key owner's pads. `sort` accepts e.g. "updated_at,desc" or
     /// "created_at,asc"; defaults to the API's `created_at,desc`. All pages are
-    /// followed, not just the first 50.
+    /// followed, not just the first 50. Unsupported values fail locally (#154).
     public func listPads(sort: String? = nil) async throws -> [Pad] {
-        try await rest.fetchAllPages(PadsPage.self, path: "/api/pads/", sort: sort)
+        try await rest.fetchAllPages(
+            PadsPage.self, path: "/api/pads/", sort: try InterviewListSort.validated(sort)
+        )
     }
 
     /// Streams pads for progressive display. The first element arrives after a single
@@ -292,7 +294,9 @@ public struct CoderPadClient {
     /// complete list. With the default `updated_at,desc` sort, page 1 is already the top
     /// of the final list, so rows only ever append below.
     public func listPadsIncrementally(sort: String? = "updated_at,desc") -> AsyncThrowingStream<[Pad], any Error> {
-        rest.streamAllPages(PadsPage.self, path: "/api/pads/", sort: sort)
+        validatedSortStream(sort: sort) { sort in
+            rest.streamAllPages(PadsPage.self, path: "/api/pads/", sort: sort)
+        }
     }
 
     /// Fetches a single pad by id.
@@ -369,14 +373,18 @@ public struct CoderPadClient {
 
     /// Lists the API key owner's questions. All pages are followed.
     public func listQuestions(sort: String? = nil) async throws -> [Question] {
-        try await rest.fetchAllPages(QuestionsPage.self, path: "/api/questions/", sort: sort)
+        try await rest.fetchAllPages(
+            QuestionsPage.self, path: "/api/questions/", sort: try InterviewListSort.validated(sort)
+        )
     }
 
     /// Streams questions for progressive display, like ``listPadsIncrementally(sort:)``.
     public func listQuestionsIncrementally(
         sort: String? = "updated_at,desc"
     ) -> AsyncThrowingStream<[Question], any Error> {
-        rest.streamAllPages(QuestionsPage.self, path: "/api/questions/", sort: sort)
+        validatedSortStream(sort: sort) { sort in
+            rest.streamAllPages(QuestionsPage.self, path: "/api/questions/", sort: sort)
+        }
     }
 
     /// Fetches a single question by id.
@@ -470,11 +478,17 @@ public struct CoderPadClient {
     /// Every pad in the organization (requires org-owner access or org-wide visibility),
     /// rather than just the API key owner's pads. Paginated like ``listPads(sort:)``.
     public func listOrganizationPads(sort: String? = nil) async throws -> [Pad] {
-        try await rest.fetchAllPages(PadsPage.self, path: "/api/organization/pads", sort: sort)
+        try await rest.fetchAllPages(
+            PadsPage.self, path: "/api/organization/pads",
+            sort: try InterviewListSort.validated(sort)
+        )
     }
 
     /// Every organization question visible to you. Paginated like ``listQuestions(sort:)``.
     public func listOrganizationQuestions(sort: String? = nil) async throws -> [Question] {
-        try await rest.fetchAllPages(QuestionsPage.self, path: "/api/organization/questions", sort: sort)
+        try await rest.fetchAllPages(
+            QuestionsPage.self, path: "/api/organization/questions",
+            sort: try InterviewListSort.validated(sort)
+        )
     }
 }

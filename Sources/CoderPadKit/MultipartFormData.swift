@@ -3,9 +3,12 @@
 //  CoderPadKit
 //
 //  Byte-oriented multipart/form-data encoding shared by upload endpoints.
+//  Question ZIP bodies are staged under a private temporary root with the same
+//  registry / retry / leftover-sweep pattern as Screen report PDFs (#139).
 //
 
 import Foundation
+import Synchronization
 
 /// One text field in a multipart/form-data request.
 nonisolated struct MultipartFormField: Sendable {
@@ -26,6 +29,14 @@ nonisolated struct MultipartFormFile: Sendable {
 /// The caller's file `Data` is written directly to the file handle rather than appended
 /// to a second aggregate `Data`, keeping peak resident memory close to the source archive.
 nonisolated struct MultipartFormData: Sendable {
+    private static let logger = CoderPadLogger(category: "question-uploads")
+
+    /// Folders staged by this process (keyed by their unique directory name), each
+    /// with its scheduled removal task when one exists. The registry keeps the launch
+    /// sweep from deleting a body staged concurrently, lets an explicit removal cancel
+    /// its now-pointless scheduled retry, and makes both paths idempotent (#139).
+    private static let active = Mutex([String: Task<Void, Never>?]())
+
     let boundary: String
     let stagingFolder: URL
     let bodyFileURL: URL
@@ -45,6 +56,20 @@ nonisolated struct MultipartFormData: Sendable {
         files: [MultipartFormFile],
         boundary: String? = nil
     ) throws {
+        try self.init(fields: fields, files: files, boundary: boundary, afterCreatingFolder: { _ in })
+    }
+
+    /// Same as ``init(fields:files:boundary:)``, with a hook after the staging folder
+    /// exists so tests can exercise the leftover sweep without racing the write.
+    init(
+        fields: [MultipartFormField],
+        files: [MultipartFormFile],
+        boundary: String? = nil,
+        afterCreatingFolder: @Sendable (URL) -> Void
+    ) throws {
+        // Sweep abandoned staging from earlier runs whenever the library stages again.
+        Self.cleanUpLeftovers()
+
         let stagingIdentifier = UUID().uuidString
         self.boundary = boundary ?? "CoderPadKit-\(stagingIdentifier)"
         let folder = Self.stagingRoot.appending(path: stagingIdentifier, directoryHint: .isDirectory)
@@ -52,12 +77,16 @@ nonisolated struct MultipartFormData: Sendable {
         stagingFolder = folder
         bodyFileURL = fileURL
 
+        // Reserve the name before the directory becomes visible so a concurrent
+        // leftover sweep cannot mistake an in-progress write for abandoned data.
+        Self.active.withLock { $0[stagingIdentifier] = .some(nil) }
         do {
             try FileManager.default.createDirectory(
                 at: folder,
                 withIntermediateDirectories: true,
                 attributes: [.posixPermissions: 0o700]
             )
+            afterCreatingFolder(folder)
             guard FileManager.default.createFile(
                 atPath: fileURL.path,
                 contents: nil,
@@ -98,13 +127,106 @@ nonisolated struct MultipartFormData: Sendable {
                 throw error
             }
         } catch {
+            _ = Self.active.withLock { $0.removeValue(forKey: stagingIdentifier) }
             try? FileManager.default.removeItem(at: folder)
             throw error
         }
     }
 
+    /// Removes this staging folder, retrying on deletion failure (#139).
     func remove() {
-        try? FileManager.default.removeItem(at: stagingFolder)
+        Self.remove(stagingFolder, retryAfter: .seconds(30)) {
+            try FileManager.default.removeItem(at: $0)
+        }
+    }
+
+    /// Removes one staged upload folder, cancelling any removal still scheduled for it.
+    static func remove(
+        _ folder: URL,
+        retryAfter: Duration,
+        removeItem: @escaping @Sendable (URL) throws -> Void
+    ) {
+        // Only ever delete inside the staging root: a caller passing an unexpected
+        // URL must not be able to remove an arbitrary parent directory.
+        guard let staged = stagedFolder(folder) else {
+            logger.error("Refused to remove a question upload outside the staging root.")
+            return
+        }
+
+        let name = staged.lastPathComponent
+        let scheduled = active.withLock { $0.removeValue(forKey: name) }
+        if let scheduled, let scheduled { scheduled.cancel() }
+        do {
+            try removeItem(staged)
+        } catch CocoaError.fileNoSuchFile {
+            // Already swept; both cleanup paths are idempotent.
+        } catch {
+            // Keep a retry registered so the launch sweep cannot mistake sensitive
+            // data from this process for an abandoned directory and race it.
+            logger.error("Couldn't remove a staged question upload: \(error.localizedDescription)")
+            scheduleRemovalAttempt(
+                of: staged,
+                after: retryAfter,
+                retryAfter: retryAfter,
+                removeItem: removeItem
+            )
+        }
+    }
+
+    /// Launch-time (and re-use) sweep of uploads left behind by earlier runs.
+    /// Folders staged by this process are skipped so a late sweep can't race a
+    /// concurrently built multipart body (#139).
+    static func cleanUpLeftovers() {
+        let manager = FileManager.default
+        let entries: [URL]
+        do {
+            entries = try manager.contentsOfDirectory(at: stagingRoot, includingPropertiesForKeys: nil)
+        } catch CocoaError.fileReadNoSuchFile {
+            return
+        } catch {
+            logger.error("Couldn't sweep leftover question uploads: \(error.localizedDescription)")
+            return
+        }
+
+        let live = active.withLock { Set($0.keys) }
+        for entry in entries where !live.contains(entry.lastPathComponent) {
+            do {
+                try manager.removeItem(at: entry)
+            } catch {
+                logger.error("Couldn't sweep a leftover question upload: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private static func scheduleRemovalAttempt(
+        of folder: URL,
+        after duration: Duration,
+        retryAfter: Duration,
+        removeItem: @escaping @Sendable (URL) throws -> Void
+    ) {
+        guard let staged = stagedFolder(folder) else {
+            logger.error("Refused to schedule removal outside the staging root.")
+            return
+        }
+        let name = staged.lastPathComponent
+        let task = Task.detached(priority: .utility) {
+            try? await Task.sleep(for: duration)
+            guard !Task.isCancelled else { return }
+
+            remove(staged, retryAfter: retryAfter, removeItem: removeItem)
+        }
+        active.withLock { registry in
+            if let previous = registry[name], let previous { previous.cancel() }
+            registry[name] = task
+        }
+    }
+
+    /// Returns `folder` only when it is a direct child of the staging root.
+    private static func stagedFolder(_ folder: URL) -> URL? {
+        let standardized = folder.standardizedFileURL
+        guard standardized.deletingLastPathComponent().standardizedFileURL.path
+            == stagingRoot.standardizedFileURL.path else { return nil }
+        return standardized
     }
 
     /// Escapes a quoted Content-Disposition parameter without losing Unicode.
@@ -167,21 +289,23 @@ nonisolated struct MultipartFormData: Sendable {
 
 nonisolated extension QuestionCreate {
     func multipartFields() throws -> [MultipartFormField] {
+        try validateTakeHomePadType(takeHome: takeHome, padType: padType)
+        let normalizedLanguage = try InterviewLanguage.validated(
+            language, allowUnknown: allowUnknownLanguage
+        )
         var fields = [MultipartFormField(name: "question[title]", value: try validatedQuestionTitle(title))]
-        fields.append(name: "question[language]", value: language)
-        fields.append(name: "question[description]", value: description)
-        fields.append(name: "question[solution]", value: solution)
-        fields.append(name: "question[contents]", value: contents)
-        fields.append(name: "question[take_home]", value: takeHome.map(String.init))
-        fields.append(name: "question[pad_type]", value: padType)
+        fields.append(name: "question[language]", value: normalizedLanguage)
+        // Only title/language nest under `question[]`; remaining fields are flat (#153).
+        fields.append(name: "description", value: description)
+        fields.append(name: "solution", value: solution)
+        fields.append(name: "contents", value: contents)
+        fields.append(name: "take_home", value: takeHome.map(String.init))
+        fields.append(name: "pad_type", value: padType)
         fields.append(
-            name: "question[candidate_instructions]",
+            name: "candidate_instructions",
             value: try validatedCandidateInstructions(candidateInstructions).map(Self.formJSONString)
         )
-        fields.append(
-            name: "question[ai_assist_custom_system_prompt]",
-            value: aiAssistCustomSystemPrompt
-        )
+        fields.append(name: "ai_assist_custom_system_prompt", value: aiAssistCustomSystemPrompt)
         return fields
     }
 
@@ -194,22 +318,23 @@ nonisolated extension QuestionCreate {
 
 nonisolated extension QuestionUpdate {
     func multipartFields() throws -> [MultipartFormField] {
+        try validateTakeHomePadType(takeHome: takeHome, padType: padType)
+        let normalizedLanguage = try InterviewLanguage.validated(
+            language, allowUnknown: allowUnknownLanguage
+        )
         var fields: [MultipartFormField] = []
         fields.append(name: "question[title]", value: try title.map(validatedQuestionTitle))
-        fields.append(name: "question[language]", value: language)
-        fields.append(name: "question[description]", value: description)
-        fields.append(name: "question[solution]", value: solution)
-        fields.append(name: "question[contents]", value: contents)
-        fields.append(name: "question[take_home]", value: takeHome.map(String.init))
-        fields.append(name: "question[pad_type]", value: padType)
+        fields.append(name: "question[language]", value: normalizedLanguage)
+        fields.append(name: "description", value: description)
+        fields.append(name: "solution", value: solution)
+        fields.append(name: "contents", value: contents)
+        fields.append(name: "take_home", value: takeHome.map(String.init))
+        fields.append(name: "pad_type", value: padType)
         fields.append(
-            name: "question[candidate_instructions]",
+            name: "candidate_instructions",
             value: try validatedCandidateInstructions(candidateInstructions).map(Self.formJSONString)
         )
-        fields.append(
-            name: "question[ai_assist_custom_system_prompt]",
-            value: aiAssistCustomSystemPrompt
-        )
+        fields.append(name: "ai_assist_custom_system_prompt", value: aiAssistCustomSystemPrompt)
         return fields
     }
 
