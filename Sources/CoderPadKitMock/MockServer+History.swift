@@ -19,6 +19,11 @@ nonisolated extension MockResponses {
         guard method == "GET" else { return nil }
 
         if let (environmentID, fileIndex) = fileHistoryLocation(path) {
+            if let history = createdEnvironmentHistory(
+                state: state, environmentID: environmentID, fileIndex: fileIndex
+            ) {
+                return ok(history)
+            }
             guard let history = MockFixtures.padHistory(
                 environmentID: environmentID, fileIndex: fileIndex
             ) else {
@@ -52,10 +57,34 @@ nonisolated extension MockResponses {
         let environmentID = pad["active_environment_id"] as? Int
             ?? (pad["pad_environment_ids"] as? [Int])?.first
             ?? 1
+        if let history = createdEnvironmentHistory(
+            state: state, environmentID: environmentID, fileIndex: 0
+        ) {
+            return ok(history)
+        }
         guard let history = MockFixtures.padHistory(environmentID: environmentID, fileIndex: 0) else {
             return (404, jsonString(["error": "history not found"]))
         }
         return ok(history)
+    }
+
+    /// History for an environment created with a pad in this session, keyed off the
+    /// stored file contents rather than the seeded demo buffers (#190).
+    private static func createdEnvironmentHistory(
+        state: MockState,
+        environmentID: Int,
+        fileIndex: Int
+    ) -> [String: Any]? {
+        guard let environment = state.createdEnvironments[environmentID],
+              let files = environment["file_contents"] as? [[String: Any]],
+              files.indices.contains(fileIndex),
+              let contents = files[fileIndex]["contents"] as? String
+        else { return nil }
+
+        let timestamp = Int64((MockFixtures.now().timeIntervalSince1970 - 3_600) * 1_000)
+        return MockFixtures.realisticHistory(
+            contents: contents, start: timestamp, seedAuthor: "CoderPad"
+        )
     }
 
     /// The environment and file a per-file history path addresses, as seeded onto

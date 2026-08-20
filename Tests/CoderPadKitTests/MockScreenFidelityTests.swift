@@ -13,8 +13,9 @@ import Testing
 
 @Suite("Mock Screen fidelity")
 struct MockScreenFidelityTests {
-    private func client(_ label: String = #function) -> ScreenClient {
-        ScreenClient.mock(key: "screen-fidelity-\(label)-\(UUID().uuidString)")
+    private func client() -> ScreenClient {
+        // Avoid embedding `#function` (spaces) — API keys must be printable ASCII (#161).
+        ScreenClient.mock(key: "screen-fidelity-\(UUID().uuidString)")
     }
 
     // MARK: - #129 invitations

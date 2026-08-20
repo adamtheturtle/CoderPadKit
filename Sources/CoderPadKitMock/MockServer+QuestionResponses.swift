@@ -100,17 +100,20 @@ nonisolated extension MockResponses {
         guard body != nil else {
             return (400, jsonString(["status": "error"]))
         }
-        guard let params = questionParams(body: body, contentType: contentType) else {
+        // Existence before overlay writes, matching pad updates (#189).
+        guard state.allQuestions().contains(where: { ($0["id"] as? Int) == idInt }) else {
+            return (404, jsonString(["status": "error"]))
+        }
+        guard var params = questionParams(body: body, contentType: contentType) else {
             return malformedMultipartResponse
         }
 
+        // Successful updates advance `updated_at`, matching the live API (#192).
+        params["updated_at"] = Date.now.formatted(.iso8601)
         // QuestionUpdate is partial, so merge only the fields that were supplied.
         state.updatedQuestions[idInt, default: [:]]
             .merge(params) { _, new in new }
-        if state.allQuestions().contains(where: { ($0["id"] as? Int) == idInt }) {
-            return ok(["status": "OK"])
-        }
-        return (404, jsonString(["status": "error"]))
+        return ok(["status": "OK"])
     }
 
     private static var malformedMultipartResponse: (Int, Data) {

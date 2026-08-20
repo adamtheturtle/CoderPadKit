@@ -14,6 +14,9 @@ public nonisolated enum ScreenReportType: String, CaseIterable, Hashable, Sendab
 /// The request body for `POST /campaigns/:id/actions/send`. All fields are
 /// optional; omitting `candidateEmail` creates a test the recruiter can hand to
 /// a candidate manually rather than emailing an invitation.
+///
+/// `candidateName` must be at most ``ScreenClient/maximumCandidateNameLength``
+/// characters; longer values fail locally as the service's `CandidateNameTooLong`.
 public nonisolated struct ScreenInvitation: Encodable, Hashable, Sendable {
     public var candidateEmail: String?
     public var candidateName: String?

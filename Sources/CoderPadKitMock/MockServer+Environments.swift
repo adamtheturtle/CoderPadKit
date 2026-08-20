@@ -28,6 +28,67 @@ nonisolated extension MockFixtures {
         ]
     }
 
+    /// A fresh environment owned by a newly created pad, using the requested
+    /// contents/question rather than sharing seeded demo buffers (#190).
+    static func createdPadEnvironment(
+        state: MockState,
+        padID: String,
+        language: String,
+        contents: String?,
+        questionID: Int?
+    ) -> [String: Any] {
+        let environmentID = state.nextEnvironmentID()
+        let question = questionID.flatMap { id in
+            state.allQuestions().first { ($0["id"] as? Int) == id }
+        }
+        let resolvedLanguage = (question?["language"] as? String) ?? language
+        let resolvedContents = contents
+            ?? (question?["contents"] as? String)
+            ?? "// \(padID)\n"
+        let path = defaultPath(for: resolvedLanguage)
+        let now = Date.now.formatted(.iso8601)
+        let file: [String: Any] = [
+            "path": path,
+            "contents": resolvedContents,
+            "binary": false,
+            "history": "https://coderpad-1.firebaseio.com/mock/pad-environments/\(environmentID)/files/0/history.json"
+        ]
+        return [
+            "id": environmentID,
+            // Stable positive int derived from the string pad id so environment
+            // lookups identify the owning pad rather than a shared seed constant.
+            "pad_id": numericPadID(for: padID),
+            "question_id": questionID as Any? ?? NSNull(),
+            "example_question_id": NSNull(),
+            "language": resolvedLanguage,
+            "file_contents": [file],
+            "created_at": now,
+            "updated_at": now
+        ]
+    }
+
+    /// Deterministic positive Int for wire `pad_id` from a string pad identifier.
+    private static func numericPadID(for padID: String) -> Int {
+        let hashed = padID.utf8.reduce(into: UInt64(5_381)) { partial, byte in
+            partial = partial &* 33 &+ UInt64(byte)
+        }
+        return Int(hashed % 900_000_000) + 100_000_000
+    }
+
+    private static func defaultPath(for language: String) -> String {
+        switch language.lowercased() {
+        case "python", "python3": "coderpad/main.py"
+        case "javascript", "typescript": "src/index.js"
+        case "swift": "main.swift"
+        case "go": "main.go"
+        case "ruby": "main.rb"
+        case "java": "Main.java"
+        case "rust": "src/main.rs"
+        case "cpp", "c": "main.cpp"
+        default: "main.txt"
+        }
+    }
+
     static func padHistory(environmentID: Int, fileIndex: Int) -> [String: Any]? {
         let files = environmentFiles(id: environmentID).files
         guard files.indices.contains(fileIndex), let contents = files[fileIndex]["contents"] as? String else {
