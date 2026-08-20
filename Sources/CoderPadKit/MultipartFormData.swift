@@ -82,7 +82,7 @@ nonisolated struct MultipartFormData: Sendable {
                     try Self.writeUTF8("--\(self.boundary)\r\n", to: handle, byteCount: &byteCount)
                     try Self.writeUTF8(
                         "Content-Disposition: form-data; name=\"\(Self.quoted(file.name))\"; "
-                            + "filename=\"\(Self.quoted(file.filename))\"\r\n"
+                            + "\(Self.contentDispositionFilename(file.filename))\r\n"
                             + "Content-Type: \(file.contentType)\r\n\r\n",
                         to: handle,
                         byteCount: &byteCount
@@ -116,6 +116,34 @@ nonisolated struct MultipartFormData: Sendable {
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "\r", with: "%0D")
             .replacingOccurrences(of: "\n", with: "%0A")
+    }
+
+    /// ASCII `filename` plus RFC 5987 `filename*` when the original name is not ASCII.
+    private static func contentDispositionFilename(_ filename: String) -> String {
+        if filename.utf8.allSatisfy({ $0 < 0x80 }) {
+            return "filename=\"\(quoted(filename))\""
+        }
+
+        let fallback = String(filename.map { character in
+            character.isASCII ? character : "_"
+        })
+        return "filename=\"\(quoted(fallback))\"; filename*=UTF-8''\(rfc5987Encode(filename))"
+    }
+
+    /// Percent-encodes a filename for an RFC 5987 `filename*` parameter value.
+    private static func rfc5987Encode(_ value: String) -> String {
+        let allowed = CharacterSet(charactersIn:
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$&+-.^_`|~"
+        )
+        var encoded = ""
+        for byte in value.utf8 {
+            if let scalar = UnicodeScalar(byte), allowed.contains(scalar) {
+                encoded.append(Character(scalar))
+            } else {
+                encoded.append(String(format: "%%%02X", byte))
+            }
+        }
+        return encoded
     }
 
     private static func writeUTF8(_ value: String, to handle: FileHandle, byteCount: inout Int) throws {
