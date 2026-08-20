@@ -117,8 +117,8 @@ public struct ScreenClient {
             try Self.requirePositiveID(campaignID, kind: "campaign")
         }
         let filters = try Self.normalizedListFilters(product: product, candidateEmail: candidateEmail)
-        if let start, start < 0 {
-            throw CoderPadError.decode("Screen pagination start must not be negative.")
+        if let start {
+            try Self.requirePaginationStart(start)
         }
         if let limit, !(1 ... Self.maximumPageSize).contains(limit) {
             throw CoderPadError.decode("Screen pagination limit must be between 1 and \(Self.maximumPageSize).")
@@ -216,10 +216,12 @@ public struct ScreenClient {
 
     /// Builds an authorized request, attaching the `API-Key` header that every
     /// Screen endpoint requires.
-    private nonisolated func authorizedRequest(path: String,
-                                               method: String,
-                                               query: [URLQueryItem] = [],
-                                               accept: String = "application/json") throws -> URLRequest {
+    nonisolated func authorizedRequest(
+        path: String,
+        method: String,
+        query: [URLQueryItem] = [],
+        accept: String = "application/json"
+    ) throws -> URLRequest {
         guard !apiKey.isEmpty else { throw CoderPadError.missingAPIKey }
         guard Self.isAllowedBaseURL(baseURL) else {
             throw CoderPadError.decode("Screen base URL must be a credential-free HTTPS origin.")
@@ -284,7 +286,7 @@ public struct ScreenClient {
     private nonisolated static let decoder = JSONDecoder()
     private nonisolated static let encoder = JSONEncoder()
 
-    private nonisolated func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+    nonisolated func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         do {
             return try Self.decoder.decode(type, from: data)
         } catch {
@@ -299,8 +301,19 @@ public struct ScreenClient {
 
 private extension ScreenClient {
     public nonisolated static func validateTimeRange(from: Int?, until: Int?) throws {
-        guard from.map({ $0 >= 0 }) ?? true, until.map({ $0 >= 0 }) ?? true else {
-            throw CoderPadError.decode("Screen time filters must not be negative.")
+        if let from {
+            guard (ScreenEpochMilliseconds.earliest ... ScreenEpochMilliseconds.latest).contains(from) else {
+                throw CoderPadError.decode(
+                    "Screen time filters must be epoch milliseconds between 2000 and 2100."
+                )
+            }
+        }
+        if let until {
+            guard (ScreenEpochMilliseconds.earliest ... ScreenEpochMilliseconds.latest).contains(until) else {
+                throw CoderPadError.decode(
+                    "Screen time filters must be epoch milliseconds between 2000 and 2100."
+                )
+            }
         }
         guard from.map({ start in until.map { start <= $0 } ?? true }) ?? true else {
             throw CoderPadError.decode("Screen time filter start must not be later than its end.")
@@ -308,7 +321,19 @@ private extension ScreenClient {
     }
 
     public nonisolated static func requirePositiveID(_ id: Int, kind: String) throws {
-        guard id > 0 else { throw CoderPadError.decode("Screen \(kind) ID must be positive.") }
+        guard (1 ... maximumScreenID).contains(id) else {
+            throw CoderPadError.decode("Screen \(kind) ID must be a positive int32.")
+        }
+    }
+
+    public nonisolated static func requirePaginationStart(_ start: Int) throws {
+        guard start >= 0 else {
+            throw CoderPadError.decode("Screen pagination start must not be negative.")
+        }
+        // Keep start + maximumPageSize representable so mock/page math cannot trap (#211).
+        guard start <= Int.max - maximumPageSize else {
+            throw CoderPadError.decode("Screen pagination start is too large.")
+        }
     }
 
     public nonisolated static func normalizedFilter(

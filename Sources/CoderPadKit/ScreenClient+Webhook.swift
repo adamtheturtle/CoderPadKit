@@ -6,6 +6,10 @@
 import Foundation
 import SafeURLKit
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
 public extension ScreenClient {
     private nonisolated static let webhookPolicy = URLPolicy(
         allowedSchemes: ["https"],
@@ -14,9 +18,31 @@ public extension ScreenClient {
     )
 
     /// The currently configured webhook URL, if any. `GET /webhook`.
+    ///
+    /// The Screen collection documents both 204 (no content) and 404 (no configuration)
+    /// as successful "no URL" outcomes; those map to `nil` rather than an HTTP or decode
+    /// error so the optional return type matches the endpoint contract (#213, #214).
     public nonisolated func webhookURL() async throws -> String? {
-        let raw = try await get(WebhookConfig.self, path: "/webhook").url
-        return try Self.validatedWebhookURL(raw)
+        let request = try authorizedRequest(path: "/webhook", method: "GET")
+        let data: Data
+        let response: HTTPURLResponse
+        do {
+            (data, response) = try await self.data(for: request)
+        } catch let CoderPadError.http(status, _) where status == 404 {
+            return nil
+        }
+        switch response.statusCode {
+        case 204:
+            return nil
+        case 200:
+            let config = try decode(WebhookConfig.self, from: data)
+            return try Self.validatedWebhookURL(config.url)
+        default:
+            throw CoderPadError.http(
+                response.statusCode,
+                String(bytes: data, encoding: .utf8) ?? ""
+            )
+        }
     }
 
     /// Sets (replacing any existing) the webhook callback URL. `POST /webhook`.

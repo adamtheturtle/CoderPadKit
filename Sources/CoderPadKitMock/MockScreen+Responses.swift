@@ -179,7 +179,15 @@ nonisolated enum MockScreenResponses {
         let total = tests.count
         let start = max(query["start"].flatMap(Int.init) ?? 0, 0)
         let limit = max(query["limit"].flatMap(Int.init) ?? total, 0)
-        let end = min(start + limit, total)
+        let end: Int
+        let (summed, overflow) = start.addingReportingOverflow(limit)
+        if overflow {
+            // A typed client should have rejected overflow-prone starts; still avoid
+            // trapping if a raw query arrives with Int.max (#211).
+            end = total
+        } else {
+            end = min(summed, total)
+        }
         let window = start < end ? Array(tests[start ..< end]) : []
         let hasMore = end < total
 
@@ -235,7 +243,16 @@ nonisolated enum MockScreenResponses {
 
         switch method {
         case "GET":
-            return json(200, ["url": (state.webhookURL as Any?) ?? NSNull()])
+            // Documented "no webhook configuration" response (#213). A configured
+            // callback still returns 200 with a JSON body.
+            guard let url = state.webhookURL else {
+                return Result(
+                    status: 404,
+                    body: Data(#"{"code":"NotFound","message":"No webhook configuration"}"#.utf8),
+                    contentType: "application/json"
+                )
+            }
+            return json(200, ["url": url])
 
         case "POST":
             // The body is the URL as a bare JSON string, per the API contract.
