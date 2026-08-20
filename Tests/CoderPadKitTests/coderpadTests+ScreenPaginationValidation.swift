@@ -144,6 +144,30 @@ struct ScreenPaginationValidationTests {
     }
 
     @Test
+    func `has more items without next start is rejected`() {
+        for json in [
+            #"{"has_more_items":true}"#,
+            #"{"start":0,"has_more_items":true}"#,
+            #"{"start":0,"next_start":null,"has_more_items":true}"#
+        ] {
+            #expect(throws: DecodingError.self) {
+                try JSONDecoder().decode(ScreenPagination.self, from: Data(json.utf8))
+            }
+        }
+    }
+
+    @Test
+    func `has more items with an advancing next start is accepted`() throws {
+        let page = try JSONDecoder().decode(
+            ScreenPagination.self,
+            from: Data(#"{"start":0,"next_start":10,"has_more_items":true}"#.utf8)
+        )
+
+        #expect(page.hasMoreItems)
+        #expect(page.nextStart == 10)
+    }
+
+    @Test
     func `absent and null pagination integers remain optional`() throws {
         let absent = try JSONDecoder().decode(
             ScreenPagination.self,

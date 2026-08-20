@@ -185,6 +185,14 @@ public nonisolated struct ScreenPagination: Decodable, Hashable, Sendable {
 
         let hasMoreItems = try container.decode(Bool.self, forKey: .hasMoreItems)
 
+        if hasMoreItems, nextStart == nil {
+            throw DecodingError.dataCorruptedError(
+                forKey: .nextStart,
+                in: container,
+                debugDescription: "Screen pagination has_more_items requires a usable next_start."
+            )
+        }
+
         if let start, let total, start > total {
             throw DecodingError.dataCorruptedError(
                 forKey: .start,
