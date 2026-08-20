@@ -26,9 +26,20 @@ final nonisolated class MockState: @unchecked Sendable {
     var createdQuestions: [[String: Any]] = []
     var updatedQuestions: [Int: [String: Any]] = [:]
     var deletedQuestionIDs: Set<Int> = []
+    /// Environments minted for pads created in this session (#190).
+    var createdEnvironments: [Int: [String: Any]] = [:]
     /// Events appended during this session (e.g. an `ended` event from a successful
     /// `endPad`), layered after the canned seed timeline for that pad id.
     var appendedPadEvents: [String: [[String: Any]]] = [:]
+
+    /// Next free environment id above seeded fixtures and prior creations.
+    func nextEnvironmentID() -> Int {
+        let seedIDs = MockFixtures.seedPads().flatMap { pad -> [Int] in
+            (pad["pad_environment_ids"] as? [Int]) ?? []
+        }
+        let createdIDs = Array(createdEnvironments.keys)
+        return (seedIDs + createdIDs).max().map { $0 + 1 } ?? 1_000
+    }
 
     /// Seed questions with this state's edits layered on and deletions removed.
     func allQuestions() -> [[String: Any]] {

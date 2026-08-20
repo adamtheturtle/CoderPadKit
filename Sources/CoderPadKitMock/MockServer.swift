@@ -16,8 +16,17 @@ public nonisolated enum MockServer {
     static let host = "app.coderpad.io"
     static let historyHost = "coderpad-1.firebaseio.com"
 
+    /// Only the canonical HTTPS Interview REST and Firebase history origins are
+    /// intercepted. HTTP or a non-default port must fall through so misconfigured
+    /// base URLs surface as transport failures (#187).
     static func handles(_ request: URLRequest) -> Bool {
-        guard let host = request.url?.host else { return false }
+        guard let url = request.url,
+              url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(),
+              // Default HTTPS port only: an explicit non-443 port is not the live origin.
+              url.port == nil || url.port == 443
+        else { return false }
+
         return host == Self.host || host == Self.historyHost
     }
 
@@ -122,6 +131,7 @@ final nonisolated class MockURLProtocol: URLProtocol {
         let state = MockStateRegistry.state(forKey: Self.apiKey(from: request))
         let (status, body) = MockResponses.respond(state: state,
                                                    method: method,
+                                                   host: url.host,
                                                    path: path,
                                                    query: query,
                                                    body: bodyData,
@@ -150,19 +160,6 @@ final nonisolated class MockURLProtocol: URLProtocol {
     }
 
     private static func drain(stream: InputStream?) -> Data? {
-        guard let stream else { return nil }
-
-        stream.open()
-        defer { stream.close() }
-        var data = Data()
-        let size = 4096
-        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: size)
-        defer { buffer.deallocate() }
-        while stream.hasBytesAvailable {
-            let read = stream.read(buffer, maxLength: size)
-            if read <= 0 { break }
-            data.append(buffer, count: read)
-        }
-        return data
+        MockRequestBody.drain(stream: stream)
     }
 }

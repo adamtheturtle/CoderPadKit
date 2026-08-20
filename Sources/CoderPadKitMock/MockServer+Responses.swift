@@ -14,6 +14,7 @@ nonisolated enum MockResponses {
     static func respond(
         state: MockState,
         method: String,
+        host: String? = nil,
         path: String,
         query: [String: String] = [:],
         body: Data? = nil,
@@ -28,6 +29,7 @@ nonisolated enum MockResponses {
             respondLocked(
                 state: state,
                 method: method,
+                host: host,
                 path: path,
                 query: query,
                 body: body,
@@ -42,28 +44,37 @@ nonisolated enum MockResponses {
     private static func respondLocked(
         state: MockState,
         method: String,
+        host: String?,
         path: String,
         query: [String: String] = [:],
         body: Data? = nil,
         contentType: String? = nil
     ) -> (Int, Data) {
-        if let result = historyRoute(state: state, method: method, path: path) {
-            return result
+        let normalizedHost = host?.lowercased()
+        // Host-specific route tables (#186): Firebase history paths never answer on
+        // the REST host, and REST `/api/...` paths never answer on the Firebase host.
+        if normalizedHost == MockServer.historyHost {
+            if let result = historyRoute(state: state, method: method, path: path) {
+                return result
+            }
+            return (404, jsonString(["error": "not handled by mock history host: \(method) \(path)"]))
         }
-        if let result = padRoute(state: state, method: method, path: path, body: body) {
-            return result
-        }
-        if let result = questionRoute(
-            state: state,
-            method: method,
-            path: path,
-            body: body,
-            contentType: contentType
-        ) {
-            return result
-        }
-        if let result = organizationRoute(state: state, method: method, path: path, query: query) {
-            return result
+        if normalizedHost == MockServer.host || normalizedHost == nil {
+            if let result = padRoute(state: state, method: method, path: path, body: body) {
+                return result
+            }
+            if let result = questionRoute(
+                state: state,
+                method: method,
+                path: path,
+                body: body,
+                contentType: contentType
+            ) {
+                return result
+            }
+            if let result = organizationRoute(state: state, method: method, path: path, query: query) {
+                return result
+            }
         }
         return (404, jsonString(["status": "error", "message": "not handled by mock: \(method) \(path)"]))
     }
@@ -111,8 +122,9 @@ nonisolated enum MockResponses {
             guard let idInt = Int(id) else {
                 return (400, jsonString(["status": "error", "message": "invalid environment ID"]))
             }
-            // Mirror the live API: the environment's fields are returned flat.
-            var env = MockFixtures.padEnvironment(id: idInt)
+            // Prefer a session-created environment so newly minted pads do not share
+            // the seeded demo buffers (#190).
+            var env = state.createdEnvironments[idInt] ?? MockFixtures.padEnvironment(id: idInt)
             env["status"] = "OK"
             return ok(env)
         }
@@ -121,56 +133,72 @@ nonisolated enum MockResponses {
     }
 
     private static func modifyPad(state: MockState, id: String, body: Data?) -> (Int, Data) {
+        // Existence must be checked before any overlay write: a 404 for an unknown id
+        // must not leave attacker-controlled state behind (#189).
+        guard let pad = state.allPads().first(where: { ($0["id"] as? String) == id }) else {
+            return (404, jsonString(["status": "error", "message": "pad not found"]))
+        }
+
         var dict = (body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }) ?? [:]
         // The live API mirrors `deleted`/`ended` as side effects, not stored fields.
         if dict["deleted"] as? Bool == true {
             state.deletedPadIDs.insert(id)
             return (200, jsonString(["status": "OK"]))
         }
+        let updatedAt = Date.now.formatted(.iso8601)
         if dict["ended"] as? Bool == true {
-            let endedAt = Date.now.formatted(.iso8601)
             dict["state"] = "ended"
-            dict["ended_at"] = endedAt
+            dict["ended_at"] = updatedAt
             // Mirror the live API's event log: ending a pad appends a terminal
             // `ended` event, not just the state/ended_at overlay.
-            if let pad = state.allPads().first(where: { ($0["id"] as? String) == id }) {
-                let ownerEmail = pad["owner_email"] as? String
-                let ownerName = ownerEmail.flatMap(MockFixtures.personName(forEmail:)) ?? ownerEmail ?? "Unknown"
-                state.appendPadEvent(forPad: id, [
-                    "message": "Pad ended", "kind": "ended",
-                    "user_name": ownerName, "user_email": ownerEmail as Any? ?? NSNull(),
-                    "created_at": endedAt
-                ])
-            }
+            let ownerEmail = pad["owner_email"] as? String
+            let ownerName = ownerEmail.flatMap(MockFixtures.personName(forEmail:)) ?? ownerEmail ?? "Unknown"
+            state.appendPadEvent(forPad: id, [
+                "message": "Pad ended", "kind": "ended",
+                "user_name": ownerName, "user_email": ownerEmail as Any? ?? NSNull(),
+                "created_at": updatedAt
+            ])
         }
         // The create/modify API takes a singular `question_id`; the pad body
         // exposes it as the `question_ids` array, so mirror it on merge.
         if let questionID = dict.removeValue(forKey: "question_id") {
             dict["question_ids"] = [questionID]
         }
+        // Successful updates advance `updated_at`, matching the live API (#192).
+        dict["updated_at"] = updatedAt
         // Merge per-field rather than replacing the overlay. `PadUpdate` encodes only
         // its non-nil fields, so each PUT carries just the field being changed; the
         // live API applies that as a partial update, leaving every other field alone.
         // Replacing the overlay instead made a second PUT revert the first one's edit.
         state.updatedPads[id, default: [:]].merge(dict) { _, new in new }
         // Mirror the live API: PUT returns only a status, not the pad body.
-        if state.allPads().contains(where: { ($0["id"] as? String) == id }) {
-            return ok(["status": "OK"])
-        }
-        return (404, jsonString(["status": "error", "message": "pad not found"]))
+        return ok(["status": "OK"])
     }
 
     private static func createPad(state: MockState, body: Data?) -> (Int, Data) {
         let create = (try? JSONDecoder().decode(PadCreate.self, from: body ?? Data())) ?? PadCreate()
         let id = newPadID(state: state)
+        let language = create.language ?? MockFixtures.organizationDefaultLanguage
+        let environment = MockFixtures.createdPadEnvironment(
+            state: state,
+            padID: id,
+            language: language,
+            contents: create.contents,
+            questionID: create.questionID
+        )
+        let environmentID = environment["id"] as? Int ?? state.nextEnvironmentID()
+        state.createdEnvironments[environmentID] = environment
+
         var pad = MockFixtures.pad(
             id: id,
             title: create.title ?? "Demo Pad \(id)",
-            language: create.language ?? MockFixtures.organizationDefaultLanguage,
+            language: language,
             ownerEmail: create.ownerEmail ?? MockFixtures.demoUserEmail,
             state: "pending",
             isPrivate: create.isPrivate ?? false,
-            executionEnabled: create.executionEnabled ?? true
+            executionEnabled: create.executionEnabled ?? true,
+            environmentIDs: [environmentID],
+            activeEnvironmentID: environmentID
         )
         // Reflect the documented create params back into the pad body.
         pad["question_ids"] = create.questionID.map { [$0] } ?? []

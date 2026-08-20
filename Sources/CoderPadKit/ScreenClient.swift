@@ -42,6 +42,8 @@ public struct ScreenClient {
     public nonisolated static let maximumPageSize = 50
     public nonisolated static let maximumProductFilterLength = 64
     public nonisolated static let maximumEmailFilterLength = 320
+    /// Service limit behind the Screen `CandidateNameTooLong` invitation error (#197).
+    public nonisolated static let maximumCandidateNameLength = 100
     /// Documented `product` query values for `GET /tests` (#104).
     public nonisolated static let allowedProductFilters: Set<String> = ["screen", "map"]
     public nonisolated static let defaultMaximumResponseBodyBytes = 10 * 1024 * 1024
@@ -396,8 +398,8 @@ private extension ScreenClient {
         return normalized
     }
 
-    /// Normalizes invitation emails and rejects contradictory delivery options before
-    /// transport (#105, #108).
+    /// Normalizes invitation emails, enforces the candidate-name length limit, and
+    /// rejects contradictory delivery options before transport (#105, #108, #197).
     public nonisolated static func validatedInvitation(_ invitation: ScreenInvitation) throws -> ScreenInvitation {
         var invitation = invitation
         invitation.candidateEmail = try validatedInvitationEmail(
@@ -406,6 +408,11 @@ private extension ScreenClient {
         invitation.recruiterEmail = try validatedInvitationEmail(
             invitation.recruiterEmail, kind: "recruiter"
         )
+        if let name = invitation.candidateName, name.count > maximumCandidateNameLength {
+            throw CoderPadError.decode(
+                "Screen candidate name must be at most \(maximumCandidateNameLength) characters."
+            )
+        }
         if invitation.sendInvitationEmail == true, invitation.candidateEmail == nil {
             throw CoderPadError.decode(
                 "Screen send_invitation_email requires a candidate email."

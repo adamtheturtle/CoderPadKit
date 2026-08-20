@@ -102,6 +102,21 @@ nonisolated enum MockScreenResponses {
         else {
             return malformedJSON()
         }
+        // Wrong-typed invitation fields must 4xx before mutating state (#196).
+        if let error = invitationFieldError(params, key: "candidate_email") {
+            return error
+        }
+        if let error = invitationFieldError(params, key: "candidate_name") {
+            return error
+        }
+        let candidateName = params["candidate_name"] as? String
+        if let candidateName, candidateName.count > ScreenClient.maximumCandidateNameLength {
+            return json(400, [
+                "code": "CandidateNameTooLong",
+                "message": "Candidate name exceeds \(ScreenClient.maximumCandidateNameLength) characters"
+            ])
+        }
+
         let id = state.nextTestID
         state.nextTestID += 1
         let testURL = "https://app.coderpad.io/screen/demo/tests/\(id)"
@@ -114,12 +129,21 @@ nonisolated enum MockScreenResponses {
             "url": "https://app.coderpad.io/screen/demo/dashboard/tests/\(id)",
             "test_url": testURL, "questions": []
         ]
-        session["candidate_email"] = params["candidate_email"] ?? NSNull()
-        session["candidate_name"] = params["candidate_name"] ?? NSNull()
+        session["candidate_email"] = (params["candidate_email"] as? String) as Any? ?? NSNull()
+        session["candidate_name"] = candidateName as Any? ?? NSNull()
         session["tags"] = (params["tags"] as? String).map(splitTags) ?? []
         state.createdTests.append(session)
 
         return json(200, ["id": id, "test_url": testURL])
+    }
+
+    /// Absent keys and JSON null are fine; any other non-string value is a client error.
+    private static func invitationFieldError(_ params: [String: Any], key: String) -> Result? {
+        guard let value = params[key], !(value is NSNull) else { return nil }
+        guard value is String else {
+            return json(400, ["code": "invalid_request", "message": "\(key) must be a string"])
+        }
+        return nil
     }
 
     // MARK: - Test-session routes
