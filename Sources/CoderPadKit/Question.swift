@@ -32,10 +32,16 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
     public let contentsForTestCases: String?
     public let publicTakeHomeSettingID: Int?
     public let customFiles: [QuestionCustomFile]
+    /// Count of `custom_files` elements skipped as malformed.
+    public let omittedCustomFileCount: Int
     public let testCases: [QuestionTestCase]
+    /// Count of `test_cases` elements skipped as malformed or with a nonpositive id.
+    public let omittedTestCaseCount: Int
     public let createdAt: Date?
     public let updatedAt: Date?
     public let candidateInstructions: [CandidateInstruction]
+    /// Count of `candidate_instructions` elements skipped as malformed.
+    public let omittedCandidateInstructionCount: Int
     /// Interviewer-only instructions appended after CoderPad's base AI Assist system prompt.
     public let aiAssistCustomSystemPrompt: String?
     /// A database attached to the question, when present.
@@ -72,7 +78,7 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
         language = container.loggedDecodeIfPresent(String.self, forKey: .language)
         description = container.loggedDecodeIfPresent(String.self, forKey: .description)
         shared = container.loggedDecodeIfPresent(Bool.self, forKey: .shared)
-        used = container.loggedDecodeIfPresent(Int.self, forKey: .used)
+        used = container.loggedDecodeNonnegativeIntIfPresent(forKey: .used)
         takeHome = container.loggedDecodeIfPresent(Bool.self, forKey: .takeHome)
         testCasesEnabled = container.loggedDecodeIfPresent(Bool.self, forKey: .testCasesEnabled)
         solution = container.loggedDecodeIfPresent(String.self, forKey: .solution)
@@ -82,9 +88,19 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
         organizationName = container.loggedDecodeIfPresent(String.self, forKey: .organizationName)
         contents = container.loggedDecodeIfPresent(String.self, forKey: .contents)
         contentsForTestCases = container.loggedDecodeIfPresent(String.self, forKey: .contentsForTestCases)
-        publicTakeHomeSettingID = container.loggedDecodeIfPresent(Int.self, forKey: .publicTakeHomeSettingID)
-        customFiles = container.loggedDecodeIfPresent([QuestionCustomFile].self, forKey: .customFiles) ?? []
-        testCases = container.loggedDecodeIfPresent([QuestionTestCase].self, forKey: .testCases) ?? []
+        publicTakeHomeSettingID = container.loggedDecodePositiveIntIfPresent(
+            forKey: .publicTakeHomeSettingID
+        )
+        let decodedCustomFiles = container.decodeTolerantArrayIfPresent(
+            QuestionCustomFile.self, forKey: .customFiles
+        )
+        customFiles = decodedCustomFiles.elements
+        omittedCustomFileCount = decodedCustomFiles.omittedCount
+        let decodedTestCases = container.decodeTolerantArrayIfPresent(
+            QuestionTestCase.self, forKey: .testCases
+        )
+        testCases = decodedTestCases.elements
+        omittedTestCaseCount = decodedTestCases.omittedCount
         createdAt = container.loggedDecodeIfPresent(Date.self, forKey: .createdAt)
         updatedAt = container.loggedDecodeIfPresent(Date.self, forKey: .updatedAt)
         if let createdAt, let updatedAt, updatedAt < createdAt {
@@ -94,12 +110,42 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
                 debugDescription: "updated_at must not precede created_at."
             )
         }
-        candidateInstructions = container
-            .loggedDecodeIfPresent([CandidateInstruction].self, forKey: .candidateInstructions) ?? []
+        let decodedInstructions = container.decodeTolerantArrayIfPresent(
+            CandidateInstruction.self, forKey: .candidateInstructions
+        )
+        candidateInstructions = decodedInstructions.elements
+        omittedCandidateInstructionCount = decodedInstructions.omittedCount
         aiAssistCustomSystemPrompt = container
             .loggedDecodeIfPresent(String.self, forKey: .aiAssistCustomSystemPrompt)
         customDatabase = container
             .loggedDecodeIfPresent(QuestionCustomDatabase.self, forKey: .customDatabase)
+    }
+
+    /// Describes skipped malformed `custom_files` entries, when any were omitted.
+    public var omittedCustomFilesDiagnostic: String? {
+        omittedJSONElementsDiagnostic(
+            count: omittedCustomFileCount,
+            singular: "custom file",
+            plural: "custom files"
+        )
+    }
+
+    /// Describes skipped malformed `test_cases` entries, when any were omitted.
+    public var omittedTestCasesDiagnostic: String? {
+        omittedJSONElementsDiagnostic(
+            count: omittedTestCaseCount,
+            singular: "test case",
+            plural: "test cases"
+        )
+    }
+
+    /// Describes skipped malformed `candidate_instructions` entries, when any were omitted.
+    public var omittedCandidateInstructionsDiagnostic: String? {
+        omittedJSONElementsDiagnostic(
+            count: omittedCandidateInstructionCount,
+            singular: "candidate instruction",
+            plural: "candidate instructions"
+        )
     }
 }
 
@@ -262,6 +308,18 @@ public nonisolated struct QuestionCustomDatabase: Codable, Hashable, Identifiabl
         case id, title, description, language, schema
         case schemaJSON = "schema_json"
     }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(PositiveInt.self, forKey: .id).value
+        title = container.loggedDecodeIfPresent(String.self, forKey: .title)
+        description = container.loggedDecodeIfPresent(String.self, forKey: .description)
+        language = container.loggedDecodeIfPresent(String.self, forKey: .language)
+        schema = container.loggedDecodeIfPresent(String.self, forKey: .schema)
+        schemaJSON = container.loggedDecodeIfPresent(
+            QuestionCustomDatabaseSchema.self, forKey: .schemaJSON
+        )
+    }
 }
 
 /// The structured schema metadata for a question's custom database.
@@ -322,6 +380,14 @@ public nonisolated struct QuestionTestCase: Codable, Hashable, Identifiable, Sen
     enum CodingKeys: String, CodingKey {
         case id, visible, arguments
         case returnValue = "return_value"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(PositiveInt.self, forKey: .id).value
+        returnValue = container.loggedDecodeIfPresent(String.self, forKey: .returnValue)
+        visible = container.loggedDecodeIfPresent(Bool.self, forKey: .visible)
+        arguments = container.loggedDecodeIfPresent([String].self, forKey: .arguments)
     }
 }
 
