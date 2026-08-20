@@ -58,6 +58,18 @@ nonisolated extension MockFixtures {
     public static let demoUserEmail = "polly@fawltytowers.co.uk"
     public static let demoUserName = "Polly Sherman"
 
+    /// The org's default language for omitted-language pad creation. Kept as a
+    /// single source of truth alongside `organization()`'s `organization_default_language`,
+    /// so `createPad` derives the same fallback the live API would.
+    public static let organizationDefaultLanguage = "go"
+
+    /// The demo org member's display name for `email`, or `nil` for an email
+    /// outside the seeded directory (e.g. a pad's `owner_email` from a live-shaped
+    /// but not seeded participant).
+    static func personName(forEmail email: String) -> String? {
+        people.first { $0.email == email }?.name
+    }
+
     /// Directory shape: `/api/organization` and `/api/organization/users` return
     /// `{email, name, teams}` - no `pads_created`.
     static func users() -> [[String: Any]] {
@@ -84,7 +96,7 @@ nonisolated extension MockFixtures {
             "users": users(),
             // Deliberately not the New Pad/Question sheets' hardcoded "python3"
             // fallback, so the org-default pre-selection is visible in the demo.
-            "organization_default_language": "go",
+            "organization_default_language": organizationDefaultLanguage,
             // SSO enabled with a portal URL so the Organization view's sign-on row
             // and "Open sign-in portal" action are exercised in the demo.
             "single_sign_on_supported": true,
