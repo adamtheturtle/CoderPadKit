@@ -19,6 +19,18 @@ nonisolated enum MockScreen {
     static let host = ScreenClient.mockBaseURL.host!
     static let baseURL = ScreenClient.mockBaseURL
 
+    /// Only the exact HTTPS demo origin is intercepted. HTTP or a non-default port must
+    /// fall through so misconfigured base URLs surface as transport failures (#198).
+    static func handles(_ request: URLRequest) -> Bool {
+        guard let url = request.url,
+              url.scheme?.lowercased() == "https",
+              url.host?.lowercased() == host.lowercased(),
+              url.port == nil || url.port == 443
+        else { return false }
+
+        return true
+    }
+
     /// A session backed by the in-process fake Screen API. When `unauthorized` is true
     /// the server answers every request with 401, driving the bad-key demo's Screen
     /// error states without a real revoked key.
@@ -48,7 +60,7 @@ public extension ScreenClient {
 /// API key. Backs the bad-key demo account's Screen section.
 final nonisolated class MockScreenUnauthorizedURLProtocol: URLProtocol {
     override static func canInit(with request: URLRequest) -> Bool {
-        request.url?.host == MockScreen.host
+        MockScreen.handles(request)
     }
 
     override static func canonicalRequest(for request: URLRequest) -> URLRequest {
@@ -80,7 +92,7 @@ final nonisolated class MockScreenUnauthorizedURLProtocol: URLProtocol {
 
 final nonisolated class MockScreenURLProtocol: URLProtocol {
     override static func canInit(with request: URLRequest) -> Bool {
-        request.url?.host == MockScreen.host
+        MockScreen.handles(request)
     }
 
     override static func canonicalRequest(for request: URLRequest) -> URLRequest {
@@ -132,19 +144,6 @@ final nonisolated class MockScreenURLProtocol: URLProtocol {
     }
 
     private static func drain(stream: InputStream?) -> Data? {
-        guard let stream else { return nil }
-
-        stream.open()
-        defer { stream.close() }
-        var data = Data()
-        let size = 4096
-        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: size)
-        defer { buffer.deallocate() }
-        while stream.hasBytesAvailable {
-            let read = stream.read(buffer, maxLength: size)
-            if read <= 0 { break }
-            data.append(buffer, count: read)
-        }
-        return data
+        MockRequestBody.drain(stream: stream)
     }
 }

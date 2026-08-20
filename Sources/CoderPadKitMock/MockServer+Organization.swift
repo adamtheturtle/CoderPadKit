@@ -16,6 +16,10 @@ nonisolated extension MockFixtures {
     public static let orgName = "Fawlty Towers"
     static let orgDomain = "fawltytowers.co.uk"
 
+    /// Injectable clock for rolling stats windows and quota reset dates. Tests override
+    /// this to freeze "now"; production/demo leave it as wall-clock time (#194, #195).
+    nonisolated(unsafe) static var now: () -> Date = { Date() }
+
     /// One interview team. Pads and people reference these by `id`, and the org
     /// payload lists them so the team filter can resolve ids to display names.
     static let teams: [(id: String, name: String)] = [
@@ -77,9 +81,22 @@ nonisolated extension MockFixtures {
     }
 
     /// Stats shape: `/api/organization/stats` returns `{email, name, pads_created}`
-    /// per user - no `teams`.
-    static func statsUsers() -> [[String: Any]] {
-        people.map { ["email": $0.email, "name": $0.name, "pads_created": $0.padsCreated] }
+    /// per user - no `teams`. Counts are derived from the same window as the aggregate.
+    static func statsUsers(start: String, end: String) -> [[String: Any]] {
+        let total = padsCreatedForWindow(start: start, end: end)
+        let weights = people.map(\.padsCreated)
+        let weightSum = max(weights.reduce(0, +), 1)
+        var remaining = total
+        return people.enumerated().map { index, person in
+            let count: Int
+            if index == people.count - 1 {
+                count = remaining
+            } else {
+                count = total * person.padsCreated / weightSum
+                remaining -= count
+            }
+            return ["email": person.email, "name": person.name, "pads_created": count]
+        }
     }
 
     private static func teamPayload() -> [[String: Any]] {
@@ -106,8 +123,7 @@ nonisolated extension MockFixtures {
     }
 
     static func organizationStats(query: [String: String] = [:]) -> [String: Any] {
-        let start = query["start_time"] ?? "2026-06-03T00:00:00.000-07:00"
-        let end = query["end_time"] ?? "2026-06-10T00:00:00.000-07:00"
+        let (start, end) = resolvedStatsWindow(query: query)
         return [
             "status": "OK",
             "start_time": start,
@@ -115,21 +131,25 @@ nonisolated extension MockFixtures {
             // Scale roughly with the requested window (~3 pads/day across the team)
             // so the picker produces a visibly different count.
             "pads_created": padsCreatedForWindow(start: start, end: end),
-            "users": statsUsers()
+            "users": statsUsers(start: start, end: end)
         ]
     }
 
-    private static func padsCreatedForWindow(start: String, end: String) -> Int {
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let basic = ISO8601DateFormatter()
-        basic.formatOptions = [.withInternetDateTime]
-        func parse(_ value: String) -> Date? {
-            fractional.date(from: value) ?? basic.date(from: value)
+    /// Default window is the last seven days from ``now``, matching the live API
+    /// contract and the client's documentation (#195).
+    private static func resolvedStatsWindow(query: [String: String]) -> (String, String) {
+        if let start = query["start_time"], let end = query["end_time"] {
+            return (start, end)
         }
-        guard let startDate = parse(start), let endDate = parse(end) else { return 21 }
+        let endDate = now()
+        let startDate = endDate.addingTimeInterval(-7 * 86_400)
+        return (iso8601(startDate), iso8601(endDate))
+    }
 
-        return min(900, max(1, Int(endDate.timeIntervalSince(startDate) / 86400) * 3))
+    private static func padsCreatedForWindow(start: String, end: String) -> Int {
+        guard let startDate = parseISO8601(start), let endDate = parseISO8601(end) else { return 21 }
+
+        return min(900, max(1, Int(endDate.timeIntervalSince(startDate) / 86_400) * 3))
     }
 
     static func quota() -> [String: Any] {
@@ -137,11 +157,41 @@ nonisolated extension MockFixtures {
             "status": "OK",
             "trial_expires_at": "2027-01-01T00:00:00.000-08:00",
             "pads_used": 187,
-            "quota_reset_at": "2026-07-01T00:00:00.000-07:00",
+            "quota_reset_at": iso8601(nextQuotaReset(from: now())),
             "unlimited": false,
             "overages_enabled": true,
             "pads_remaining": 313,
             "billing_cycle_pad_limit": 500
         ]
+    }
+
+    /// First day of the next calendar month after `date`, so the reset is always in
+    /// the future for the current billing cycle (#194).
+    private static func nextQuotaReset(from date: Date) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: -7 * 3600) ?? .gmt
+        let parts = calendar.dateComponents([.year, .month], from: date)
+        guard let year = parts.year, let month = parts.month else {
+            return date.addingTimeInterval(30 * 86_400)
+        }
+        var next = DateComponents()
+        next.year = month == 12 ? year + 1 : year
+        next.month = month == 12 ? 1 : month + 1
+        next.day = 1
+        return calendar.date(from: next) ?? date.addingTimeInterval(30 * 86_400)
+    }
+
+    private static func iso8601(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
+    }
+
+    private static func parseISO8601(_ value: String) -> Date? {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let basic = ISO8601DateFormatter()
+        basic.formatOptions = [.withInternetDateTime]
+        return fractional.date(from: value) ?? basic.date(from: value)
     }
 }
