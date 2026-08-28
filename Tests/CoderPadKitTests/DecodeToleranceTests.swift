@@ -70,101 +70,94 @@ struct DecodeToleranceTests {
         #expect(whole.createdAt != nil)
     }
 
-    @Test
-    func `Question rejects updated_at earlier than created_at`() throws {
-        let valid = try CoderPadClient.decoder.decode(
-            Question.self,
-            from: Data(
-                #"""
-                {
-                  "id": 11,
-                  "created_at": "2026-06-10T08:00:00Z",
-                  "updated_at": "2026-06-10T09:00:00Z"
-                }
-                """#.utf8
-            )
-        )
-        #expect(valid.updatedAt! > valid.createdAt!)
 
-        #expect(throws: DecodingError.self) {
-            try CoderPadClient.decoder.decode(
-                Question.self,
-                from: Data(
-                    #"""
-                    {
-                      "id": 12,
-                      "created_at": "2026-06-10T09:00:00Z",
-                      "updated_at": "2026-06-10T08:00:00Z"
-                    }
-                    """#.utf8
-                )
-            )
+    /// Reported, never fatal. `PadsPage.pads` is a plain `[Pad]`, so throwing here
+    /// failed the whole page: one pad with skewed timestamps blanked a user's entire
+    /// list over a discrepancy that does not impair anything they were shown.
+    @Test
+    func `Pad reports impossible lifecycle timestamps instead of failing to decode`() throws {
+        func pad(_ json: String) throws -> Pad {
+            try CoderPadClient.decoder.decode(Pad.self, from: Data(json.utf8))
         }
+
+        let consistent = try pad(#"""
+        {
+          "id": "P-ended",
+          "state": "ended",
+          "created_at": "2026-06-10T08:00:00Z",
+          "updated_at": "2026-06-10T10:00:00Z",
+          "ended_at": "2026-06-10T09:00:00Z"
+        }
+        """#)
+        #expect(consistent.endedAt != nil)
+        #expect(consistent.lifecycleInconsistencies.isEmpty)
+        #expect(consistent.lifecycleDiagnostic == nil)
+
+        let updatedEarly = try pad(#"""
+        {
+          "id": "P-update-before-create",
+          "created_at": "2026-06-10T09:00:00Z",
+          "updated_at": "2026-06-10T08:00:00Z"
+        }
+        """#)
+        #expect(updatedEarly.lifecycleInconsistencies == [.updatedBeforeCreated])
+        #expect(updatedEarly.updatedAt != nil)
+
+        let endedEarly = try pad(#"""
+        {
+          "id": "P-end-before-create",
+          "state": "ended",
+          "created_at": "2026-06-10T09:00:00Z",
+          "ended_at": "2026-06-10T08:00:00Z"
+        }
+        """#)
+        #expect(endedEarly.lifecycleInconsistencies == [.endedBeforeCreated])
+        #expect(endedEarly.isEnded)
+
+        let endedWhileActive = try pad(#"""
+        {
+          "id": "P-active-ended",
+          "state": "started",
+          "ended_at": "2026-06-10T09:00:00Z"
+        }
+        """#)
+        #expect(endedWhileActive.lifecycleInconsistencies == [.endedWhileActive])
+        // `isEnded` prefers the explicit timestamp, as its own contract says.
+        #expect(endedWhileActive.isEnded)
+        #expect(endedWhileActive.lifecycleDiagnostic?.contains("active or pending") == true)
+    }
+
+    /// A whole page of pads survives one member with contradictory timestamps.
+    @Test
+    func `a page of pads decodes when one member is inconsistent`() throws {
+        struct Page: Decodable { let pads: [Pad] }
+
+        let page = try CoderPadClient.decoder.decode(Page.self, from: Data(#"""
+        {
+          "pads": [
+            {"id": "P-good", "state": "ended"},
+            {"id": "P-bad", "state": "started", "ended_at": "2026-06-10T09:00:00Z"},
+            {"id": "P-also-good", "state": "started"}
+          ]
+        }
+        """#.utf8))
+
+        #expect(page.pads.map(\.id) == ["P-good", "P-bad", "P-also-good"])
+        #expect(page.pads[1].lifecycleInconsistencies == [.endedWhileActive])
     }
 
     @Test
-    func `Pad rejects impossible lifecycle timestamps and active pads with ended_at`() throws {
-        let ended = try CoderPadClient.decoder.decode(
-            Pad.self,
-            from: Data(
-                #"""
-                {
-                  "id": "P-ended",
-                  "state": "ended",
-                  "created_at": "2026-06-10T08:00:00Z",
-                  "updated_at": "2026-06-10T10:00:00Z",
-                  "ended_at": "2026-06-10T09:00:00Z"
-                }
-                """#.utf8
-            )
-        )
-        #expect(ended.endedAt != nil)
-
-        #expect(throws: DecodingError.self) {
-            try CoderPadClient.decoder.decode(
-                Pad.self,
-                from: Data(
-                    #"""
-                    {
-                      "id": "P-update-before-create",
-                      "created_at": "2026-06-10T09:00:00Z",
-                      "updated_at": "2026-06-10T08:00:00Z"
-                    }
-                    """#.utf8
-                )
-            )
+    func `Question reports an out-of-order updated_at instead of failing to decode`() throws {
+        let question = try CoderPadClient.decoder.decode(Question.self, from: Data(#"""
+        {
+          "id": 7,
+          "created_at": "2026-06-10T09:00:00Z",
+          "updated_at": "2026-06-10T08:00:00Z"
         }
+        """#.utf8))
 
-        #expect(throws: DecodingError.self) {
-            try CoderPadClient.decoder.decode(
-                Pad.self,
-                from: Data(
-                    #"""
-                    {
-                      "id": "P-end-before-create",
-                      "state": "ended",
-                      "created_at": "2026-06-10T09:00:00Z",
-                      "ended_at": "2026-06-10T08:00:00Z"
-                    }
-                    """#.utf8
-                )
-            )
-        }
-
-        #expect(throws: DecodingError.self) {
-            try CoderPadClient.decoder.decode(
-                Pad.self,
-                from: Data(
-                    #"""
-                    {
-                      "id": "P-active-ended",
-                      "state": "started",
-                      "ended_at": "2026-06-10T09:00:00Z"
-                    }
-                    """#.utf8
-                )
-            )
-        }
+        #expect(question.id == 7)
+        #expect(question.lifecycleInconsistencies == [.updatedBeforeCreated])
     }
 
     @Test

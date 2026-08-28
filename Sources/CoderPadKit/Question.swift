@@ -103,13 +103,6 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
         omittedTestCaseCount = decodedTestCases.omittedCount
         createdAt = container.loggedDecodeIfPresent(Date.self, forKey: .createdAt)
         updatedAt = container.loggedDecodeIfPresent(Date.self, forKey: .updatedAt)
-        if let createdAt, let updatedAt, updatedAt < createdAt {
-            throw DecodingError.dataCorruptedError(
-                forKey: .updatedAt,
-                in: container,
-                debugDescription: "updated_at must not precede created_at."
-            )
-        }
         let decodedInstructions = container.decodeTolerantArrayIfPresent(
             CandidateInstruction.self, forKey: .candidateInstructions
         )
