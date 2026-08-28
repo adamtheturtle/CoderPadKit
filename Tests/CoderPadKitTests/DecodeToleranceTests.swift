@@ -5,7 +5,7 @@
 //  Decode tolerance for pads, questions, and pad environments.
 //
 
-import CoderPadKit
+@testable import CoderPadKit
 import Foundation
 import Testing
 
@@ -125,6 +125,27 @@ struct DecodeToleranceTests {
         // `isEnded` prefers the explicit timestamp, as its own contract says.
         #expect(endedWhileActive.isEnded)
         #expect(endedWhileActive.lifecycleDiagnostic?.contains("active or pending") == true)
+    }
+
+    /// Every per-record check in `Pad.init(from:)` rejects the record it applies to.
+    /// A plain `[Pad]` turned any one of them into a failure of the whole page — the
+    /// caller saw an error and no pads at all when 49 of 50 were fine.
+    @Test
+    func `a page of pads drops an unusable member instead of failing`() throws {
+        let pads = try CoderPadClient.decoder.decode(
+            PadsPage.self,
+            from: Data(#"""
+            {
+              "pads": [
+                {"id": "P-good", "state": "ended"},
+                {"id": "../escape", "state": "ended"},
+                {"id": "P-also-good", "state": "started"}
+              ]
+            }
+            """#.utf8)
+        ).pads
+
+        #expect(pads.map(\.id) == ["P-good", "P-also-good"])
     }
 
     /// A whole page of pads survives one member with contradictory timestamps.

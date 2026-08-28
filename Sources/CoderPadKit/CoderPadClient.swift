@@ -36,8 +36,17 @@ import PaginatedRESTClient
 /// plain `let` here would be main-actor-isolated and unreadable from it.
 private nonisolated let coderPadPageSize = 50
 
-private nonisolated struct PadsPage: PagedResponse {
+/// A page of pads.
+///
+/// The array decodes element-by-element. Every per-record check in `Pad.init(from:)`
+/// — the id shape, the lifecycle ordering — rejects the record it applies to, and a
+/// plain `[Pad]` turns any one of those into a failure of the whole page: the caller
+/// sees an error and no pads at all, when 49 of the 50 were fine. Skipping the record
+/// keeps the validation strict without making it destructive, and `omittedCount`
+/// reports what was dropped.
+nonisolated struct PadsPage: PagedResponse {
     let pads: [Pad]
+    let omittedCount: Int
     let nextPage: String?
     let total: Int?
     var pageItems: [Pad] {
@@ -51,10 +60,24 @@ private nonisolated struct PadsPage: PagedResponse {
     }
 
     enum CodingKeys: String, CodingKey { case pads; case nextPage = "next_page"; case total }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decoded = container.decodeTolerantArrayIfPresent(Pad.self, forKey: .pads)
+        pads = decoded.elements
+        omittedCount = decoded.omittedCount
+        if omittedCount > 0 {
+            apiLogger.error("Dropped \(omittedCount) malformed pad(s) from a page.")
+        }
+        nextPage = container.loggedDecodeIfPresent(String.self, forKey: .nextPage)
+        total = container.loggedDecodeIfPresent(Int.self, forKey: .total)
+    }
 }
 
-private nonisolated struct QuestionsPage: PagedResponse {
+/// As for `PadsPage`: one malformed record must not fail the page it arrived in.
+nonisolated struct QuestionsPage: PagedResponse {
     let questions: [Question]
+    let omittedCount: Int
     let nextPage: String?
     let total: Int?
     var pageItems: [Question] {
@@ -68,10 +91,24 @@ private nonisolated struct QuestionsPage: PagedResponse {
     }
 
     enum CodingKeys: String, CodingKey { case questions; case nextPage = "next_page"; case total }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decoded = container.decodeTolerantArrayIfPresent(Question.self, forKey: .questions)
+        questions = decoded.elements
+        omittedCount = decoded.omittedCount
+        if omittedCount > 0 {
+            apiLogger.error("Dropped \(omittedCount) malformed question(s) from a page.")
+        }
+        nextPage = container.loggedDecodeIfPresent(String.self, forKey: .nextPage)
+        total = container.loggedDecodeIfPresent(Int.self, forKey: .total)
+    }
 }
 
-private nonisolated struct EventsPage: PagedResponse {
+/// As for `PadsPage`: one malformed record must not fail the page it arrived in.
+nonisolated struct EventsPage: PagedResponse {
     let events: [PadEvent]
+    let omittedCount: Int
     let nextPage: String?
     let total: Int?
     var pageItems: [PadEvent] {
@@ -88,6 +125,18 @@ private nonisolated struct EventsPage: PagedResponse {
     // sequential path never requests a page speculatively, so it needs no de-duplication.
 
     enum CodingKeys: String, CodingKey { case events; case nextPage = "next_page"; case total }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decoded = container.decodeTolerantArrayIfPresent(PadEvent.self, forKey: .events)
+        events = decoded.elements
+        omittedCount = decoded.omittedCount
+        if omittedCount > 0 {
+            apiLogger.error("Dropped \(omittedCount) malformed pad event(s) from a page.")
+        }
+        nextPage = container.loggedDecodeIfPresent(String.self, forKey: .nextPage)
+        total = container.loggedDecodeIfPresent(Int.self, forKey: .total)
+    }
 }
 
 // MARK: - Response envelopes
