@@ -1,11 +1,8 @@
 # CoderPadKit
 
-An unofficial Swift client for the CoderPad REST API, with typed models and a no-network
-mock backend.
+An unofficial Swift client for the CoderPad REST API, with typed models and a no-network mock backend.
 
-[Documentation](https://swiftpackageindex.com/adamtheturtle/CoderPadKit/documentation/coderpadkit) |
-[Swift Package Index](https://swiftpackageindex.com/adamtheturtle/CoderPadKit) |
-[Release notes](CHANGELOG.md)
+[Documentation](https://swiftpackageindex.com/adamtheturtle/CoderPadKit/documentation/coderpadkit) | [Swift Package Index](https://swiftpackageindex.com/adamtheturtle/CoderPadKit) | [Release notes](CHANGELOG.md)
 
 ## Installation
 
@@ -13,8 +10,7 @@ mock backend.
 .package(url: "https://github.com/adamtheturtle/CoderPadKit.git", from: "0.1.3")
 ```
 
-Add `CoderPadKit` to your app target and `CoderPadKitMock` to tests or demos that should
-run without the network.
+Add `CoderPadKit` to your app target and `CoderPadKitMock` to tests or demos that should run without the network.
 
 ## Multi-file questions
 
@@ -32,13 +28,11 @@ let request = QuestionCreate(
 let question = try await client.createQuestion(request)
 ```
 
-`fileContents` is mutually exclusive with the legacy single-file `contents` property
-and ZIP uploads; conflicting requests fail locally before networking.
+`fileContents` is mutually exclusive with the legacy single-file `contents` property and ZIP uploads; conflicting requests fail locally before networking.
 
 ## Products
 
-- `CoderPadKit`: Typed API client for pads (including editor-history replay), questions,
-  organizations, and quota data.
+- `CoderPadKit`: Typed API client for pads (including editor-history replay), questions, organizations, and quota data.
 - `CoderPadKitMock`: In-process fake API seeded with canned data.
 
 ## Requirements
@@ -48,4 +42,5 @@ and ZIP uploads; conflicting requests fail locally before networking.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT.
+See [LICENSE](LICENSE).
