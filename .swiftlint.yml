@@ -17,10 +17,10 @@ disabled_rules:
   - optional_data_string_conversion
 
 # Unlike the single-file packages, CoderPadKit is split by API area, so the rule is
-# kept — but one file per area lands a little over the 400-line default. 500 reflects
+# kept — but one file per area lands a little over the 400-line default. 600 reflects
 # the actual shape; the 1000-line error ceiling still catches genuine sprawl.
 file_length:
-  warning: 500
+  warning: 600
   error: 1000
 
 # `MockServer+Fixtures` builds canned API payloads as one large dictionary literal.

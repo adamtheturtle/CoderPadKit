@@ -70,7 +70,6 @@ struct DecodeToleranceTests {
         #expect(whole.createdAt != nil)
     }
 
-
     /// Reported, never fatal. `PadsPage.pads` is a plain `[Pad]`, so throwing here
     /// failed the whole page: one pad with skewed timestamps blanked a user's entire
     /// list over a discrepancy that does not impair anything they were shown.
