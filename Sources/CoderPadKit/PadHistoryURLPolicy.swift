@@ -24,7 +24,7 @@ public nonisolated enum PadHistoryURLPolicy {
 
     private static let trustedOriginPolicy = URLPolicy(
         allowedSchemes: ["https"],
-        allowedOrigins: trustedOrigins.compactMap(OriginRule.origin(matching:)),
+        allowedOrigins: trustedOrigins.compactMap { try? OriginRule.origin(matching: $0) },
         portRule: .defaultForScheme
     )
 

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import PaginatedRESTClient
 
 extension CoderPadClient {
     nonisolated static func validatePadID(_ id: String) throws {
@@ -27,12 +28,25 @@ extension CoderPadClient {
 
     /// Validates `sort` before opening a page stream so unsupported values fail
     /// without starting network I/O (#154).
-    func validatedSortStream<Element>(
+    func validatedSortStream<Element: Sendable>(
         sort: String?,
-        makeStream: (String?) -> AsyncThrowingStream<[Element], any Error>
+        makeStream: (String?) -> PaginatedRESTPageStream<[Element]>
     ) -> AsyncThrowingStream<[Element], any Error> {
         do {
-            return makeStream(try InterviewListSort.validated(sort))
+            let pages = makeStream(try InterviewListSort.validated(sort))
+            return AsyncThrowingStream { continuation in
+                let task = Task {
+                    do {
+                        for try await page in pages {
+                            continuation.yield(page)
+                        }
+                        continuation.finish()
+                    } catch {
+                        continuation.finish(throwing: error)
+                    }
+                }
+                continuation.onTermination = { _ in task.cancel() }
+            }
         } catch {
             return AsyncThrowingStream { continuation in
                 continuation.finish(throwing: error)

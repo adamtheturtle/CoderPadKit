@@ -227,7 +227,8 @@ public struct CoderPadClient {
         self.baseURL = baseURL
         self.session = session
         self.maximumHistoryResponseBodyBytes = historyLimit
-        rest = PaginatedRESTClient(
+        // The base URL precondition above is stricter than the transport's validation.
+        rest = (try? PaginatedRESTClient(
             apiKey: normalizedKey,
             baseURL: baseURL,
             transport: URLSessionTransport(session: session),
@@ -235,8 +236,8 @@ public struct CoderPadClient {
             encoderFactory: Self.makeEncoder,
             errors: CoderPadErrorMapping(),
             log: { apiLogger.debug($0) }
-        )
-        historyRest = PaginatedRESTClient(
+        )) ?? { preconditionFailure("Validated base URL rejected by transport") }()
+        historyRest = (try? PaginatedRESTClient(
             apiKey: normalizedKey,
             baseURL: baseURL,
             transport: URLSessionTransport(
@@ -247,7 +248,7 @@ public struct CoderPadClient {
             encoderFactory: Self.makeEncoder,
             errors: CoderPadErrorMapping(),
             log: { apiLogger.debug($0) }
-        )
+        )) ?? { preconditionFailure("Validated base URL rejected by transport") }()
     }
 
     /// The single construction point for the live network session, so request
@@ -377,7 +378,9 @@ public struct CoderPadClient {
     public func createPad(_ body: PadCreate) async throws -> Pad {
         // Single-resource pad endpoints (this POST and GET /api/pads/:id) return the
         // pad's fields flat at the top level, alongside "status".
-        try await rest.send(Pad.self, method: "POST", path: "/api/pads/", body: body)
+        // Validate before the transport wraps encoding errors as CoderPadError.
+        _ = try Self.makeEncoder().encode(body)
+        return try await rest.send(Pad.self, method: "POST", path: "/api/pads/", body: body)
     }
 
     /// Modifies a pad and returns its fresh server state. The live API replies
@@ -385,6 +388,7 @@ public struct CoderPadClient {
     /// in the URL path (`PUT /api/pads/:id`) per the API's "Modify a pad" contract.
     public func updatePad(_ body: PadUpdate) async throws -> Pad {
         try Self.validatePadID(body.id)
+        _ = try Self.makeEncoder().encode(body)
         _ = try await rest.send(StatusOnly.self, method: "PUT", path: "/api/pads/\(body.id)", body: body)
         do {
             return try await getPad(id: body.id)
@@ -398,6 +402,7 @@ public struct CoderPadClient {
     /// a GET per field, reconciled on the next refresh.
     public func updatePadWithoutRefetch(_ body: PadUpdate) async throws {
         try Self.validatePadID(body.id)
+        _ = try Self.makeEncoder().encode(body)
         _ = try await rest.send(StatusOnly.self, method: "PUT", path: "/api/pads/\(body.id)", body: body)
     }
 
