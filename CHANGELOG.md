@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Require PaginatedRESTClient 0.5 and SafeURLKit 0.2, whose APIs CoderPadKit uses.
+
 ## 0.5.16
 
 - Decode paged pad, question, and event responses element-by-element, so a record the per-record validation rejects is dropped from its page instead of failing it.

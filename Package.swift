@@ -31,8 +31,8 @@ let package = Package(
         .library(name: "CoderPadKitMock", targets: ["CoderPadKitMock"])
     ],
     dependencies: [
-        .package(url: "https://github.com/adamtheturtle/PaginatedRESTClient.git", from: "0.4.0"),
-        .package(url: "https://github.com/adamtheturtle/SafeURLKit.git", from: "0.1.1")
+        .package(url: "https://github.com/adamtheturtle/PaginatedRESTClient.git", from: "0.5.0"),
+        .package(url: "https://github.com/adamtheturtle/SafeURLKit.git", from: "0.2.0")
     ],
     targets: [
         .target(
