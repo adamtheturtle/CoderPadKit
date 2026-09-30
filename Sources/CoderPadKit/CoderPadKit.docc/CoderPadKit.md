@@ -183,8 +183,8 @@ let badKey = CoderPadClient.mock(unauthorized: true) // every request answers 40
 
 ## Question variants
 
-Variants use JSON routes nested under a question. A language key or project-template
-slug is required when creating one:
+Variants use JSON routes nested under a question.
+A language key or project-template slug is required when creating one:
 
 ```swift
 let variant = try await client.createQuestionVariant(
@@ -198,10 +198,10 @@ _ = try await client.updateQuestionVariant(
 try await client.deleteQuestionVariant(questionID: 101, id: variant.id)
 ```
 
-`contents: .unchanged` omits starter code; `.value("")` writes a blank file;
-`.languageDefault` sends JSON null. Changing environments clears starter code unless
-replacement contents or files accompany the change. Contents and files are mutually
-exclusive. File entries preserve decoded paths and optional `hidden` / `deleted`
-flags. Alternatively, `fileContentsJSON` sends a JSON string under `file_contents`.
-Template files are overlaid on create and replaced on update; an empty array
-on update resets the template. The API protects `.cpad` and requires a remaining file.
+`contents: .unchanged` omits starter code; `.value("")` writes a blank file; `.languageDefault` sends JSON null.
+Changing environments clears starter code unless replacement contents or files accompany the change.
+Contents and files are mutually exclusive.
+File entries preserve decoded paths and optional `hidden` / `deleted` flags.
+Alternatively, `fileContentsJSON` sends a JSON string under `file_contents`.
+Template files are overlaid on create and replaced on update; an empty array on update resets the template.
+The API protects `.cpad` and requires a remaining file.
