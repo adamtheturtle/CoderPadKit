@@ -202,5 +202,6 @@ try await client.deleteQuestionVariant(questionID: 101, id: variant.id)
 `.languageDefault` sends JSON null. Changing environments clears starter code unless
 replacement contents or files accompany the change. Contents and files are mutually
 exclusive. File entries preserve decoded paths and optional `hidden` / `deleted`
-flags. Template files are overlaid on create and replaced on update; an empty array
+flags. Alternatively, `fileContentsJSON` sends a JSON string under `file_contents`.
+Template files are overlaid on create and replaced on update; an empty array
 on update resets the template. The API protects `.cpad` and requires a remaining file.

@@ -54,13 +54,18 @@ public nonisolated struct QuestionVariantMutation: Encodable, Sendable {
     public var language: String?
     public var contents: QuestionVariantContents
     public var fileContents: [QuestionVariantFileContent]?
+    /// Alternative JSON-string representation of `file_contents`.
+    /// Mutually exclusive with `fileContents` and `contents`.
+    public var fileContentsJSON: String?
     public var solution: String?
 
     public init(language: String? = nil, contents: QuestionVariantContents = .unchanged,
-                fileContents: [QuestionVariantFileContent]? = nil, solution: String? = nil) {
+                fileContents: [QuestionVariantFileContent]? = nil, fileContentsJSON: String? = nil,
+                solution: String? = nil) {
         self.language = language
         self.contents = contents
         self.fileContents = fileContents
+        self.fileContentsJSON = fileContentsJSON
         self.solution = solution
     }
 
@@ -70,7 +75,8 @@ public nonisolated struct QuestionVariantMutation: Encodable, Sendable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        if contents != .unchanged, fileContents != nil {
+        let sources = [contents != .unchanged, fileContents != nil, fileContentsJSON != nil]
+        if sources.filter(\.self).count > 1 {
             throw QuestionMutationValidationError.mutuallyExclusiveContentSources
         }
         if let language, language.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -84,7 +90,11 @@ public nonisolated struct QuestionVariantMutation: Encodable, Sendable {
         case let .value(value): try container.encode(value, forKey: .contents)
         case .languageDefault: try container.encodeNil(forKey: .contents)
         }
-        try container.encodeIfPresent(fileContents, forKey: .fileContents)
+        if let fileContentsJSON {
+            try container.encode(fileContentsJSON, forKey: .fileContents)
+        } else {
+            try container.encodeIfPresent(fileContents, forKey: .fileContents)
+        }
         try container.encodeIfPresent(solution, forKey: .solution)
     }
 }

@@ -79,6 +79,17 @@ struct QuestionVariantTests {
     }
 
     @Test
+    func `file contents can also be sent as a JSON string`() async throws {
+        let json = #"[{"path":"src/App.jsx","deleted":true},{"path":"new.jsx","contents":"hi"}]"#
+        let variant = try await client.createQuestionVariant(questionID: 101,
+                                                             .init(language: "react", fileContentsJSON: json))
+        #expect(variant.fileContents?.map(\.path) == [".cpad", "new.jsx"])
+        #expect(throws: QuestionMutationValidationError.mutuallyExclusiveContentSources) {
+            try JSONEncoder().encode(QuestionVariantMutation(fileContents: [], fileContentsJSON: "[]"))
+        }
+    }
+
+    @Test
     func `invalid IDs and missing create language fail before networking`() async {
         await #expect(throws: CoderPadError.self) { try await client.listQuestionVariants(questionID: 0) }
         await #expect(throws: CoderPadError.self) { try await client.getQuestionVariant(questionID: 101, id: -1) }
