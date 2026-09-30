@@ -179,3 +179,28 @@ let badKey = CoderPadClient.mock(unauthorized: true) // every request answers 40
 - ``ScreenTechnologyResult``
 - ``ScreenSkillResult``
 - ``ScreenPagination``
+
+
+## Question variants
+
+Variants use JSON routes nested under a question. A language key or project-template
+slug is required when creating one:
+
+```swift
+let variant = try await client.createQuestionVariant(
+    questionID: 101, .init(language: "ruby", contents: .value("puts 1"))
+)
+let variants = try await client.listQuestionVariants(questionID: 101)
+_ = try await client.getQuestionVariant(questionID: 101, id: variant.id)
+_ = try await client.updateQuestionVariant(
+    questionID: 101, id: variant.id, .init(contents: .languageDefault)
+)
+try await client.deleteQuestionVariant(questionID: 101, id: variant.id)
+```
+
+`contents: .unchanged` omits starter code; `.value("")` writes a blank file;
+`.languageDefault` sends JSON null. Changing environments clears starter code unless
+replacement contents or files accompany the change. Contents and files are mutually
+exclusive. File entries preserve decoded paths and optional `hidden` / `deleted`
+flags. Template files are overlaid on create and replaced on update; an empty array
+on update resets the template. The API protects `.cpad` and requires a remaining file.

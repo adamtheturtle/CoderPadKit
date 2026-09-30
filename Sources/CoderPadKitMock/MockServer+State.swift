@@ -26,6 +26,8 @@ final nonisolated class MockState: @unchecked Sendable {
     var createdQuestions: [[String: Any]] = []
     var updatedQuestions: [Int: [String: Any]] = [:]
     var deletedQuestionIDs: Set<Int> = []
+    var questionVariants: [Int: [[String: Any]]] = [:]
+    var nextQuestionVariantID = 1
     /// Environments minted for pads created in this session (#190).
     var createdEnvironments: [Int: [String: Any]] = [:]
     /// Events appended during this session (e.g. an `ended` event from a successful

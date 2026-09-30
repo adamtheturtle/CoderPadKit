@@ -18,6 +18,9 @@ nonisolated extension MockResponses {
         body: Data?,
         contentType: String?
     ) -> (Int, Data)? {
+        if let response = questionVariantRoute(state: state, method: method, path: path, body: body) {
+            return response
+        }
         if method == "POST", path == "/api/questions/" || path == "/api/questions" {
             return createQuestion(state: state, body: body, contentType: contentType)
         }
