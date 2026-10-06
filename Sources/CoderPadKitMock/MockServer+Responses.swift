@@ -60,6 +60,10 @@ nonisolated enum MockResponses {
             return (404, jsonString(["error": "not handled by mock history host: \(method) \(path)"]))
         }
         if normalizedHost == MockServer.host || normalizedHost == nil {
+            if method == "GET", path == "/api/user" {
+                return (200, jsonString(["status": "OK", "name": "Demo recruiter", "allow_pad_creation": true,
+                                         "analytics_id": "demo-analytics"]))
+            }
             if let result = padRoute(
                 state: state, method: method, path: path, query: query, body: body
             ) {

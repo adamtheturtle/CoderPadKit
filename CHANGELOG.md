@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add typed Interview `getUser()` and Screen `getMe()` account introspection with demo responses.
+
 - Use `https://screen.coderpad.io` as the default US Screen API origin.
 - Preserve optional instruction step names in question reads and writes.
 - Add optional duplicate-invitation policy to Screen requests and demo behavior.
