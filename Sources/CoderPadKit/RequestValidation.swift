@@ -193,7 +193,9 @@ nonisolated func validatedCandidateInstructions(
                 limit: CandidateInstructionPayload.maximumByteCount
             )
         }
-        return CandidateInstructionPayload(instructions: normalized, defaultVisible: payload.defaultVisible)
+        return CandidateInstructionPayload(
+            instructions: normalized, defaultVisible: payload.defaultVisible, name: payload.name
+        )
     }
 }
 

@@ -412,15 +412,18 @@ public nonisolated struct QuestionTestCase: Codable, Hashable, Identifiable, Sen
 /// One block of candidate-facing instructions for a question.
 public nonisolated struct CandidateInstruction: Codable, Hashable, Sendable {
     public let instructions: String
+    public let name: String?
+    /// The first instruction step is always visible to the candidate.
     public let defaultVisible: Bool
 
     enum CodingKeys: String, CodingKey {
-        case instructions
+        case instructions, name
         case defaultVisible = "default_visible"
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
         if container.contains(.instructions) {
             if try container.decodeNil(forKey: .instructions) {
                 instructions = ""

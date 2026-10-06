@@ -261,15 +261,18 @@ public nonisolated struct CandidateInstructionPayload: Codable, Sendable {
     public static let maximumByteCount = 64 * 1024
 
     public var instructions: String
+    public var name: String?
+    /// The first instruction step is always visible to the candidate.
     public var defaultVisible: Bool
 
-    public init(instructions: String, defaultVisible: Bool) {
+    public init(instructions: String, defaultVisible: Bool, name: String? = nil) {
         self.instructions = instructions
+        self.name = name
         self.defaultVisible = defaultVisible
     }
 
     enum CodingKeys: String, CodingKey {
-        case instructions
+        case instructions, name
         case defaultVisible = "default_visible"
     }
 }
