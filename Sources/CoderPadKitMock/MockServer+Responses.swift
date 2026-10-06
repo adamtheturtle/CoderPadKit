@@ -248,6 +248,25 @@ nonisolated enum MockResponses {
         if let teamID = create.teamID {
             pad["team"] = ["id": teamID, "name": teamID]
         }
+
+        if let restricted = create.restrictInterviewerAccess {
+            pad["restrict_interviewer_access"] = restricted
+        }
+        if let emails = create.allowedInterviewerEmails {
+            pad["allowed_interviewer_emails"] = emails
+        }
+        if let disabled = create.disableCoachingTips {
+            pad["disable_coaching_tips"] = disabled
+        }
+        if let takeHome = create.takeHome {
+            pad["type"] = takeHome ? "take_home" : "live"
+        }
+        if let minutes = create.takeHomeTimeLimit {
+            pad["take_home_time_limit"] = minutes
+        }
+        if let aiEnabled = create.aiAssistEnabled {
+            pad["ai_assist_enabled"] = aiEnabled
+        }
         state.createdPads.append(pad)
         // Mirror the live API: the created pad is returned flat at the top level.
         var response = pad

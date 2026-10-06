@@ -34,11 +34,21 @@ public nonisolated struct PadUpdate: Codable, Sendable {
     /// Set to `true` to delete the interview. Any other value is ignored by the API.
     public var deleted: Bool?
 
+    /// Only the owner and allowed organization users can join as interviewers.
+    public var restrictInterviewerAccess: Bool?
+    /// Replaces interviewer access. Nil preserves the list and an empty array clears it.
+    public var allowedInterviewerEmails: [String]?
+    /// Disables interviewer coaching tips when explicitly set to true.
+    public var disableCoachingTips: Bool?
+
     public init(
         id: String, title: String? = nil, language: String? = nil,
         allowUnknownLanguage: Bool = false, ownerEmail: String? = nil,
         notes: String? = nil, isPrivate: Bool? = nil, executionEnabled: Bool? = nil,
-        contents: String? = nil, questionID: Int? = nil, ended: Bool? = nil, deleted: Bool? = nil
+        contents: String? = nil, questionID: Int? = nil, ended: Bool? = nil, deleted: Bool? = nil,
+        restrictInterviewerAccess: Bool? = nil,
+        allowedInterviewerEmails: [String]? = nil,
+        disableCoachingTips: Bool? = nil
     ) {
         self.id = id
         self.title = title
@@ -52,6 +62,9 @@ public nonisolated struct PadUpdate: Codable, Sendable {
         self.questionID = questionID
         self.ended = ended
         self.deleted = deleted
+        self.restrictInterviewerAccess = restrictInterviewerAccess
+        self.allowedInterviewerEmails = allowedInterviewerEmails
+        self.disableCoachingTips = disableCoachingTips
     }
 
     enum CodingKeys: String, CodingKey {
@@ -61,6 +74,9 @@ public nonisolated struct PadUpdate: Codable, Sendable {
         case isPrivate = "private"
         case executionEnabled = "execution_enabled"
         case questionID = "question_id"
+        case restrictInterviewerAccess = "restrict_interviewer_access"
+        case allowedInterviewerEmails = "allowed_interviewer_emails"
+        case disableCoachingTips = "disable_coaching_tips"
     }
 }
 
@@ -106,6 +122,7 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
     /// Path/content entries for a multi-file question. Mutually exclusive with
     /// ``contents`` and a ZIP upload.
     public var fileContents: [QuestionFileContent]?
+    /// Creates a take-home pad. Nil preserves the question defaults.
     public var takeHome: Bool?
     public var padType: String?
     public var candidateInstructions: [CandidateInstructionPayload]?
@@ -189,6 +206,7 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
     /// Replacement path/content entries for a multi-file question. Mutually exclusive
     /// with ``contents`` and a ZIP upload.
     public var fileContents: [QuestionFileContent]?
+    /// Creates a take-home pad. Nil preserves the question defaults.
     public var takeHome: Bool?
     public var padType: String?
     public var candidateInstructions: [CandidateInstructionPayload]?
@@ -297,11 +315,30 @@ public nonisolated struct PadCreate: Codable, Sendable {
     /// use the account's default team.
     public var teamID: String?
 
+    /// Only the owner and allowed organization users can join as interviewers.
+    public var restrictInterviewerAccess: Bool?
+    /// Replaces interviewer access. Nil preserves the list and an empty array clears it.
+    public var allowedInterviewerEmails: [String]?
+    /// Disables interviewer coaching tips when explicitly set to true.
+    public var disableCoachingTips: Bool?
+    /// Creates a take-home pad. Nil preserves the question defaults.
+    public var takeHome: Bool?
+    /// Take-home time limit in minutes. Nil inherits the question time limit.
+    public var takeHomeTimeLimit: Int?
+    /// Enables AI Assist. Nil inherits the organization setting.
+    public var aiAssistEnabled: Bool?
+
     public init(
         title: String? = nil, language: String? = nil, allowUnknownLanguage: Bool = false,
         ownerEmail: String? = nil, contents: String? = nil, notes: String? = nil,
         isPrivate: Bool? = nil, executionEnabled: Bool? = nil, questionID: Int? = nil,
-        teamID: String? = nil
+        teamID: String? = nil,
+        restrictInterviewerAccess: Bool? = nil,
+        allowedInterviewerEmails: [String]? = nil,
+        disableCoachingTips: Bool? = nil,
+        takeHome: Bool? = nil,
+        takeHomeTimeLimit: Int? = nil,
+        aiAssistEnabled: Bool? = nil
     ) {
         self.title = title
         self.language = language
@@ -313,6 +350,12 @@ public nonisolated struct PadCreate: Codable, Sendable {
         self.executionEnabled = executionEnabled
         self.questionID = questionID
         self.teamID = teamID
+        self.restrictInterviewerAccess = restrictInterviewerAccess
+        self.allowedInterviewerEmails = allowedInterviewerEmails
+        self.disableCoachingTips = disableCoachingTips
+        self.takeHome = takeHome
+        self.takeHomeTimeLimit = takeHomeTimeLimit
+        self.aiAssistEnabled = aiAssistEnabled
     }
 
     enum CodingKeys: String, CodingKey {
@@ -323,6 +366,12 @@ public nonisolated struct PadCreate: Codable, Sendable {
         case executionEnabled = "execution_enabled"
         case questionID = "question_id"
         case teamID = "team_id"
+        case restrictInterviewerAccess = "restrict_interviewer_access"
+        case allowedInterviewerEmails = "allowed_interviewer_emails"
+        case disableCoachingTips = "disable_coaching_tips"
+        case takeHome = "take_home"
+        case takeHomeTimeLimit = "take_home_time_limit"
+        case aiAssistEnabled = "ai_assist_enabled"
     }
 
     /// A pad seeded from a question: same title and language, with the question
@@ -414,6 +463,12 @@ extension PadCreate {
         executionEnabled = try decodeExecutionEnabled(from: container, forKey: .executionEnabled)
         questionID = try container.decodeIfPresent(Int.self, forKey: .questionID)
         teamID = try container.decodeIfPresent(String.self, forKey: .teamID)
+        restrictInterviewerAccess = try container.decodeIfPresent(Bool.self, forKey: .restrictInterviewerAccess)
+        allowedInterviewerEmails = try container.decodeIfPresent([String].self, forKey: .allowedInterviewerEmails)
+        disableCoachingTips = try container.decodeIfPresent(Bool.self, forKey: .disableCoachingTips)
+        takeHome = try container.decodeIfPresent(Bool.self, forKey: .takeHome)
+        takeHomeTimeLimit = try container.decodeIfPresent(Int.self, forKey: .takeHomeTimeLimit)
+        aiAssistEnabled = try container.decodeIfPresent(Bool.self, forKey: .aiAssistEnabled)
     }
 
     public nonisolated func encode(to encoder: any Encoder) throws {
@@ -434,6 +489,12 @@ extension PadCreate {
         try encodeExecutionEnabled(executionEnabled, into: &container, forKey: .executionEnabled)
         try container.encodeIfPresent(normalizedQuestionID, forKey: .questionID)
         try container.encodeIfPresent(normalizedTeamID, forKey: .teamID)
+        try container.encodeIfPresent(restrictInterviewerAccess, forKey: .restrictInterviewerAccess)
+        try container.encodeIfPresent(allowedInterviewerEmails, forKey: .allowedInterviewerEmails)
+        try container.encodeIfPresent(disableCoachingTips, forKey: .disableCoachingTips)
+        try container.encodeIfPresent(takeHome, forKey: .takeHome)
+        try container.encodeIfPresent(takeHomeTimeLimit, forKey: .takeHomeTimeLimit)
+        try container.encodeIfPresent(aiAssistEnabled, forKey: .aiAssistEnabled)
     }
 }
 
@@ -452,6 +513,9 @@ extension PadUpdate {
         questionID = try container.decodeIfPresent(Int.self, forKey: .questionID)
         ended = try container.decodeIfPresent(Bool.self, forKey: .ended)
         deleted = try container.decodeIfPresent(Bool.self, forKey: .deleted)
+        restrictInterviewerAccess = try container.decodeIfPresent(Bool.self, forKey: .restrictInterviewerAccess)
+        allowedInterviewerEmails = try container.decodeIfPresent([String].self, forKey: .allowedInterviewerEmails)
+        disableCoachingTips = try container.decodeIfPresent(Bool.self, forKey: .disableCoachingTips)
     }
 
     public nonisolated func encode(to encoder: any Encoder) throws {
@@ -475,5 +539,8 @@ extension PadUpdate {
         try container.encodeIfPresent(normalizedQuestionID, forKey: .questionID)
         try container.encodeIfPresent(ended, forKey: .ended)
         try container.encodeIfPresent(deleted, forKey: .deleted)
+        try container.encodeIfPresent(restrictInterviewerAccess, forKey: .restrictInterviewerAccess)
+        try container.encodeIfPresent(allowedInterviewerEmails, forKey: .allowedInterviewerEmails)
+        try container.encodeIfPresent(disableCoachingTips, forKey: .disableCoachingTips)
     }
 }

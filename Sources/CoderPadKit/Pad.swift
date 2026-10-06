@@ -38,10 +38,10 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
     public let executionEnabled: Bool?
     public let isPrivate: Bool?
     /// Whether access is limited to the pad's assigned interviewers.
-    ///
-    /// This field is present in live API responses but is not part of the
-    /// published CoderPad Interview API contract.
+
     public let restrictInterviewerAccess: Bool?
+    /// The replacement access list, or nil when the service omits it.
+    public let allowedInterviewerEmails: [String]?
     /// Interviewer-facing alerts recorded for the pad, such as suspicious
     /// candidate activity. Empirically observed; not in the published contract.
     public let padInterviewerNotifications: [PadInterviewerNotification]
@@ -67,6 +67,7 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         case endedAt = "ended_at"
         case executionEnabled = "execution_enabled"
         case isPrivate = "private"
+        case allowedInterviewerEmails = "allowed_interviewer_emails"
         case restrictInterviewerAccess = "restrict_interviewer_access"
         case padInterviewerNotifications = "pad_interviewer_notifications"
         case activeEnvironmentID = "active_environment_id"
@@ -116,6 +117,7 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         isPrivate = container.loggedDecodeIfPresent(Bool.self, forKey: .isPrivate)
         restrictInterviewerAccess = container
             .loggedDecodeIfPresent(Bool.self, forKey: .restrictInterviewerAccess)
+        allowedInterviewerEmails = container.loggedDecodeIfPresent([String].self, forKey: .allowedInterviewerEmails)
         let decodedNotifications = container.decodeTolerantArrayIfPresent(
             PadInterviewerNotification.self, forKey: .padInterviewerNotifications
         )

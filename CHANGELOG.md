@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Configure pad access lists, coaching, take-home timing, and AI Assist while preserving omitted defaults and explicit false values.
+
 - Restore pad and question pagination identities after the transport protocol changed.
 - Filter Interview questions and organization questions, with title and usage sorting and filters preserved during incremental loading.
 

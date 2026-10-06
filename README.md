@@ -55,3 +55,14 @@ Each page keeps these filters.
 Pass its `rawValue` as `sort`.
 Omit sorting to retain API defaults.
 Pad and event sorting continues to use `InterviewListSort`.
+
+## Pad controls
+
+`PadCreate` and `PadUpdate` accept `restrictInterviewerAccess`, `allowedInterviewerEmails`, and `disableCoachingTips` alongside existing ownership, privacy, and execution options.
+Omit the email list to retain existing access, or pass `[]` to clear it.
+Explicit `false` values are sent, and execution remains encoded as the string `"true"` or `"false"`.
+
+Only `PadCreate` accepts `takeHome`, `takeHomeTimeLimit` (minutes), and `aiAssistEnabled`.
+Omit them to inherit question and organization defaults.
+`Pad.allowedInterviewerEmails` retains response metadata and survives optimistic inline edits.
+The mock backend supports the same list replacement semantics.
