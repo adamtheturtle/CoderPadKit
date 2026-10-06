@@ -133,12 +133,14 @@ private final nonisolated class QuestionFilterCaptureURLProtocol: URLProtocol {
         guard let url = request.url,
               let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
         else { return }
-        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let query = components?.queryItems ?? []
+        let path = components?.percentEncodedPath ?? url.path
         let second = query.contains { $0.name == "page" && $0.value == "2" }
         let ids = second ? Array(51...51) : Array(1...50)
         let payload: [String: Any] = [
             "status": "OK", "questions": ids.map { ["id": $0, "title": "Question \($0)"] },
-            "total": 51, "next_page": second ? NSNull() : "https://app.coderpad.io\(url.path)?page=2"
+            "total": 51, "next_page": second ? NSNull() : "https://app.coderpad.io\(path)?page=2"
         ]
         do {
             let data = try JSONSerialization.data(withJSONObject: payload)
