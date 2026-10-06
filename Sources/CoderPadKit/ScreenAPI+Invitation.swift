@@ -26,19 +26,23 @@ public nonisolated struct ScreenInvitation: Encodable, Hashable, Sendable {
     public var tags: String?
     public var sendInvitationEmail: Bool?
     public var sendNotificationEmailOnBounce: Bool?
+    /// Omit to use the server default (true). False asks the server to reject duplicates.
+    public var allowDuplicateInvitations: Bool?
 
     public init(candidateEmail: String? = nil,
                 candidateName: String? = nil,
                 recruiterEmail: String? = nil,
                 tags: String? = nil,
                 sendInvitationEmail: Bool? = nil,
-                sendNotificationEmailOnBounce: Bool? = nil) {
+                sendNotificationEmailOnBounce: Bool? = nil,
+                allowDuplicateInvitations: Bool? = nil) {
         self.candidateEmail = candidateEmail
         self.candidateName = candidateName
         self.recruiterEmail = recruiterEmail
         self.tags = tags
         self.sendInvitationEmail = sendInvitationEmail
         self.sendNotificationEmailOnBounce = sendNotificationEmailOnBounce
+        self.allowDuplicateInvitations = allowDuplicateInvitations
     }
 
     enum CodingKeys: String, CodingKey {
@@ -48,6 +52,7 @@ public nonisolated struct ScreenInvitation: Encodable, Hashable, Sendable {
         case tags
         case sendInvitationEmail = "send_invitation_email"
         case sendNotificationEmailOnBounce = "send_notification_email_on_bounce"
+        case allowDuplicateInvitations = "allow_duplicate_invitations"
     }
 }
 
