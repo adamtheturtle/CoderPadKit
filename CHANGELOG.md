@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Restore pad and question pagination identities after the transport protocol changed.
+
 - Add typed Interview `getUser()` and Screen `getMe()` account introspection with demo responses.
 
 - Use `https://screen.coderpad.io` as the default US Screen API origin.
