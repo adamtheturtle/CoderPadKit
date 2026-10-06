@@ -24,7 +24,7 @@ struct ScreenReportDownloadErrorTests {
     func `a missing success report file maps to CoderPadError`() throws {
         let missing = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         let response = try #require(HTTPURLResponse(
-            url: URL(string: "https://www.codingame.com/assessment/api/v1.1/tests/1/report")!,
+            url: URL(string: "https://screen.coderpad.io/assessment/api/v1.1/tests/1/report")!,
             statusCode: 200,
             httpVersion: "HTTP/1.1",
             headerFields: ["Content-Type": "application/pdf"]
@@ -46,7 +46,7 @@ struct ScreenReportDownloadErrorTests {
         defer { try? FileManager.default.removeItem(at: fileURL) }
         try Data(repeating: 0x25, count: 64).write(to: fileURL)
         let response = try #require(HTTPURLResponse(
-            url: URL(string: "https://www.codingame.com/assessment/api/v1.1/tests/1/report")!,
+            url: URL(string: "https://screen.coderpad.io/assessment/api/v1.1/tests/1/report")!,
             statusCode: 200,
             httpVersion: "HTTP/1.1",
             headerFields: [
@@ -86,7 +86,7 @@ struct ScreenFullListPaginationCeilingTests {
         configuration.protocolClasses = [ListAllTestsLimitCaptureURLProtocol.self]
         let client = ScreenClient(
             apiKey: "key",
-            baseURL: URL(string: "https://www.codingame.com")!,
+            baseURL: URL(string: "https://screen.coderpad.io")!,
             session: URLSession(configuration: configuration)
         )
 

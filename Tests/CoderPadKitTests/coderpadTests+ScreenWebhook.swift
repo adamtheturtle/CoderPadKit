@@ -125,7 +125,7 @@ private nonisolated func webhookStatusClient(status: Int, body: Data) -> ScreenC
     configuration.protocolClasses = [WebhookStatusURLProtocol.self]
     return ScreenClient(
         apiKey: "webhook-status",
-        baseURL: URL(string: "https://www.codingame.com")!,
+        baseURL: URL(string: "https://screen.coderpad.io")!,
         session: URLSession(configuration: configuration)
     )
 }

@@ -28,6 +28,7 @@ struct ScreenClientTests {
 
     @Test
     func `base URL validation separates production origins from the mock host`() {
+        #expect(ScreenClient.defaultBaseURL.absoluteString == "https://screen.coderpad.io")
         #expect(ScreenClient.isAllowedProductionBaseURL(ScreenClient.defaultBaseURL))
         #expect(ScreenClient.isAllowedProductionBaseURL(ScreenClient.euBaseURL))
         #expect(!ScreenClient.isAllowedProductionBaseURL(ScreenClient.mockBaseURL))
