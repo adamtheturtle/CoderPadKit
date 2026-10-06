@@ -135,6 +135,15 @@ nonisolated enum MockScreenResponses {
             ])
         }
 
+        if params["allow_duplicate_invitations"] as? Bool == false,
+           let email = params["candidate_email"] as? String,
+           state.allTests().contains(where: {
+               $0["campaign_id"] as? Int == campaignID
+                   && $0["candidate_email"] as? String == email
+           }) {
+            return json(400, ["code": "duplicate_invitation", "message": "Candidate already invited"])
+        }
+
         let id = state.nextTestID
         state.nextTestID += 1
         let testURL = "https://app.coderpad.io/screen/demo/tests/\(id)"
