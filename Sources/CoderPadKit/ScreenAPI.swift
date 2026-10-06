@@ -5,7 +5,7 @@
 //  Models for the CoderPad Screen API (formerly CodinGame for Work),
 //  documented at https://api.screen.coderpad.io. This is a *separate* product
 //  from the Interview API modelled in the `CoderPadKit` package: it lives on a
-//  different host (`https://www.codingame.com`, or `.eu` for EU customers),
+//  different host (`https://screen.coderpad.io`, or `.eu` for EU customers),
 //  authenticates with an `API-Key` header rather than a bearer token, and uses
 //  offset-based pagination. The networking client is `ScreenClient`.
 //

@@ -31,7 +31,7 @@ public struct ScreenClient {
     public nonisolated let maximumResponseBodyBytes: Int
 
     /// The US server. EU customers override with `euBaseURL`.
-    public nonisolated static let defaultBaseURL = URL(string: "https://www.codingame.com")!
+    public nonisolated static let defaultBaseURL = URL(string: "https://screen.coderpad.io")!
     /// The EU server, for organizations hosted in the EU region.
     public nonisolated static let euBaseURL = URL(string: "https://www.codingame.eu")!
 
