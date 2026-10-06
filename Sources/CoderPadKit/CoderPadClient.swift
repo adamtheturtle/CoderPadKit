@@ -55,8 +55,8 @@ nonisolated struct PadsPage: PagedResponse {
 
     static var pageSize: Int { coderPadPageSize }
 
-    static func identity(of item: Pad) -> AnyHashable? {
-        item.id
+    static func identity(of item: Pad) -> RESTItemIdentity? {
+        RESTItemIdentity(item.id)
     }
 
     enum CodingKeys: String, CodingKey { case pads; case nextPage = "next_page"; case total }
@@ -86,8 +86,8 @@ nonisolated struct QuestionsPage: PagedResponse {
 
     static var pageSize: Int { coderPadPageSize }
 
-    static func identity(of item: Question) -> AnyHashable? {
-        item.id
+    static func identity(of item: Question) -> RESTItemIdentity? {
+        RESTItemIdentity(item.id)
     }
 
     enum CodingKeys: String, CodingKey { case questions; case nextPage = "next_page"; case total }
