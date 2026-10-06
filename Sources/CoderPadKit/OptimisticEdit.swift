@@ -27,7 +27,8 @@ extension Pad {
         padInterviewerNotifications: [PadInterviewerNotification] = [],
         omittedParticipantCount: Int = 0,
         omittedInterviewerNotificationCount: Int = 0,
-        omittedPadEnvironmentIDCount: Int = 0
+        omittedPadEnvironmentIDCount: Int = 0,
+        allowedInterviewerEmails: [String]? = nil
     ) throws {
         try CoderPadClient.validatePadID(id)
         self.init(
@@ -39,6 +40,7 @@ extension Pad {
             activeEnvironmentID: activeEnvironmentID, padEnvironmentIDs: padEnvironmentIDs,
             questionIDs: questionIDs, team: team,
             restrictInterviewerAccess: restrictInterviewerAccess,
+            allowedInterviewerEmails: allowedInterviewerEmails,
             padInterviewerNotifications: padInterviewerNotifications,
             omittedParticipantCount: omittedParticipantCount,
             omittedInterviewerNotificationCount: omittedInterviewerNotificationCount,
@@ -54,7 +56,7 @@ extension Pad {
         history: String?, createdAt: Date?, updatedAt: Date?, endedAt: Date?,
         type: String?, executionEnabled: Bool?, isPrivate: Bool?,
         activeEnvironmentID: Int?, padEnvironmentIDs: [Int], questionIDs: [Int],
-        team: PadTeam?, restrictInterviewerAccess: Bool?,
+        team: PadTeam?, restrictInterviewerAccess: Bool?, allowedInterviewerEmails: [String]?,
         padInterviewerNotifications: [PadInterviewerNotification],
         omittedParticipantCount: Int, omittedInterviewerNotificationCount: Int,
         omittedPadEnvironmentIDCount: Int
@@ -80,6 +82,7 @@ extension Pad {
         self.executionEnabled = executionEnabled
         self.isPrivate = isPrivate
         self.restrictInterviewerAccess = restrictInterviewerAccess
+        self.allowedInterviewerEmails = allowedInterviewerEmails
         self.padInterviewerNotifications = padInterviewerNotifications
         self.omittedInterviewerNotificationCount = omittedInterviewerNotificationCount
         self.activeEnvironmentID = activeEnvironmentID
@@ -107,6 +110,7 @@ extension Pad {
             isPrivate: isPrivate ?? self.isPrivate, activeEnvironmentID: activeEnvironmentID,
             padEnvironmentIDs: padEnvironmentIDs, questionIDs: questionIDs, team: team,
             restrictInterviewerAccess: restrictInterviewerAccess,
+            allowedInterviewerEmails: allowedInterviewerEmails,
             padInterviewerNotifications: padInterviewerNotifications,
             omittedParticipantCount: omittedParticipantCount,
             omittedInterviewerNotificationCount: omittedInterviewerNotificationCount,

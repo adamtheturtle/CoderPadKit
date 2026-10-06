@@ -135,6 +135,7 @@ public nonisolated enum MockFixtures {
             "execution_enabled": executionEnabled,
             // The live API exposes the interviewer-access lock on every pad.
             "restrict_interviewer_access": false,
+            "allowed_interviewer_emails": [String](),
             // These alerts are empirically present in live responses, but are not
             // documented by the published API. Keep the values synthetic.
             "pad_interviewer_notifications": id == "DEMOABC1"
