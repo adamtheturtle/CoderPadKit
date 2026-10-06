@@ -220,7 +220,9 @@ extension Question {
             testCases: testCases, createdAt: createdAt, updatedAt: updatedAt,
             candidateInstructions: newInstructions.map { payloads in
                 payloads.map {
-                    CandidateInstruction(instructions: $0.instructions, defaultVisible: $0.defaultVisible)
+                    CandidateInstruction(
+                        instructions: $0.instructions, defaultVisible: $0.defaultVisible, name: $0.name
+                    )
                 }
             } ?? candidateInstructions,
             aiAssistCustomSystemPrompt: aiAssistCustomSystemPrompt,
@@ -235,8 +237,9 @@ extension Question {
 extension CandidateInstruction {
     /// Memberwise initializer, alongside the decoding `init(from:)`, so callers can
     /// build instruction parts for an optimistic update.
-    public init(instructions: String, defaultVisible: Bool) {
+    public init(instructions: String, defaultVisible: Bool, name: String? = nil) {
         self.instructions = instructions
+        self.name = name
         self.defaultVisible = defaultVisible
     }
 }

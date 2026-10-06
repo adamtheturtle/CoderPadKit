@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Use `https://screen.coderpad.io` as the default US Screen API origin.
+- Preserve optional instruction step names in question reads and writes.
 
 - Add question variant CRUD, typed JSON attributes with distinct omitted, blank, and default starter-code states, and matching demo routes.
 
