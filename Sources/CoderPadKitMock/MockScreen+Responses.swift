@@ -65,6 +65,13 @@ nonisolated enum MockScreenResponses {
         }
         let route = String(path.dropFirst(apiPrefix.count))
 
+        if method == "GET", route == "/me" {
+            return json(200, [
+                "organization_id": "4143ca74-2f0e-4151-90d6-e1428739450b",
+                "recruiter_id": "d959afcb-11b7-4cb4-bd99-0ce50f060e5a",
+                "teams": [["id": "1e671d6c-e2f4-4aef-91e5-d56188b07d51", "name": "Demo team", "is_default": true]]
+            ])
+        }
         if let result = campaignRoute(state: state, method: method, route: route, body: body) {
             return result
         }
