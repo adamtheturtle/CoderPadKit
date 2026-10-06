@@ -143,9 +143,10 @@ final nonisolated class MockURLProtocol: URLProtocol {
         let method = request.httpMethod ?? "GET"
         let bodyData = request.httpBody ?? Self.drain(stream: request.httpBodyStream)
         let contentType = request.value(forHTTPHeaderField: "Content-Type")
-        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-            .queryItems?
-            .reduce(into: [String: String]()) { $0[$1.name] = $1.value } ?? [:]
+        let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        var query = queryItems.reduce(into: [String: String]()) { $0[$1.name] = $1.value }
+        let padTypes = queryItems.filter { $0.name == "pad_types[]" }.compactMap(\.value)
+        if !padTypes.isEmpty { query["pad_types[]"] = padTypes.joined(separator: ",") }
 
         // Route to the per-API-key state (carried in the Authorization header the
         // client sets on every request), so each client - the app's demo account,

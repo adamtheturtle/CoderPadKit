@@ -426,18 +426,23 @@ public struct CoderPadClient {
     // MARK: Questions
 
     /// Lists the API key owner's questions. All pages are followed.
-    public func listQuestions(sort: String? = nil) async throws -> [Question] {
+    public func listQuestions(
+        sort: String? = nil, text: String? = nil, padTypes: [QuestionPadType]? = nil
+    ) async throws -> [Question] {
         try await rest.fetchAllPages(
-            QuestionsPage.self, path: "/api/questions/", sort: try InterviewListSort.validated(sort)
+            QuestionsPage.self, path: QuestionFilters.personal(text: text, padTypes: padTypes),
+            sort: try InterviewQuestionSort.validated(sort)
         )
     }
 
     /// Streams questions for progressive display, like ``listPadsIncrementally(sort:)``.
     public func listQuestionsIncrementally(
-        sort: String? = "updated_at,desc"
+        sort: String? = "updated_at,desc", text: String? = nil, padTypes: [QuestionPadType]? = nil
     ) -> AsyncThrowingStream<[Question], any Error> {
-        validatedSortStream(sort: sort) { sort in
-            rest.streamAllPages(QuestionsPage.self, path: "/api/questions/", sort: sort)
+        validatedSortStream(sort: sort, validate: InterviewQuestionSort.validated) { sort in
+            rest.streamAllPages(
+                QuestionsPage.self, path: QuestionFilters.personal(text: text, padTypes: padTypes), sort: sort
+            )
         }
     }
 
@@ -538,11 +543,24 @@ public struct CoderPadClient {
         )
     }
 
-    /// Every organization question visible to you. Paginated like ``listQuestions(sort:)``.
-    public func listOrganizationQuestions(sort: String? = nil) async throws -> [Question] {
+    /// Every organization question visible to you. Paginated like ``listQuestions(sort:text:padTypes:)``.
+    public func listOrganizationQuestions(
+        sort: String? = nil, padType: InterviewType? = nil, language: String? = nil
+    ) async throws -> [Question] {
         try await rest.fetchAllPages(
-            QuestionsPage.self, path: "/api/organization/questions",
-            sort: try InterviewListSort.validated(sort)
+            QuestionsPage.self, path: QuestionFilters.organization(padType: padType, language: language),
+            sort: try InterviewQuestionSort.validated(sort)
         )
+    }
+
+    /// Streams organization questions with filters preserved across pages.
+    public func listOrganizationQuestionsIncrementally(
+        sort: String? = "updated_at,desc", padType: InterviewType? = nil, language: String? = nil
+    ) -> AsyncThrowingStream<[Question], any Error> {
+        validatedSortStream(sort: sort, validate: InterviewQuestionSort.validated) { sort in
+            rest.streamAllPages(
+                QuestionsPage.self, path: QuestionFilters.organization(padType: padType, language: language), sort: sort
+            )
+        }
     }
 }
