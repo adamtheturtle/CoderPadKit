@@ -18,7 +18,8 @@ nonisolated enum MockList {
     /// Applies `sort` (default `created_at,desc`) or returns a 400 for unsupported values.
     static func sorted(
         _ items: [[String: Any]],
-        query: [String: String]
+        query: [String: String],
+        questionFields: Bool = false
     ) -> ([[String: Any]]?, (Int, Data)?) {
         let raw = query["sort"] ?? "created_at,desc"
         let parts = raw.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
@@ -27,12 +28,18 @@ nonisolated enum MockList {
         }
         let field = parts[0]
         let direction = parts[1]
-        guard supportedSortFields.contains(field),
+        let fields = questionFields ? supportedSortFields.union(["title", "used"]) : supportedSortFields
+        guard fields.contains(field),
               direction == "asc" || direction == "desc" else {
             return (nil, invalidSortResponse)
         }
         let ascending = direction == "asc"
         let sorted = items.sorted { lhs, rhs in
+            if field == "used" {
+                let left = lhs[field] as? Int ?? 0
+                let right = rhs[field] as? Int ?? 0
+                return ascending ? left < right : left > right
+            }
             let left = lhs[field] as? String ?? ""
             let right = rhs[field] as? String ?? ""
             return ascending ? left < right : left > right
@@ -79,8 +86,14 @@ nonisolated enum MockList {
         components.host = MockServer.host
         components.path = path.hasPrefix("/") ? path : "/\(path)"
         var items: [URLQueryItem] = []
-        if let sort = query["sort"] {
-            items.append(URLQueryItem(name: "sort", value: sort))
+        for key in query.keys.sorted() where key != "page" {
+            if key == "pad_types[]" {
+                items += (query[key] ?? "").split(separator: ",").map {
+                    URLQueryItem(name: key, value: String($0))
+                }
+            } else {
+                items.append(URLQueryItem(name: key, value: query[key]))
+            }
         }
         items.append(URLQueryItem(name: "page", value: String(page)))
         components.queryItems = items

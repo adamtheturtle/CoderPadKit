@@ -35,10 +35,7 @@ nonisolated extension MockResponses {
         }
 
         if method == "GET", path == "/api/organization/questions" {
-            return listed(
-                state.allQuestions(), query: query,
-                path: "/api/organization/questions", key: "questions"
-            )
+            return listedQuestions(state.allQuestions(), query: query, path: "/api/organization/questions")
         }
 
         if method == "GET", path == "/api/organization/users" {

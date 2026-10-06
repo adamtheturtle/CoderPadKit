@@ -30,10 +30,11 @@ extension CoderPadClient {
     /// without starting network I/O (#154).
     func validatedSortStream<Element: Sendable>(
         sort: String?,
+        validate: (String?) throws -> String? = InterviewListSort.validated,
         makeStream: (String?) -> PaginatedRESTPageStream<[Element]>
     ) -> AsyncThrowingStream<[Element], any Error> {
         do {
-            let pages = makeStream(try InterviewListSort.validated(sort))
+            let pages = makeStream(try validate(sort))
             return AsyncThrowingStream { continuation in
                 let task = Task {
                     do {

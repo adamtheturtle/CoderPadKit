@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Restore pad and question pagination identities after the transport protocol changed.
+- Filter Interview questions and organization questions, with title and usage sorting and filters preserved during incremental loading.
 
 - Add typed Interview `getUser()` and Screen `getMe()` account introspection with demo responses.
 

@@ -44,3 +44,13 @@ let question = try await client.createQuestion(request)
 
 MIT.
 See [LICENSE](LICENSE).
+
+Question library filters
+------------------------
+
+`listQuestions` and `listQuestionsIncrementally` accept `text` and `padTypes`
+(`.any`, `.live`, or `.takeHome`). Organization question methods accept
+`padType` and `language`, including an incremental method. Each page keeps
+these filters. `InterviewQuestionSort` adds title and usage sorting in either
+direction. Pass its `rawValue` as `sort`. Omit sorting to retain API defaults.
+Pad and event sorting continues to use `InterviewListSort`.

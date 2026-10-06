@@ -55,11 +55,7 @@ nonisolated extension MockResponses {
         }
 
         if method == "GET", path == "/api/questions/" || path == "/api/questions" {
-            let (sorted, error) = MockList.sorted(state.allQuestions(), query: query)
-            if let error { return error }
-            return MockList.page(
-                sorted ?? [], query: query, path: "/api/questions/", collectionKey: "questions"
-            )
+            return listedQuestions(state.allQuestions(), query: query, path: "/api/questions/")
         }
 
         return nil
