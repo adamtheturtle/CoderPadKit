@@ -37,7 +37,7 @@ struct RawAPITests {
     }
 
     @Test
-    func `preserves valueless empty and duplicate query items`() async throws {
+    func `preserves valueless empty duplicate and literal plus query items`() async throws {
         RawQueryCaptureURLProtocol.reset()
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [RawQueryCaptureURLProtocol.self]
@@ -52,15 +52,26 @@ struct RawAPITests {
             query: [
                 URLQueryItem(name: "flag", value: nil),
                 URLQueryItem(name: "empty", value: ""),
-                URLQueryItem(name: "collision", value: "request")
+                URLQueryItem(name: "collision", value: "request"),
+                URLQueryItem(name: "collision", value: "cursor+one=next/&"),
+                URLQueryItem(name: "text", value: "C++"),
+                URLQueryItem(name: "label+key", value: "%2B")
             ],
             responseLimit: 1024
         )
 
         let url = try #require(RawQueryCaptureURLProtocol.capturedURL())
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
-        #expect(components.percentEncodedQuery == "flag&empty=&collision=request")
-        #expect(!(components.queryItems ?? []).contains(where: { $0.name == "absent" }))
+        #expect(components.percentEncodedQuery == "flag&empty=&collision=request"
+            + "&collision=cursor%2Bone%3Dnext/%26&text=C%2B%2B&label%2Bkey=%252B")
+        #expect(components.queryItems == [
+            URLQueryItem(name: "flag", value: nil),
+            URLQueryItem(name: "empty", value: ""),
+            URLQueryItem(name: "collision", value: "request"),
+            URLQueryItem(name: "collision", value: "cursor+one=next/&"),
+            URLQueryItem(name: "text", value: "C++"),
+            URLQueryItem(name: "label+key", value: "%2B")
+        ])
     }
 }
 

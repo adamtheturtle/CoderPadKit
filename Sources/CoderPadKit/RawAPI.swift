@@ -81,6 +81,8 @@ extension CoderPadClient {
         if !query.isEmpty {
             components.queryItems = (components.queryItems ?? []) + query
         }
+        // Form query decoding treats literal plus signs as spaces, including in opaque cursors.
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         guard let url = components.url else {
             throw CoderPadError.http(0, "Invalid URL")
         }
