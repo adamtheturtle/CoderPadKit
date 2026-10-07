@@ -107,3 +107,8 @@ Structured files overlay template files during creation, including an empty over
 ZIP uploads replace template files except for preserved `.cpad`.
 Deleted entries on parent-question updates are ignored by the service.
 Optimistic edits preserve starter files and variant summaries.
+
+Use `ScreenClient.questionInsights(id:programmingLanguage:)` to retrieve statistics for a UUID question, optionally filtered by programming language.
+`ScreenQuestionInsights` retains usage counts and timestamps, average elapsed time, timeout and score ratios, answer frequencies, test-case success, score buckets, and total candidates.
+Unavailable fields remain nil, while explicit empty lists, false values, and zero metrics remain available.
+The usual HTTP error contract applies to invalid languages and missing questions.
