@@ -268,10 +268,10 @@ public struct ScreenClient {
         return try await decode(type, from: data(for: request).0)
     }
 
-    private nonisolated func send<T: Decodable>(_ type: T.Type,
-                                                method: String,
-                                                path: String,
-                                                body: some Encodable) async throws -> T {
+    nonisolated func send<T: Decodable>(_ type: T.Type,
+                                        method: String,
+                                        path: String,
+                                        body: some Encodable) async throws -> T {
         var request = try authorizedRequest(path: path, method: method)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encode(body)

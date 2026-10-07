@@ -85,3 +85,11 @@ Only the question author can change sharing, and permission failures use the exi
 Database identity is encoded as an integer in JSON and as decimal text in multipart requests.
 These options work with ordinary question content and ZIP uploads while retaining the existing content-source rules.
 The mock API supports the seeded database identity 501 and rejects unknown identities.
+
+Create Screen campaigns with `createCampaign(ScreenCampaignCreation(name:questions:settings:teamID:))`.
+Use ordered `ScreenCampaignQuestion.question(UUID)` and `.randomQuestionSet(ScreenRandomQuestionConfiguration(...))` entries.
+Random inclusion and exclusion lists are mutually exclusive.
+`ScreenCampaignSettings` supports languages, timer, invitation expiry, ISO 8601 access windows, follow-up questions, webcam analysis, AI Assist, and coding agents.
+Omitted settings inherit team defaults, while false, zero, and empty values are sent explicitly.
+`enabledCodingAgents` is a string, and an empty string disables agents.
+Creation returns `ScreenCreatedCampaign.id`, makes one request, and surfaces feature restrictions through the usual HTTP error contract.

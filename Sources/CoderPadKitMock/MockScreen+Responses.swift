@@ -92,6 +92,10 @@ nonisolated enum MockScreenResponses {
         route: String,
         body: Data?
     ) -> Result? {
+        if method == "POST", route == "/campaigns" || route == "/campaigns/" {
+            return createCampaign(state: state, body: body)
+        }
+
         if method == "POST",
            let id = match(route, campaignSendRoute),
            let campaignID = Int(id) {
@@ -99,7 +103,7 @@ nonisolated enum MockScreenResponses {
         }
 
         if method == "GET", route == "/campaigns" || route == "/campaigns/" {
-            return json(200, MockScreenFixtures.campaigns())
+            return json(200, state.allCampaigns())
         }
 
         return nil
@@ -127,7 +131,7 @@ nonisolated enum MockScreenResponses {
                 "message": "Candidate name exceeds \(ScreenClient.maximumCandidateNameLength) characters"
             ])
         }
-        guard let campaign = MockScreenFixtures.campaigns()
+        guard let campaign = state.allCampaigns()
             .first(where: { ($0["id"] as? Int) == campaignID })
         else {
             return json(400, [
