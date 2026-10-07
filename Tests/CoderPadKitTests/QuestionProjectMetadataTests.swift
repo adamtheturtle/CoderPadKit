@@ -58,8 +58,13 @@ struct QuestionProjectMetadataTests {
         {"question":{"title":"Project","file_contents":[{"path":"old.txt","deleted":true},
         {"path":"new.txt","contents":"","hidden":false,"deleted":false}]}}
         """#.utf8)
-        #expect(try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(input))
-            == JSONDecoder().decode(JSONValue.self, from: expected))
+        let encoded = try JSONEncoder().encode(input)
+        var body = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        var question = try #require(body["question"] as? [String: Any])
+        question["file_contents"] = try decodedRequestArray(question["file_contents"])
+        body["question"] = question
+        let expectedObject = try JSONSerialization.jsonObject(with: expected) as? NSDictionary
+        #expect(NSDictionary(dictionary: body) == expectedObject)
         let normalized = try #require(try validatedFileContents([
             QuestionFileContent(path: " src\\main.py ", contents: "print(1)", hidden: true)
         ]))

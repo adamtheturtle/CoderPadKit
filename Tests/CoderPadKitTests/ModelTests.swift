@@ -158,7 +158,7 @@ struct QuestionFileContentTests {
         ))
         let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let question = try #require(root["question"] as? [String: Any])
-        let files = try #require(question["file_contents"] as? [[String: Any]])
+        let files = try decodedRequestArray(question["file_contents"])
 
         #expect(files.count == 2)
         #expect(files[0]["path"] as? String == "main.py")
@@ -176,7 +176,7 @@ struct QuestionFileContentTests {
         ))
         let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let question = try #require(root["question"] as? [String: Any])
-        let files = try #require(question["file_contents"] as? [[String: Any]])
+        let files = try decodedRequestArray(question["file_contents"])
 
         // The live "Modify a question" contract carries the id only in the URL path.
         #expect(root["id"] == nil)
@@ -190,7 +190,7 @@ struct QuestionFileContentTests {
         let data = try CoderPadClient.encoder.encode(QuestionUpdate(id: 42, fileContents: []))
         let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let question = try #require(root["question"] as? [String: Any])
-        let files = try #require(question["file_contents"] as? [Any])
+        let files = try decodedRequestArray(question["file_contents"])
 
         #expect(files.isEmpty)
     }
@@ -364,7 +364,7 @@ struct CandidateInstructionValidationTests {
             ]
         ))
         let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let instructions = try #require(root["candidate_instructions"] as? [[String: Any]])
+        let instructions = try decodedRequestArray(root["candidate_instructions"])
 
         #expect(instructions[0]["instructions"] as? String == "Read the prompt carefully.")
         #expect(instructions[0]["default_visible"] as? Bool == false)
