@@ -27,7 +27,7 @@ struct QuestionZIPUploadTests {
                 candidateInstructions: [
                     CandidateInstructionPayload(instructions: "Start here", defaultVisible: true)
                 ],
-                aiAssistCustomSystemPrompt: "Give hints"
+                aiAssistCustomSystemPrompt: "Give hints", shared: false, customDatabaseID: 501
             ),
             zipFile: QuestionZIPUpload(data: fileData, filename: filename)
         )
@@ -47,7 +47,9 @@ struct QuestionZIPUploadTests {
                     "candidate_instructions",
                     #"[{"default_visible":true,"instructions":"Start here"}]"#
                 ),
-                ("ai_assist_custom_system_prompt", "Give hints")
+                ("ai_assist_custom_system_prompt", "Give hints"),
+                ("shared", "false"),
+                ("custom_database_id", "501")
             ],
             escapedFilename: "r_sum_ \\\"draft\\\".zip",
             filenameStar: "r%C3%A9sum%C3%A9%20%22draft%22.zip",
@@ -69,7 +71,8 @@ struct QuestionZIPUploadTests {
         let archive = Data([0x50, 0x4B, 0x03, 0x04, 0x00, 0xFF])
 
         _ = try await client.updateQuestion(
-            QuestionUpdate(id: 42, title: "Replacement", language: "multifile_java"),
+            QuestionUpdate(id: 42, title: "Replacement", language: "multifile_java",
+                           shared: true, customDatabaseID: 501),
             zipFile: QuestionZIPUpload(data: archive, filename: "project.zip")
         )
 
@@ -81,7 +84,9 @@ struct QuestionZIPUploadTests {
             boundary: boundary,
             fields: [
                 ("question[title]", "Replacement"),
-                ("question[language]", "multifile_java")
+                ("question[language]", "multifile_java"),
+                ("shared", "true"),
+                ("custom_database_id", "501")
             ],
             escapedFilename: "project.zip",
             fileData: archive

@@ -74,10 +74,11 @@ nonisolated extension MockResponses {
     /// Coerce only known boolean multipart fields. Literal `"true"`/`"false"` in a
     /// text field such as `title` must stay strings.
     private static func multipartValue(_ value: String, name: String) -> Any {
-        if name == "take_home" {
+        if name == "take_home" || name == "shared" {
             if value == "true" { return true }
             if value == "false" { return false }
         }
+        if name == "custom_database_id", let identity = Int(value) { return identity }
         if name == "candidate_instructions",
            let data = value.data(using: .utf8),
            let object = try? JSONSerialization.jsonObject(with: data) {
