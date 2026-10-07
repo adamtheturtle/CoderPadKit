@@ -1,12 +1,13 @@
 # Release notes
 
-## Unreleased
+## 0.6.0
+
+- **Breaking:** Full project variant languages and removed-file contents are optional.
+  Callers must handle a null language and path-only removed files.
 
 - Encode parent-question instruction and structured file arrays as JSON strings.
 
 - Retain UUID Screen question results, candidate answers, evaluation breakdowns, timer settings, and report activity fields while preserving integer list summaries.
-
-- Decode nullable project variant languages and path-only removed files.
 
 - Retain parent-question starter files and compact variant metadata, with hidden and template deletion options in structured requests.
 
@@ -37,11 +38,13 @@
 - Preserve optional instruction step names in question reads and writes.
 - Add optional duplicate-invitation policy to Screen requests and demo behavior.
 
+- Preserve literal plus signs in raw API query keys and values, including opaque cursors and question searches.
+
+## 0.5.19
+
 - Add question variant CRUD, typed JSON attributes with distinct omitted, blank, and default starter-code states, and matching demo routes.
 
 - Require PaginatedRESTClient 0.5 and SafeURLKit 0.2, whose APIs CoderPadKit uses.
-
-- Preserve literal plus signs in raw API query keys and values, including opaque cursors and question searches.
 
 ## 0.5.16
 
