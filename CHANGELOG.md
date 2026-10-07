@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Retain optional Interview analytics, structured outlines, transcripts, and owner review reports through decoding and optimistic edits.
+
 - Configure pad access lists, coaching, take-home timing, and AI Assist while preserving omitted defaults and explicit false values.
 
 - Restore pad and question pagination identities after the transport protocol changed.

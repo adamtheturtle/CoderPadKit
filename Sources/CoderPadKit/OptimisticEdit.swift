@@ -28,7 +28,10 @@ extension Pad {
         omittedParticipantCount: Int = 0,
         omittedInterviewerNotificationCount: Int = 0,
         omittedPadEnvironmentIDCount: Int = 0,
-        allowedInterviewerEmails: [String]? = nil
+        allowedInterviewerEmails: [String]? = nil,
+        interviewHighlights: String? = nil, interviewOutline: JSONValue? = nil,
+        transcript: [TranscriptEntry]? = nil, transcriptSourceUnavailable: Bool? = nil,
+        reviewReports: [ReviewReport]? = nil
     ) throws {
         try CoderPadClient.validatePadID(id)
         self.init(
@@ -41,6 +44,9 @@ extension Pad {
             questionIDs: questionIDs, team: team,
             restrictInterviewerAccess: restrictInterviewerAccess,
             allowedInterviewerEmails: allowedInterviewerEmails,
+            interviewHighlights: interviewHighlights, interviewOutline: interviewOutline,
+            transcript: transcript, transcriptSourceUnavailable: transcriptSourceUnavailable,
+            reviewReports: reviewReports,
             padInterviewerNotifications: padInterviewerNotifications,
             omittedParticipantCount: omittedParticipantCount,
             omittedInterviewerNotificationCount: omittedInterviewerNotificationCount,
@@ -57,6 +63,8 @@ extension Pad {
         type: String?, executionEnabled: Bool?, isPrivate: Bool?,
         activeEnvironmentID: Int?, padEnvironmentIDs: [Int], questionIDs: [Int],
         team: PadTeam?, restrictInterviewerAccess: Bool?, allowedInterviewerEmails: [String]?,
+        interviewHighlights: String?, interviewOutline: JSONValue?,
+        transcript: [TranscriptEntry]?, transcriptSourceUnavailable: Bool?, reviewReports: [ReviewReport]?,
         padInterviewerNotifications: [PadInterviewerNotification],
         omittedParticipantCount: Int, omittedInterviewerNotificationCount: Int,
         omittedPadEnvironmentIDCount: Int
@@ -83,6 +91,11 @@ extension Pad {
         self.isPrivate = isPrivate
         self.restrictInterviewerAccess = restrictInterviewerAccess
         self.allowedInterviewerEmails = allowedInterviewerEmails
+        self.interviewHighlights = interviewHighlights
+        self.interviewOutline = interviewOutline
+        self.transcript = transcript
+        self.transcriptSourceUnavailable = transcriptSourceUnavailable
+        self.reviewReports = reviewReports
         self.padInterviewerNotifications = padInterviewerNotifications
         self.omittedInterviewerNotificationCount = omittedInterviewerNotificationCount
         self.activeEnvironmentID = activeEnvironmentID
@@ -111,6 +124,9 @@ extension Pad {
             padEnvironmentIDs: padEnvironmentIDs, questionIDs: questionIDs, team: team,
             restrictInterviewerAccess: restrictInterviewerAccess,
             allowedInterviewerEmails: allowedInterviewerEmails,
+            interviewHighlights: interviewHighlights, interviewOutline: interviewOutline,
+            transcript: transcript, transcriptSourceUnavailable: transcriptSourceUnavailable,
+            reviewReports: reviewReports,
             padInterviewerNotifications: padInterviewerNotifications,
             omittedParticipantCount: omittedParticipantCount,
             omittedInterviewerNotificationCount: omittedInterviewerNotificationCount,
