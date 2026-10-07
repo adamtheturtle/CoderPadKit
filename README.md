@@ -144,3 +144,10 @@ Save models accept the six writable question types and separate writable evaluat
 Project creation accepts `ScreenProjectInput.temporaryFileID`, while archive replacement on updates requires the question editor.
 Writes make one request and preserve the usual validation, permission, missing-question, and conflict errors.
 The mock supports question reads, filters, pagination, creation, updates, and version changes.
+
+Use `ScreenClient.projectArchive(testID:questionID:)` with an integer test ID and UUID question ID to obtain candidate-modified `tar.gz` bytes.
+The client preserves binary content and leaves saving and extraction to the caller.
+Archive downloads use the independent Screen key and the client's configured `maximumResponseBodyBytes` ceiling.
+For slow archive generation, supply a `URLSession` with suitable request and resource timeouts.
+Normal task cancellation applies, and HTTP 400/404 and transport failures use the existing error contract.
+The mock returns a deterministic archive containing synthetic candidate changes.

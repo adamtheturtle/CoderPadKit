@@ -95,6 +95,9 @@ nonisolated enum MockScreenResponses {
         if let result = questionBankRoute(state: state, method: method, route: route, query: query, body: body) {
             return result
         }
+        if let result = projectArchiveRoute(state: state, method: method, route: route) {
+            return result
+        }
         if let result = testRoute(state: state, method: method, route: route, query: query) {
             return result
         }
