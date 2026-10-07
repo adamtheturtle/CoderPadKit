@@ -104,6 +104,7 @@ nonisolated extension MockResponses {
         if bodyDict["custom_database_id"] as? Int == 501 {
             question["custom_database"] = MockFixtures.customDatabase()
         }
+        if let error = applyParentFiles(bodyDict, to: &question, creating: true) { return error }
         state.createdQuestions.append(question)
         // Mirror the live API: the question's fields are returned flat at the top level.
         question["status"] = "OK"
@@ -133,6 +134,11 @@ nonisolated extension MockResponses {
             guard databaseID == 501 else { return invalidCustomDatabaseResponse }
             params["custom_database"] = MockFixtures.customDatabase()
             params.removeValue(forKey: "custom_database_id")
+        }
+        if let current = state.allQuestions().first(where: { ($0["id"] as? Int) == idInt }) {
+            var updated = current
+            if let error = applyParentFiles(params, to: &updated, creating: false) { return error }
+            if params["file_contents"] != nil { params["file_contents"] = updated["file_contents"] }
         }
         // Successful updates advance `updated_at`, matching the live API (#192).
         params["updated_at"] = Date.now.formatted(.iso8601)

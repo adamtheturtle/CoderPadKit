@@ -49,6 +49,10 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
     /// This metadata has been observed in live API responses but is not part of
     /// the published CoderPad Interview API contract.
     public let customDatabase: QuestionCustomDatabase?
+    /// Starter files, separate from downloadable custom attachments. Nil and empty remain distinct.
+    public let fileContents: [QuestionStarterFile]?
+    /// Compact variant metadata. Full variant code is available through the variant API.
+    public let questionVariants: [QuestionVariantSummary]?
 
     enum CodingKeys: String, CodingKey {
         case id, title, language, description, shared, used, solution, contents
@@ -68,6 +72,8 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
         case candidateInstructions = "candidate_instructions"
         case aiAssistCustomSystemPrompt = "ai_assist_custom_system_prompt"
         case customDatabase = "custom_database"
+        case fileContents = "file_contents"
+        case questionVariants = "question_variants"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -112,6 +118,8 @@ public nonisolated struct Question: Codable, Identifiable, Hashable, Sendable {
             .loggedDecodeIfPresent(String.self, forKey: .aiAssistCustomSystemPrompt)
         customDatabase = container
             .loggedDecodeIfPresent(QuestionCustomDatabase.self, forKey: .customDatabase)
+        fileContents = container.loggedDecodeIfPresent([QuestionStarterFile].self, forKey: .fileContents)
+        questionVariants = container.loggedDecodeIfPresent([QuestionVariantSummary].self, forKey: .questionVariants)
     }
 
     /// Describes skipped malformed `custom_files` entries, when any were omitted.
