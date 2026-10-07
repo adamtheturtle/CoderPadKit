@@ -19,6 +19,14 @@ nonisolated enum MockScreenResponses {
         let status: Int
         let body: Data
         let contentType: String
+        let headers: [String: String]
+
+        init(status: Int, body: Data, contentType: String, headers: [String: String] = [:]) {
+            self.status = status
+            self.body = body
+            self.contentType = contentType
+            self.headers = headers
+        }
     }
 
     /// All Screen endpoints live under this versioned prefix (see `ScreenClient`). The
@@ -82,6 +90,9 @@ nonisolated enum MockScreenResponses {
             return result
         }
         if let result = aiConversationRoute(state: state, method: method, route: route) {
+            return result
+        }
+        if let result = questionBankRoute(state: state, method: method, route: route, query: query, body: body) {
             return result
         }
         if let result = testRoute(state: state, method: method, route: route, query: query) {

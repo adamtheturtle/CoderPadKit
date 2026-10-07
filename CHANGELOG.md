@@ -10,6 +10,8 @@
 
 - Retrieve Screen candidate AI Assist conversations with ordered messages and original structured output.
 
+- Add the Screen question library with typed summaries, details, writable payloads, filtering, pagination, creation, and updates.
+
 - Set question sharing and custom database identity in JSON and ZIP mutations, with author permission checks in the mock.
 
 - Create Screen campaigns with ordered selected or random questions, typed settings, and matching demo routes.

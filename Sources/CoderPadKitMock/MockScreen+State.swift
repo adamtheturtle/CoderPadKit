@@ -30,6 +30,8 @@ final nonisolated class MockScreenState: @unchecked Sendable {
     /// The next id handed to an invitation-created session, above the seed id range.
     var nextTestID = 9000
     var temporaryFileIDs: Set<String> = []
+
+    var bankQuestions = MockScreenFixtures.questionBank()
     var createdCampaigns: [[String: Any]] = []
     var nextCampaignID = 9000
 

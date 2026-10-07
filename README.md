@@ -126,3 +126,21 @@ Message `outputItems` preserves structured JSON, including unknown fields, reaso
 Missing output stays nil and explicitly empty output stays empty.
 Conversations are available after completion or while awaiting manual review.
 Missing project questions return HTTP 404 and unfinished sessions return HTTP 409 through the existing error contract.
+
+### Screen question library
+
+`ScreenClient.listQuestions(filters:start:limit:)` returns `ScreenQuestionsPage` summaries with UUID identities.
+`listAllQuestions(filters:start:limit:)` preserves filters across advancing offsets and applies the existing full-list page and item bounds.
+`ScreenQuestionFilters` supports type, duration bounds, difficulty, domain, skill, programming language, library origin, product, and separate sort/order values.
+False and zero filters remain explicit, and literal plus signs are encoded in query values.
+
+`getQuestion(id:)` returns full `ScreenQuestionDetails`, including localized content, version, resources, type-specific settings, and evaluation metadata.
+Read models support CODE, MCQ, TEXT, GAME, FILE_UPLOAD, PROJECT, VIDEO, and legacy MULTI/CLASH/COURSE content.
+Unavailable fields remain nil and empty collections remain empty.
+
+`createQuestion(_:)` accepts `ScreenQuestionSave` and returns `ScreenCreatedQuestion` with question details and an optional Location header.
+`updateQuestion(id:_:)` sends PUT and returns updated details.
+Save models accept the six writable question types and separate writable evaluation options from server-owned `test_report` data and download URLs.
+Project creation accepts `ScreenProjectInput.temporaryFileID`, while archive replacement on updates requires the question editor.
+Writes make one request and preserve the usual validation, permission, missing-question, and conflict errors.
+The mock supports question reads, filters, pagination, creation, updates, and version changes.
