@@ -73,6 +73,9 @@ nonisolated extension MockResponses {
         guard let bodyDict = questionParams(body: body, contentType: contentType) else {
             return questionParamsError(contentType: contentType)
         }
+        if let databaseID = bodyDict["custom_database_id"] as? Int, databaseID != 501 {
+            return invalidCustomDatabaseResponse
+        }
         // Derive the id from seeds and this session's creations. Deleted ids remain
         // reserved because the live API never recycles an id it has handed out.
         let existingIDs = Set(
@@ -89,7 +92,8 @@ nonisolated extension MockResponses {
             "description": bodyDict["description"] ?? NSNull(),
             "ai_assist_custom_system_prompt": bodyDict["ai_assist_custom_system_prompt"] ?? NSNull(),
             "candidate_instructions": bodyDict["candidate_instructions"] ?? [],
-            "shared": true, "used": 0, "take_home": bodyDict["take_home"] as? Bool ?? false,
+            "shared": bodyDict["shared"] as? Bool ?? true, "used": 0,
+            "take_home": bodyDict["take_home"] as? Bool ?? false,
             "test_cases_enabled": false, "solution": bodyDict["solution"] ?? "",
             "pad_type": bodyDict["pad_type"] as? String ?? "live", "is_draft": false,
             "contents": bodyDict["contents"] ?? NSNull(), "custom_files": [],
@@ -97,6 +101,9 @@ nonisolated extension MockResponses {
             "created_at": Date.now.formatted(.iso8601),
             "updated_at": Date.now.formatted(.iso8601)
         ]
+        if bodyDict["custom_database_id"] as? Int == 501 {
+            question["custom_database"] = MockFixtures.customDatabase()
+        }
         state.createdQuestions.append(question)
         // Mirror the live API: the question's fields are returned flat at the top level.
         question["status"] = "OK"
@@ -117,6 +124,16 @@ nonisolated extension MockResponses {
             return questionParamsError(contentType: contentType)
         }
 
+        if params["shared"] != nil,
+           let question = state.allQuestions().first(where: { ($0["id"] as? Int) == idInt }),
+           question["owner_email"] as? String != MockFixtures.demoUserEmail {
+            return (403, jsonString(["status": "ERROR", "message": "Only the author can change sharing"]))
+        }
+        if let databaseID = params["custom_database_id"] as? Int {
+            guard databaseID == 501 else { return invalidCustomDatabaseResponse }
+            params["custom_database"] = MockFixtures.customDatabase()
+            params.removeValue(forKey: "custom_database_id")
+        }
         // Successful updates advance `updated_at`, matching the live API (#192).
         params["updated_at"] = Date.now.formatted(.iso8601)
         // QuestionUpdate is partial, so merge only the fields that were supplied.
@@ -130,6 +147,10 @@ nonisolated extension MockResponses {
             return malformedMultipartResponse
         }
         return invalidJSONBodyResponse
+    }
+
+    private static var invalidCustomDatabaseResponse: (Int, Data) {
+        (400, jsonString(["status": "ERROR", "message": "Custom database not found"]))
     }
 
     private static var malformedMultipartResponse: (Int, Data) {

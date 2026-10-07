@@ -112,7 +112,7 @@ nonisolated extension MockFixtures {
         ]
     }
 
-    private static func customDatabase() -> [String: Any] {
+    static func customDatabase() -> [String: Any] {
         [
             "id": 501,
             "title": "URL mappings",

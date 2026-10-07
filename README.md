@@ -76,3 +76,12 @@ An absent transcript is `nil`, an explicitly empty transcript is `[]`, and the u
 
 `TranscriptEntry` retains spoken and system-message kinds, optional speaker metadata, text, and timestamps in epoch milliseconds.
 `ReviewReport` retains open status strings, optional report and error content, file paths, reviewer identity, and creation/update dates. Pending and failed reviews stay available even when their report text is absent. The outline uses `JSONValue` to preserve arbitrary objects, arrays, strings, decimal numbers, Boolean values, and nulls. Optimistic pad edits preserve all analytics metadata. The mock API includes spoken transcripts, unavailable sources, and owner-only pending/error reviews on detail routes.
+
+### Question sharing and database selection
+
+`QuestionCreate` and `QuestionUpdate` accept optional `shared` and `customDatabaseID` fields.
+Omitted sharing keeps the server default or existing value, while explicit `false` and `true` are sent unchanged.
+Only the question author can change sharing, and permission failures use the existing API error contract.
+Database identity is encoded as an integer in JSON and as decimal text in multipart requests.
+These options work with ordinary question content and ZIP uploads while retaining the existing content-source rules.
+The mock API supports the seeded database identity 501 and rejects unknown identities.

@@ -127,6 +127,10 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
     public var padType: String?
     public var candidateInstructions: [CandidateInstructionPayload]?
     public var aiAssistCustomSystemPrompt: String?
+    /// Only the author may change sharing. Nil preserves the server default.
+    public var shared: Bool?
+    /// The integer identity of an existing custom database.
+    public var customDatabaseID: Int?
 
     public init(
         title: String, language: String? = nil, allowUnknownLanguage: Bool = false,
@@ -134,7 +138,7 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
         contents: String? = nil, fileContents: [QuestionFileContent]? = nil,
         takeHome: Bool? = nil, padType: String? = nil,
         candidateInstructions: [CandidateInstructionPayload]? = nil,
-        aiAssistCustomSystemPrompt: String? = nil
+        aiAssistCustomSystemPrompt: String? = nil, shared: Bool? = nil, customDatabaseID: Int? = nil
     ) {
         self.title = title
         self.language = language
@@ -147,14 +151,17 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
         self.padType = padType
         self.candidateInstructions = candidateInstructions
         self.aiAssistCustomSystemPrompt = aiAssistCustomSystemPrompt
+        self.shared = shared
+        self.customDatabaseID = customDatabaseID
     }
 
     private enum CodingKeys: String, CodingKey {
-        case description, solution, contents, question
+        case description, solution, contents, question, shared
         case takeHome = "take_home"
         case padType = "pad_type"
         case candidateInstructions = "candidate_instructions"
         case aiAssistCustomSystemPrompt = "ai_assist_custom_system_prompt"
+        case customDatabaseID = "custom_database_id"
     }
 
     private enum QuestionKeys: String, CodingKey {
@@ -179,6 +186,8 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
         try container.encodeIfPresent(padType, forKey: .padType)
         try container.encodeIfPresent(normalizedCandidateInstructions, forKey: .candidateInstructions)
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
+        try container.encodeIfPresent(shared, forKey: .shared)
+        try container.encodeIfPresent(customDatabaseID, forKey: .customDatabaseID)
         var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
         try question.encode(normalizedTitle, forKey: .title)
         try question.encodeIfPresent(normalizedLanguage, forKey: .language)
@@ -211,6 +220,10 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
     public var padType: String?
     public var candidateInstructions: [CandidateInstructionPayload]?
     public var aiAssistCustomSystemPrompt: String?
+    /// Only the author may change sharing. Nil preserves the server default.
+    public var shared: Bool?
+    /// The integer identity of an existing custom database.
+    public var customDatabaseID: Int?
 
     public init(
         id: Int, title: String? = nil, language: String? = nil,
@@ -218,7 +231,7 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         solution: String? = nil, contents: String? = nil,
         fileContents: [QuestionFileContent]? = nil, takeHome: Bool? = nil,
         padType: String? = nil, candidateInstructions: [CandidateInstructionPayload]? = nil,
-        aiAssistCustomSystemPrompt: String? = nil
+        aiAssistCustomSystemPrompt: String? = nil, shared: Bool? = nil, customDatabaseID: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -232,14 +245,17 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         self.padType = padType
         self.candidateInstructions = candidateInstructions
         self.aiAssistCustomSystemPrompt = aiAssistCustomSystemPrompt
+        self.shared = shared
+        self.customDatabaseID = customDatabaseID
     }
 
     private enum CodingKeys: String, CodingKey {
-        case description, solution, contents, question
+        case description, solution, contents, question, shared
         case takeHome = "take_home"
         case padType = "pad_type"
         case candidateInstructions = "candidate_instructions"
         case aiAssistCustomSystemPrompt = "ai_assist_custom_system_prompt"
+        case customDatabaseID = "custom_database_id"
     }
 
     private enum QuestionKeys: String, CodingKey {
@@ -264,6 +280,8 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         try container.encodeIfPresent(padType, forKey: .padType)
         try container.encodeIfPresent(normalizedCandidateInstructions, forKey: .candidateInstructions)
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
+        try container.encodeIfPresent(shared, forKey: .shared)
+        try container.encodeIfPresent(customDatabaseID, forKey: .customDatabaseID)
         if normalizedTitle != nil || normalizedLanguage != nil || normalizedFileContents != nil {
             var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
             try question.encodeIfPresent(normalizedTitle, forKey: .title)

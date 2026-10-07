@@ -306,6 +306,8 @@ nonisolated extension QuestionCreate {
             value: try validatedCandidateInstructions(candidateInstructions).map(Self.formJSONString)
         )
         fields.append(name: "ai_assist_custom_system_prompt", value: aiAssistCustomSystemPrompt)
+        fields.append(name: "shared", value: shared.map(String.init))
+        fields.append(name: "custom_database_id", value: customDatabaseID.map(String.init))
         return fields
     }
 
@@ -335,6 +337,8 @@ nonisolated extension QuestionUpdate {
             value: try validatedCandidateInstructions(candidateInstructions).map(Self.formJSONString)
         )
         fields.append(name: "ai_assist_custom_system_prompt", value: aiAssistCustomSystemPrompt)
+        fields.append(name: "shared", value: shared.map(String.init))
+        fields.append(name: "custom_database_id", value: customDatabaseID.map(String.init))
         return fields
     }
 
