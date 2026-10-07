@@ -78,6 +78,9 @@ nonisolated enum MockScreenResponses {
         if let result = questionInsightsRoute(method: method, route: route, query: query) {
             return result
         }
+        if let result = temporaryFileRoute(state: state, method: method, route: route, body: body) {
+            return result
+        }
         if let result = testRoute(state: state, method: method, route: route, query: query) {
             return result
         }
