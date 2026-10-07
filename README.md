@@ -66,3 +66,13 @@ Only `PadCreate` accepts `takeHome`, `takeHomeTimeLimit` (minutes), and `aiAssis
 Omit them to inherit question and organization defaults.
 `Pad.allowedInterviewerEmails` retains response metadata and survives optimistic inline edits.
 The mock backend supports the same list replacement semantics.
+
+### Interview analytics
+
+`getPad(id:)` retains optional `interviewHighlights`, `interviewOutline`, `transcript`, `transcriptSourceUnavailable`, and `reviewReports`.
+Highlights, outlines, and transcripts require Insights & Analytics, and review reports are returned only to the pad owner.
+Ordinary pad and list responses can omit all of these fields.
+An absent transcript is `nil`, an explicitly empty transcript is `[]`, and the unavailable-source flag remains independent.
+
+`TranscriptEntry` retains spoken and system-message kinds, optional speaker metadata, text, and timestamps in epoch milliseconds.
+`ReviewReport` retains open status strings, optional report and error content, file paths, reviewer identity, and creation/update dates. Pending and failed reviews stay available even when their report text is absent. The outline uses `JSONValue` to preserve arbitrary objects, arrays, strings, decimal numbers, Boolean values, and nulls. Optimistic pad edits preserve all analytics metadata. The mock API includes spoken transcripts, unavailable sources, and owner-only pending/error reviews on detail routes.

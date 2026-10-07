@@ -123,6 +123,10 @@ nonisolated enum MockResponses {
             if var pad = state.allPads().first(where: { ($0["id"] as? String) == id }) {
                 // Mirror the live API: the pad's fields are returned flat at the top level.
                 pad["status"] = "OK"
+                let analytics = MockFixtures.padAnalytics(id: id, ownerEmail: pad["owner_email"] as? String)
+                pad.merge(analytics) { _, analytics in
+                    analytics
+                }
                 return ok(pad)
             }
             return (404, jsonString(["status": "error", "message": "pad not found"]))

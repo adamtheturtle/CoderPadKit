@@ -57,6 +57,15 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
     /// linkage tests) and is reserved for a future "linked questions" navigation.
     public let questionIDs: [Int]
     public let team: PadTeam?
+    /// AI summary, available with Insights & Analytics.
+    public let interviewHighlights: String?
+    /// Structured service-owned outline, available with Insights & Analytics.
+    public let interviewOutline: JSONValue?
+    public let transcript: [TranscriptEntry]?
+    /// Independent from an explicitly empty transcript.
+    public let transcriptSourceUnavailable: Bool?
+    /// Only returned to the pad owner.
+    public let reviewReports: [ReviewReport]?
 
     enum CodingKeys: String, CodingKey {
         case id, title, state, language, participants, url, playback, type, team
@@ -73,6 +82,11 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         case activeEnvironmentID = "active_environment_id"
         case padEnvironmentIDs = "pad_environment_ids"
         case questionIDs = "question_ids"
+        case interviewHighlights = "interview_highlights"
+        case interviewOutline = "interview_outline"
+        case transcript
+        case transcriptSourceUnavailable = "transcript_source_unavailable"
+        case reviewReports = "review_reports"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -142,6 +156,11 @@ public nonisolated struct Pad: Codable, Identifiable, Hashable, Sendable {
         }
         questionIDs = container.loggedDecodeIfPresent([Int].self, forKey: .questionIDs) ?? []
         team = container.loggedDecodeIfPresent(PadTeam.self, forKey: .team)
+        interviewHighlights = container.loggedDecodeIfPresent(String.self, forKey: .interviewHighlights)
+        interviewOutline = container.loggedDecodeIfPresent(JSONValue.self, forKey: .interviewOutline)
+        transcript = container.loggedDecodeIfPresent([TranscriptEntry].self, forKey: .transcript)
+        transcriptSourceUnavailable = container.loggedDecodeIfPresent(Bool.self, forKey: .transcriptSourceUnavailable)
+        reviewReports = container.loggedDecodeIfPresent([ReviewReport].self, forKey: .reviewReports)
     }
 
     /// Describes skipped malformed `participants` entries, when any were omitted.
