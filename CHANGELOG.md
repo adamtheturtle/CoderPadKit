@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Retain parent-question starter files and compact variant metadata, with hidden and template deletion options in structured requests.
+
 - Set question sharing and custom database identity in JSON and ZIP mutations, with author permission checks in the mock.
 
 - Create Screen campaigns with ordered selected or random questions, typed settings, and matching demo routes.

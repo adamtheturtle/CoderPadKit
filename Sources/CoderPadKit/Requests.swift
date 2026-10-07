@@ -96,11 +96,15 @@ public nonisolated struct QuestionFileContent: Encodable, Sendable {
     public static let maximumAggregateByteCount = 10 * 1024 * 1024
 
     public var path: String
-    public var contents: String
+    public var contents: String?
+    public var hidden: Bool?
+    public var deleted: Bool?
 
-    public init(path: String, contents: String) {
+    public init(path: String, contents: String? = nil, hidden: Bool? = nil, deleted: Bool? = nil) {
         self.path = path
         self.contents = contents
+        self.hidden = hidden
+        self.deleted = deleted
     }
 }
 

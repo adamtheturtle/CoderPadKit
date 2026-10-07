@@ -147,6 +147,8 @@ extension Question {
         updatedAt: Date?, candidateInstructions: [CandidateInstruction],
         aiAssistCustomSystemPrompt: String? = nil,
         customDatabase: QuestionCustomDatabase? = nil,
+        fileContents: [QuestionStarterFile]? = nil,
+        questionVariants: [QuestionVariantSummary]? = nil,
         omittedCustomFileCount: Int = 0,
         omittedTestCaseCount: Int = 0,
         omittedCandidateInstructionCount: Int = 0
@@ -165,6 +167,7 @@ extension Question {
             candidateInstructions: candidateInstructions,
             aiAssistCustomSystemPrompt: aiAssistCustomSystemPrompt,
             customDatabase: customDatabase,
+            fileContents: fileContents, questionVariants: questionVariants,
             omittedCustomFileCount: omittedCustomFileCount,
             omittedTestCaseCount: omittedTestCaseCount,
             omittedCandidateInstructionCount: omittedCandidateInstructionCount
@@ -180,6 +183,7 @@ extension Question {
         customFiles: [QuestionCustomFile], testCases: [QuestionTestCase],
         createdAt: Date?, updatedAt: Date?, candidateInstructions: [CandidateInstruction],
         aiAssistCustomSystemPrompt: String?, customDatabase: QuestionCustomDatabase?,
+        fileContents: [QuestionStarterFile]?, questionVariants: [QuestionVariantSummary]?,
         omittedCustomFileCount: Int, omittedTestCaseCount: Int,
         omittedCandidateInstructionCount: Int
     ) {
@@ -210,6 +214,8 @@ extension Question {
         self.omittedCandidateInstructionCount = omittedCandidateInstructionCount
         self.aiAssistCustomSystemPrompt = aiAssistCustomSystemPrompt
         self.customDatabase = customDatabase
+        self.fileContents = fileContents
+        self.questionVariants = questionVariants
     }
 
     /// A copy with the inline-editable metadata and long-form content overridden
@@ -247,6 +253,7 @@ extension Question {
             } ?? candidateInstructions,
             aiAssistCustomSystemPrompt: aiAssistCustomSystemPrompt,
             customDatabase: customDatabase,
+            fileContents: fileContents, questionVariants: questionVariants,
             omittedCustomFileCount: omittedCustomFileCount,
             omittedTestCaseCount: omittedTestCaseCount,
             omittedCandidateInstructionCount: omittedCandidateInstructionCount

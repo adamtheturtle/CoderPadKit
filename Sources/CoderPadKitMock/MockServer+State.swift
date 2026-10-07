@@ -46,11 +46,17 @@ final nonisolated class MockState: @unchecked Sendable {
     /// Seed questions with this state's edits layered on and deletions removed.
     func allQuestions() -> [[String: Any]] {
         let merged = (MockFixtures.questions() + createdQuestions).map { question -> [String: Any] in
-            guard let id = question["id"] as? Int, let updates = updatedQuestions[id] else { return question }
+            guard let id = question["id"] as? Int else { return question }
 
             var combined = question
-            for (key, value) in updates where key != "id" {
+            for (key, value) in updatedQuestions[id] ?? [:] where key != "id" {
                 combined[key] = value
+            }
+            if let variants = questionVariants[id] {
+                combined["question_variants"] = variants.map { variant in
+                    let keys = ["id", "language", "project_template_id", "project_template_slug", "display"]
+                    return variant.filter { keys.contains($0.key) }
+                }
             }
             return combined
         }

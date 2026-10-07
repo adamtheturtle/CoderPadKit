@@ -93,3 +93,17 @@ Random inclusion and exclusion lists are mutually exclusive.
 Omitted settings inherit team defaults, while false, zero, and empty values are sent explicitly.
 `enabledCodingAgents` is a string, and an empty string disables agents.
 Creation returns `ScreenCreatedCampaign.id`, makes one request, and surfaces feature restrictions through the usual HTTP error contract.
+
+### Parent-question project files
+
+`Question.fileContents` exposes starter files with path, optional text, hidden, and deleted metadata.
+`Question.questionVariants` contains compact `QuestionVariantSummary` values, including nullable language, project template identity/slug, and display name.
+These summaries require neither full variant code nor timestamps.
+Starter files are separate from the downloadable attachments in `customFiles`.
+
+`QuestionFileContent(path:contents:hidden:deleted:)` supports hidden files and path-only template deletion entries.
+Text remains required when `deleted` is not true, and `.cpad` cannot be deleted.
+Structured files overlay template files during creation, including an empty overlay retaining defaults.
+ZIP uploads replace template files except for preserved `.cpad`.
+Deleted entries on parent-question updates are ignored by the service.
+Optimistic edits preserve starter files and variant summaries.

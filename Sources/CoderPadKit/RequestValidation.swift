@@ -33,6 +33,10 @@ public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatab
     case invalidFilePath(String)
     /// Two structured files shared the same normalized path (#144).
     case duplicateFilePath(String)
+    /// A non-deletion file omitted its text contents.
+    case missingFileContents(String)
+    /// The protected template configuration cannot be deleted.
+    case protectedTemplateFile
     /// `takeHome` and `padType` described different interview formats (#145).
     case contradictoryTakeHomeAndPadType
 
@@ -56,6 +60,10 @@ public nonisolated enum QuestionMutationValidationError: LocalizedError, Equatab
             "Question file path '\(path)' must be a nonempty relative project path."
         case let .duplicateFilePath(path):
             "Question file path '\(path)' is duplicated."
+        case let .missingFileContents(path):
+            "Question file '\(path)' requires contents unless deleted is true."
+        case .protectedTemplateFile:
+            ".cpad cannot be deleted."
         case .contradictoryTakeHomeAndPadType:
             "takeHome and padType must describe the same interview format."
         }
@@ -220,7 +228,13 @@ nonisolated func validatedFileContents(
         guard seenPaths.insert(path).inserted else {
             throw QuestionMutationValidationError.duplicateFilePath(path)
         }
-        let byteCount = file.contents.utf8.count
+        guard file.contents != nil || file.deleted == true else {
+            throw QuestionMutationValidationError.missingFileContents(path)
+        }
+        guard path != ".cpad" || file.deleted != true else {
+            throw QuestionMutationValidationError.protectedTemplateFile
+        }
+        let byteCount = file.contents?.utf8.count ?? 0
         guard byteCount <= QuestionFileContent.maximumFileByteCount else {
             throw QuestionMutationValidationError.fileContentTooLarge(
                 path: path,
@@ -236,7 +250,8 @@ nonisolated func validatedFileContents(
                 limit: QuestionFileContent.maximumAggregateByteCount
             )
         }
-        normalizedFiles.append(QuestionFileContent(path: path, contents: file.contents))
+        normalizedFiles.append(QuestionFileContent(path: path, contents: file.contents,
+                                                   hidden: file.hidden, deleted: file.deleted))
     }
     return normalizedFiles
 }
