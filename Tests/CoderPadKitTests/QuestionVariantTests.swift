@@ -51,6 +51,7 @@ struct QuestionVariantTests {
             .init(path: "src/App.jsx", deleted: true), .init(path: "hello world.jsx", contents: "hello", hidden: true)
         ]))
         #expect(variant.projectTemplateSlug == "react")
+        #expect(variant.language == nil)
         #expect(variant.fileContents?.map(\.path) == [".cpad", "hello world.jsx"])
         #expect(variant.fileContents?.last?.hidden == true)
         let replaced = try await client.updateQuestionVariant(questionID: 101, id: variant.id, .init(fileContents: [

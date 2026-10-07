@@ -59,7 +59,8 @@ nonisolated extension MockResponses {
         guard let attributes = variantParams(body), var variant = state.questionVariants[questionID]?[index] else {
             return variantError("Expected a JSON object.")
         }
-        if let language = attributes["language"] as? String, language != variant["language"] as? String {
+        let currentEnvironment = variant["language"] as? String ?? variant["project_template_slug"] as? String
+        if let language = attributes["language"] as? String, language != currentEnvironment {
             guard !language.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 return variantError("Language must not be blank.")
             }
@@ -76,7 +77,7 @@ nonisolated extension MockResponses {
     }
 
     private static func configureEnvironment(_ variant: inout [String: Any], language: String) {
-        variant["language"] = language
+        variant["language"] = language == "react" ? NSNull() : language
         variant["display"] = language == "react" ? "React" : language
         variant["project_template_id"] = language == "react" ? 1 : NSNull()
         variant["project_template_slug"] = language == "react" ? "react" : NSNull()

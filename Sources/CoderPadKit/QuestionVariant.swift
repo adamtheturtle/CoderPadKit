@@ -3,11 +3,11 @@ import Foundation
 /// A decoded starter file or a template overlay entry. Paths are already decoded by the API.
 public nonisolated struct QuestionVariantFileContent: Codable, Hashable, Sendable {
     public var path: String
-    public var contents: String
+    public var contents: String?
     public var hidden: Bool?
     public var deleted: Bool?
 
-    public init(path: String, contents: String = "", hidden: Bool? = nil, deleted: Bool? = nil) {
+    public init(path: String, contents: String? = nil, hidden: Bool? = nil, deleted: Bool? = nil) {
         self.path = path
         self.contents = contents
         self.hidden = hidden
@@ -19,7 +19,7 @@ public nonisolated struct QuestionVariantFileContent: Codable, Hashable, Sendabl
 public nonisolated struct QuestionVariant: Codable, Identifiable, Hashable, Sendable {
     public let id: Int
     public let questionID: Int
-    public let language: String
+    public let language: String?
     public let projectTemplateID: Int?
     public let projectTemplateSlug: String?
     public let display: String?
