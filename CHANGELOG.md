@@ -6,6 +6,8 @@
 
 - Retain UUID Screen question results, candidate answers, evaluation breakdowns, timer settings, and report activity fields while preserving integer list summaries.
 
+- Decode nullable project variant languages and path-only removed files.
+
 - Retain parent-question starter files and compact variant metadata, with hidden and template deletion options in structured requests.
 
 - Expose Screen question usage, answer and test-case frequencies, and score distribution insights.
