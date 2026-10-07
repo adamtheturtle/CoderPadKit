@@ -60,13 +60,17 @@ nonisolated extension MockResponses {
 
     /// The JSON request nests `title`/`language` under a `question` object. Lift
     /// those back to top level so both wire encodings feed the same mock fixtures.
-    private static func flattenQuestionParams(_ dict: [String: Any]) -> [String: Any] {
-        guard let nested = dict["question"] as? [String: Any] else { return dict }
-
+    private static func flattenQuestionParams(_ dict: [String: Any]) -> [String: Any]? {
         var flattened = dict
         flattened.removeValue(forKey: "question")
-        for (key, value) in nested {
-            flattened[key] = value
+        if let nested = dict["question"] as? [String: Any] {
+            flattened.merge(nested) { _, new in new }
+        }
+        for key in ["candidate_instructions", "file_contents"] where flattened[key] != nil {
+            guard let encoded = flattened[key] as? String,
+                  let decoded = try? JSONSerialization.jsonObject(with: Data(encoded.utf8)),
+                  let array = decoded as? [[String: Any]] else { return nil }
+            flattened[key] = array
         }
         return flattened
     }

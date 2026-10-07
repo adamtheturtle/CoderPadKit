@@ -188,14 +188,16 @@ public nonisolated struct QuestionCreate: Encodable, Sendable {
         try container.encodeIfPresent(contents, forKey: .contents)
         try container.encodeIfPresent(takeHome, forKey: .takeHome)
         try container.encodeIfPresent(padType, forKey: .padType)
-        try container.encodeIfPresent(normalizedCandidateInstructions, forKey: .candidateInstructions)
+        try container.encodeIfPresent(
+            encodedQuestionArray(normalizedCandidateInstructions), forKey: .candidateInstructions
+        )
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
         try container.encodeIfPresent(shared, forKey: .shared)
         try container.encodeIfPresent(customDatabaseID, forKey: .customDatabaseID)
         var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
         try question.encode(normalizedTitle, forKey: .title)
         try question.encodeIfPresent(normalizedLanguage, forKey: .language)
-        try question.encodeIfPresent(normalizedFileContents, forKey: .fileContents)
+        try question.encodeIfPresent(encodedQuestionArray(normalizedFileContents), forKey: .fileContents)
     }
 }
 
@@ -282,7 +284,9 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
         try container.encodeIfPresent(contents, forKey: .contents)
         try container.encodeIfPresent(takeHome, forKey: .takeHome)
         try container.encodeIfPresent(padType, forKey: .padType)
-        try container.encodeIfPresent(normalizedCandidateInstructions, forKey: .candidateInstructions)
+        try container.encodeIfPresent(
+            encodedQuestionArray(normalizedCandidateInstructions), forKey: .candidateInstructions
+        )
         try container.encodeIfPresent(aiAssistCustomSystemPrompt, forKey: .aiAssistCustomSystemPrompt)
         try container.encodeIfPresent(shared, forKey: .shared)
         try container.encodeIfPresent(customDatabaseID, forKey: .customDatabaseID)
@@ -290,7 +294,7 @@ public nonisolated struct QuestionUpdate: Encodable, Sendable {
             var question = container.nestedContainer(keyedBy: QuestionKeys.self, forKey: .question)
             try question.encodeIfPresent(normalizedTitle, forKey: .title)
             try question.encodeIfPresent(normalizedLanguage, forKey: .language)
-            try question.encodeIfPresent(normalizedFileContents, forKey: .fileContents)
+            try question.encodeIfPresent(encodedQuestionArray(normalizedFileContents), forKey: .fileContents)
         }
     }
 }

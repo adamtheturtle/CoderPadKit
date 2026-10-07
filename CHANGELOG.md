@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Encode parent-question instruction and structured file arrays as JSON strings.
+
 - Retain parent-question starter files and compact variant metadata, with hidden and template deletion options in structured requests.
 
 - Expose Screen question usage, answer and test-case frequencies, and score distribution insights.
