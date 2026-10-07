@@ -30,6 +30,15 @@ struct ScreenQuestionInsightsTests {
     }
 
     @Test
+    func `language plus signs are encoded for form query decoding`() throws {
+        let client = ScreenClient(apiKey: "screen-key")
+        let request = try client.authorizedRequest(path: "/questions/example/insights", method: "GET",
+                                                   query: [URLQueryItem(name: "programming_language", value: "C++")])
+        #expect(request.url?.absoluteString
+            == "https://screen.coderpad.io/assessment/api/v1.1/questions/example/insights?programming_language=C%2B%2B")
+    }
+
+    @Test
     func `empty and unavailable insights remain distinct`() async throws {
         let id = try #require(UUID(uuidString: MockScreenFixtures.emptyInsightsQuestionID))
         let result = try await ScreenClient.mock().questionInsights(id: id)

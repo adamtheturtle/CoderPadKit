@@ -249,6 +249,9 @@ public struct ScreenClient {
                                        resolvingAgainstBaseURL: false)
         if !query.isEmpty {
             components?.queryItems = query
+            // Form query decoding treats literal plus signs as spaces.
+            let escaped = components?.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+            components?.percentEncodedQuery = escaped
         }
         guard let url = components?.url else { throw CoderPadError.http(0, "Invalid URL") }
 
