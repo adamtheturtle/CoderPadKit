@@ -29,6 +29,12 @@ final nonisolated class MockScreenState: @unchecked Sendable {
     var deletedTestIDs: Set<Int> = []
     /// The next id handed to an invitation-created session, above the seed id range.
     var nextTestID = 9000
+    var createdCampaigns: [[String: Any]] = []
+    var nextCampaignID = 9000
+
+    func allCampaigns() -> [[String: Any]] {
+        MockScreenFixtures.campaigns() + createdCampaigns
+    }
 
     /// Seed and invitation-created sessions, with cancellations applied and deletions
     /// removed — the single source the test routes read.

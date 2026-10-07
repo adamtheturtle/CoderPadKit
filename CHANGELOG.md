@@ -4,6 +4,8 @@
 
 - Set question sharing and custom database identity in JSON and ZIP mutations, with author permission checks in the mock.
 
+- Create Screen campaigns with ordered selected or random questions, typed settings, and matching demo routes.
+
 - Retain optional Interview analytics, structured outlines, transcripts, and owner review reports through decoding and optimistic edits.
 
 - Configure pad access lists, coaching, take-home timing, and AI Assist while preserving omitted defaults and explicit false values.
