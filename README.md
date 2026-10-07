@@ -112,3 +112,10 @@ Use `ScreenClient.questionInsights(id:programmingLanguage:)` to retrieve statist
 `ScreenQuestionInsights` retains usage counts and timestamps, average elapsed time, timeout and score ratios, answer frequencies, test-case success, score buckets, and total candidates.
 Unavailable fields remain nil, while explicit empty lists, false values, and zero metrics remain available.
 The usual HTTP error contract applies to invalid languages and missing questions.
+
+Use `ScreenClient.uploadTemporaryFile(_:)` with the original gzip archive `Data` to obtain a `ScreenTemporaryFile.id`.
+The client sends `application/gzip` and the exact `Content-Length`, and rejects bodies larger than 52,428,800 bytes before networking.
+Use the temporary ID promptly in `project_details.temporary_file_id` when creating a project question.
+Unused uploads are eventually deleted by the service.
+The usual error contract applies to permission and upload failures, and uploads are never automatically retried.
+The client's configured timeout and normal task cancellation apply.

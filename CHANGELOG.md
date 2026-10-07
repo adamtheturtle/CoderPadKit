@@ -6,6 +6,8 @@
 
 - Expose Screen question usage, answer and test-case frequencies, and score distribution insights.
 
+- Upload raw Screen project archives with exact byte headers, local size validation, and typed temporary file IDs.
+
 - Set question sharing and custom database identity in JSON and ZIP mutations, with author permission checks in the mock.
 
 - Create Screen campaigns with ordered selected or random questions, typed settings, and matching demo routes.
