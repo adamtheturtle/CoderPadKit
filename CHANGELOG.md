@@ -12,6 +12,8 @@
 
 - Add the Screen question library with typed summaries, details, writable payloads, filtering, pagination, creation, and updates.
 
+- Download candidate-modified Screen project archives as binary data with configured bounds and timeouts.
+
 - Set question sharing and custom database identity in JSON and ZIP mutations, with author permission checks in the mock.
 
 - Create Screen campaigns with ordered selected or random questions, typed settings, and matching demo routes.
