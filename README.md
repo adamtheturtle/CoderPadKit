@@ -119,3 +119,10 @@ Use the temporary ID promptly in `project_details.temporary_file_id` when creati
 Unused uploads are eventually deleted by the service.
 The usual error contract applies to permission and upload failures, and uploads are never automatically retried.
 The client's configured timeout and normal task cancellation apply.
+
+Use `ScreenClient.aiAssistConversations(testID:questionID:)` with an integer test ID and UUID project question ID.
+Conversations retain their identity, subject, original ISO 8601 timestamps, and ordered messages with USER/ASSISTANT roles.
+Message `outputItems` preserves structured JSON, including unknown fields, reasoning, tool calls, and text chunks.
+Missing output stays nil and explicitly empty output stays empty.
+Conversations are available after completion or while awaiting manual review.
+Missing project questions return HTTP 404 and unfinished sessions return HTTP 409 through the existing error contract.
