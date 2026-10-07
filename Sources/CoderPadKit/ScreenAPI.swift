@@ -102,7 +102,17 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
     public let testURL: String?
     /// The candidate's chosen UI language, e.g. "en".
     public let candidateLanguage: String?
-    public let questions: [ScreenTestQuestion]
+    /// Original question order and both identity formats, without discarding UUID details.
+    public let questionEntries: [ScreenSessionQuestion]
+    /// Lightweight integer entries retained for existing list consumers.
+    public var questions: [ScreenTestQuestion] {
+        questionEntries.compactMap { if case let .summary(question) = $0 { question } else { nil } }
+    }
+    /// UUID questions with candidate submissions, grading, and activity metadata.
+    public var detailedQuestions: [ScreenDetailedQuestion] {
+        questionEntries.compactMap { if case let .detailed(question) = $0 { question } else { nil } }
+    }
+    public let timerType: String?
     /// Count of `questions` elements that failed to decode and were dropped
     /// rather than failing the whole session (#215).
     public let omittedQuestionCount: Int
@@ -118,7 +128,8 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
                 candidateName: String? = nil, candidateEmail: String? = nil, tags: [String] = [],
                 sendTime: Int? = nil, startTime: Int? = nil, endTime: Int? = nil,
                 lastActivityTime: Int? = nil, campaignID: Int? = nil,
-                url: String? = nil, testURL: String? = nil) throws {
+                url: String? = nil, testURL: String? = nil,
+                questionEntries: [ScreenSessionQuestion] = [], timerType: String? = nil) throws {
         self.id = try validatedScreenModelID(id, kind: "test")
         self.status = status
         self.url = url
@@ -145,7 +156,8 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
         )
         self.testURL = testURL
         candidateLanguage = nil
-        questions = []
+        self.questionEntries = questionEntries
+        self.timerType = timerType
         omittedQuestionCount = 0
         omittedTagCount = 0
         approvalStatus = nil
@@ -216,9 +228,10 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
         testURL = try container.decodeIfPresent(String.self, forKey: .testURL)
         candidateLanguage = try container.decodeIfPresent(String.self, forKey: .candidateLanguage)
         let decodedQuestions = try container.decodeIfPresent(
-            TolerantScreenList<ScreenTestQuestion>.self, forKey: .questions
+            TolerantScreenList<ScreenSessionQuestion>.self, forKey: .questions
         )
-        questions = decodedQuestions?.elements ?? []
+        questionEntries = decodedQuestions?.elements ?? []
+        timerType = try container.decodeIfPresent(String.self, forKey: .timerType)
         omittedQuestionCount = decodedQuestions?.discardedCount ?? 0
         approvalStatus = try container.decodeIfPresent(String.self, forKey: .approvalStatus)
     }
@@ -237,6 +250,7 @@ public nonisolated struct ScreenTestSession: Decodable, Identifiable, Hashable, 
         case testURL = "test_url"
         case candidateLanguage = "candidate_language"
         case approvalStatus = "approval_status"
+        case timerType = "timer_type"
     }
 }
 
@@ -331,6 +345,9 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
     /// after normalization, or exceeded the retained-warning cap and were dropped
     /// rather than failing the whole report (#218, #113).
     public let omittedWarningCount: Int
+    public let markedAsCheatedByRecruiter: Bool?
+    public let timeSpentOutsideEnvironmentSeconds: Int?
+    public let environmentExitCount: Int?
 
     /// Memberwise init for tests and previews; enforces the same metric invariants
     /// as `init(from:)` (#142).
@@ -338,7 +355,9 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
                 warnings: [String] = [], technologies: [String: ScreenTechnologyResult] = [:],
                 totalDuration: Int? = nil, totalPoints: Int? = nil,
                 comparativeScore: Double? = nil, communityStats: [Int]? = nil,
-                omittedBreakdownEntries: Int = 0, omittedWarningCount: Int = 0) throws {
+                omittedBreakdownEntries: Int = 0, omittedWarningCount: Int = 0,
+                markedAsCheatedByRecruiter: Bool? = nil,
+                timeSpentOutsideEnvironmentSeconds: Int? = nil, environmentExitCount: Int? = nil) throws {
         self.duration = try ScreenReportMetric.validatedNonnegative(duration, name: "duration")
         self.warnings = warnings
         self.points = try ScreenReportMetric.validatedNonnegative(points, name: "points")
@@ -371,6 +390,13 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
             self.communityStats = nil
         }
         self.omittedWarningCount = omittedWarningCount
+        self.markedAsCheatedByRecruiter = markedAsCheatedByRecruiter
+        self.timeSpentOutsideEnvironmentSeconds = try ScreenReportMetric.validatedNonnegative(
+            timeSpentOutsideEnvironmentSeconds, name: "time_spent_outside_environment_seconds"
+        )
+        self.environmentExitCount = try ScreenReportMetric.validatedNonnegative(
+            environmentExitCount, name: "environment_exit_count"
+        )
     }
 
     public init(from decoder: any Decoder) throws {
@@ -399,6 +425,11 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
         )
         comparativeScore = try ScreenReportMetric.percentage(from: container, forKey: .comparativeScore)
         communityStats = try ScreenReportMetric.decodeCommunityStats(from: container, forKey: .communityStats)
+        markedAsCheatedByRecruiter = try container.decodeIfPresent(Bool.self, forKey: .markedAsCheatedByRecruiter)
+        timeSpentOutsideEnvironmentSeconds = try ScreenReportMetric.nonnegativeInteger(
+            from: container, forKey: .timeSpentOutsideEnvironmentSeconds
+        )
+        environmentExitCount = try ScreenReportMetric.nonnegativeInteger(from: container, forKey: .environmentExitCount)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -407,6 +438,9 @@ public nonisolated struct ScreenReport: Decodable, Hashable, Sendable {
         case totalPoints = "total_points"
         case comparativeScore = "comparative_score"
         case communityStats = "community_stats"
+        case markedAsCheatedByRecruiter = "marked_as_cheated_by_recruiter"
+        case timeSpentOutsideEnvironmentSeconds = "time_spent_outside_environment_seconds"
+        case environmentExitCount = "environment_exit_count"
     }
 }
 

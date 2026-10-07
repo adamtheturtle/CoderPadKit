@@ -151,3 +151,24 @@ Archive downloads use the independent Screen key and the client's configured `ma
 For slow archive generation, supply a `URLSession` with suitable request and resource timeouts.
 Normal task cancellation applies, and HTTP 400/404 and transport failures use the existing error contract.
 The mock returns a deterministic archive containing synthetic candidate changes.
+
+### Detailed Screen results
+
+`getTest(id:)` retains UUID question results in `detailedQuestions`, including candidate submissions, evaluation breakdowns, rubric AI reviews, timing, and activity indicators.
+`questionEntries` preserves the original order when a response mixes UUID details and integer summaries.
+The existing `questions` property continues to expose integer list summaries.
+
+```swift
+let session = try await screen.getTest(id: 5001)
+for question in session.detailedQuestions {
+    print(question.id, question.title ?? "", question.awardedPoints as Any)
+    print(question.answer?.projectAnswer?.aiAssistConversationCount as Any)
+}
+```
+
+Pending grades and missing submissions stay optional.
+Explicit zero scores and false flags remain present.
+Restricted reports may omit questions.
+Media URLs are returned as metadata; reading a report does not download recordings, files, or project archives.
+`timerType` exposes session timer settings, and report activity fields include recruiter cheating flags, time outside the environment, and exit counts.
+Demo session 5001 includes all answer formats; session 5002 illustrates restricted question details.

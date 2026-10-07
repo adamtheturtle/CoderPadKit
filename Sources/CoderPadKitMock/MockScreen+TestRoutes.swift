@@ -137,6 +137,20 @@ nonisolated extension MockScreenResponses {
             return json(404, ["code": "not_found", "message": "test not found"])
         }
 
+        if id == 5001 {
+            test["questions"] = MockScreenFixtures.detailedQuestions()
+            test["timer_type"] = "GLOBAL"
+            if var report = test["report"] as? [String: Any] {
+                report["marked_as_cheated_by_recruiter"] = false
+                report["time_spent_outside_environment_seconds"] = 0
+                report["environment_exit_count"] = 0
+                test["report"] = report
+            }
+        } else if id == 5002 {
+            // A completed report can omit question details when permissions restrict them.
+            test["questions"] = nil
+        }
+
         if query["withCommunityStats"] != "true", var report = test["report"] as? [String: Any] {
             report["community_stats"] = nil
             test["report"] = report
