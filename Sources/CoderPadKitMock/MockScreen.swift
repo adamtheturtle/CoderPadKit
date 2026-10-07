@@ -126,9 +126,11 @@ final nonisolated class MockScreenURLProtocol: URLProtocol {
                                                  query: query,
                                                  body: bodyData)
 
+        var headers = result.headers
+        headers["Content-Type"] = result.contentType
         guard let response = HTTPURLResponse(
             url: url, statusCode: result.status, httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type": result.contentType]
+            headerFields: headers
         ) else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
