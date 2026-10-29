@@ -1,13 +1,27 @@
 import Foundation
 
 /// An ordered campaign question or randomly selected question set.
-public nonisolated enum ScreenCampaignQuestion: Encodable, Hashable, Sendable {
+public nonisolated enum ScreenCampaignQuestion: Codable, Hashable, Sendable {
     case question(UUID)
     case randomQuestionSet(ScreenRandomQuestionConfiguration)
 
     enum CodingKeys: String, CodingKey {
         case type, configuration
         case questionID = "question_id"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(String.self, forKey: .type) {
+        case "QUESTION":
+            self = try .question(container.decode(UUID.self, forKey: .questionID))
+        case "RANDOM_QUESTION_SET":
+            self = try .randomQuestionSet(container.decode(ScreenRandomQuestionConfiguration.self,
+                                                           forKey: .configuration))
+        default:
+            throw DecodingError.dataCorruptedError(forKey: .type, in: container,
+                                                   debugDescription: "Unknown campaign question type.")
+        }
     }
 
     public func encode(to encoder: any Encoder) throws {

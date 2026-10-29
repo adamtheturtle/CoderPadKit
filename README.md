@@ -172,3 +172,16 @@ Restricted reports may omit questions.
 Media URLs are returned as metadata; reading a report does not download recordings, files, or project archives.
 `timerType` exposes session timer settings, and report activity fields include recruiter cheating flags, time outside the environment, and exit counts.
 Demo session 5001 includes all answer formats; session 5002 illustrates restricted question details.
+
+### Screen campaign definitions
+
+Retrieve the ordered questions, settings, and team of an assessment separately from its candidate sessions:
+
+```swift
+let campaign = try await screen.getCampaign(id: 121)
+let questions = campaign.questions
+let settings = campaign.settings
+```
+
+Question selections and settings are Codable, so the returned definition can also seed a new campaign request.
+The demo server retains campaign definitions after creation.

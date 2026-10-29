@@ -36,6 +36,7 @@ nonisolated enum MockScreenResponses {
     // Compile the fixed route grammar once. `respond` runs while the mock state's
     // lock is held, so compiling up to six regexes per request serialized every
     // concurrent demo Screen call behind expensive Foundation setup (#2114).
+    private static let campaignDetailRoute = regex(#"^/campaigns/(\d+)/?$"#)
     private static let campaignSendRoute = regex(#"^/campaigns/(\d+)/actions/send/?$"#)
     static let testReportRoute = regex(#"^/tests/(\d+)/report/?$"#)
     static let testCancelRoute = regex(#"^/tests/(\d+)/actions/cancel/?$"#)
@@ -127,6 +128,10 @@ nonisolated enum MockScreenResponses {
 
         if method == "GET", route == "/campaigns" || route == "/campaigns/" {
             return json(200, state.allCampaigns())
+        }
+
+        if method == "GET", let id = match(route, campaignDetailRoute), let campaignID = Int(id) {
+            return campaignDefinition(state: state, id: campaignID)
         }
 
         return nil

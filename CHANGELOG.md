@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.6.1
+
+- Retrieve Screen campaign definitions with ordered questions, settings, and team identity.
+
 ## 0.6.0
 
 - **Breaking:** Full project variant languages and removed-file contents are optional.
