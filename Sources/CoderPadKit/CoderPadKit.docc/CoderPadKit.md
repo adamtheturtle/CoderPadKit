@@ -205,3 +205,16 @@ File entries preserve decoded paths and optional `hidden` / `deleted` flags.
 Alternatively, `fileContentsJSON` sends a JSON string under `file_contents`.
 Template files are overlaid on create and replaced on update; an empty array on update resets the template.
 The API protects `.cpad` and requires a remaining file.
+
+### Screen campaign definitions
+
+Retrieve the ordered questions, settings, and team of an assessment separately from its candidate sessions:
+
+```swift
+let campaign = try await screen.getCampaign(id: 121)
+let questions = campaign.questions
+let settings = campaign.settings
+```
+
+Question selections and settings are Codable, so the returned definition can also seed a new campaign request.
+The demo server retains campaign definitions after creation.

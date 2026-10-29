@@ -1,7 +1,7 @@
 import Foundation
 
 /// Criteria for random campaign questions.
-public nonisolated struct ScreenRandomQuestionConfiguration: Encodable, Hashable, Sendable {
+public nonisolated struct ScreenRandomQuestionConfiguration: Codable, Hashable, Sendable {
     public enum QuestionType: String, Codable, Hashable, Sendable {
         case quiz = "QUIZ", code = "CODE"
     }
@@ -46,7 +46,7 @@ public nonisolated struct ScreenRandomQuestionConfiguration: Encodable, Hashable
 }
 
 /// Timer overrides. Omitted fields use team defaults.
-public nonisolated struct ScreenCampaignTimer: Encodable, Hashable, Sendable {
+public nonisolated struct ScreenCampaignTimer: Codable, Hashable, Sendable {
     public enum Mode: String, Codable, Hashable, Sendable {
         case perQuestion = "PER_QUESTION", global = "GLOBAL", unlimited = "UNLIMITED"
     }
@@ -67,7 +67,7 @@ public nonisolated struct ScreenCampaignTimer: Encodable, Hashable, Sendable {
 }
 
 /// Access window with ISO 8601 timestamps.
-public nonisolated struct ScreenCampaignAccessPeriod: Encodable, Hashable, Sendable {
+public nonisolated struct ScreenCampaignAccessPeriod: Codable, Hashable, Sendable {
 
     public let minStartTime: String?
     public let maxEndTime: String?
@@ -85,7 +85,7 @@ public nonisolated struct ScreenCampaignAccessPeriod: Encodable, Hashable, Senda
 }
 
 /// Follow-up question settings.
-public nonisolated struct ScreenCampaignFollowUpQuestions: Encodable, Hashable, Sendable {
+public nonisolated struct ScreenCampaignFollowUpQuestions: Codable, Hashable, Sendable {
     public enum AnswerFormat: String, Codable, Hashable, Sendable {
         case text = "TEXT", video = "VIDEO", audio = "AUDIO"
     }
@@ -106,7 +106,7 @@ public nonisolated struct ScreenCampaignFollowUpQuestions: Encodable, Hashable, 
 }
 
 /// Webcam and AI analysis settings.
-public nonisolated struct ScreenCampaignWebcamProctoring: Encodable, Hashable, Sendable {
+public nonisolated struct ScreenCampaignWebcamProctoring: Codable, Hashable, Sendable {
 
     public let enabled: Bool?
     public let aiAnalysisEnabled: Bool?
@@ -124,7 +124,7 @@ public nonisolated struct ScreenCampaignWebcamProctoring: Encodable, Hashable, S
 }
 
 /// Campaign overrides. Nil inherits defaults, false and empty values remain explicit.
-public nonisolated struct ScreenCampaignSettings: Encodable, Hashable, Sendable {
+public nonisolated struct ScreenCampaignSettings: Codable, Hashable, Sendable {
 
     public let languages: [String]?
     public let timer: ScreenCampaignTimer?

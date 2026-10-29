@@ -34,6 +34,7 @@ final nonisolated class MockScreenState: @unchecked Sendable {
     var bankQuestions = MockScreenFixtures.questionBank()
     var createdCampaigns: [[String: Any]] = []
     var nextCampaignID = 9000
+    var campaignDefinitions: [Int: [String: Any]] = [:]
 
     func allCampaigns() -> [[String: Any]] {
         MockScreenFixtures.campaigns() + createdCampaigns

@@ -17,6 +17,7 @@ nonisolated extension MockScreenResponses {
         let settings = params["settings"] as? [String: Any] ?? [:]
         let id = state.nextCampaignID
         state.nextCampaignID += 1
+        state.campaignDefinitions[id] = params.merging(["id": id]) { _, id in id }
         state.createdCampaigns.append([
             "id": id, "name": name, "languages": settings["languages"] ?? [],
             "pinned": false, "archived": false
