@@ -400,14 +400,12 @@ public nonisolated struct PadCreate: Codable, Sendable {
         case aiAssistEnabled = "ai_assist_enabled"
     }
 
-    /// A pad seeded from a question: same title and language, with the question
-    /// attached. `isPrivate` and `executionEnabled` are left `nil` so the account's
-    /// configured defaults apply; pass them explicitly to override.
+    /// Seed the pad's environment and code through the question ID. A question's
+    /// language can be a project slug, which is not a valid pad language override.
+    /// Privacy and execution settings inherit the account defaults.
     public static func fromQuestion(_ question: Question) -> Self {
         Self(
             title: question.title,
-            language: question.language,
-            allowUnknownLanguage: true,
             questionID: question.id
         )
     }
