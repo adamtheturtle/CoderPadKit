@@ -141,15 +141,19 @@ struct PadMutationValidationTests {
         #expect(root["title"] as? String == "Renamed")
     }
 
-    @Test
-    func `fromQuestion carries the title, language, and question but leaves defaults nil`() throws {
-        let json = Data(#"{"id":55,"title":"Two Sum","language":"python3"}"#.utf8)
+    @Test(arguments: [
+        "python3", "multifile_python", "multifile_javascript", "react", "django", "rails", "future_project", nil
+    ] as [String?])
+    func `fromQuestion inherits its question environment and account defaults`(language: String?) throws {
+        let json = try JSONSerialization.data(withJSONObject: [
+            "id": 55, "title": "Two Sum", "language": language as Any? ?? NSNull()
+        ])
         let question = try CoderPadClient.decoder.decode(Question.self, from: json)
 
         let padCreate = PadCreate.fromQuestion(question)
 
         #expect(padCreate.title == "Two Sum")
-        #expect(padCreate.language == "python3")
+        #expect(padCreate.language == nil)
         #expect(padCreate.questionID == 55)
         #expect(padCreate.isPrivate == nil)
         #expect(padCreate.executionEnabled == nil)
@@ -158,6 +162,7 @@ struct PadMutationValidationTests {
 
         let data = try CoderPadClient.encoder.encode(padCreate)
         let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(root["language"] == nil)
         #expect(root["private"] == nil)
         #expect(root["execution_enabled"] == nil)
     }

@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.6.2
+
+- Let question-seeded pads inherit the question environment without a single-file language override.
+
 ## 0.6.1
 
 - Retrieve Screen campaign definitions with ordered questions, settings, and team identity.
