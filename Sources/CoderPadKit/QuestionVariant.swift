@@ -6,12 +6,16 @@ public nonisolated struct QuestionVariantFileContent: Codable, Hashable, Sendabl
     public var contents: String?
     public var hidden: Bool?
     public var deleted: Bool?
+    /// Response metadata only; never sent as a mutation attribute.
+    public var binary: Bool?
 
-    public init(path: String, contents: String? = nil, hidden: Bool? = nil, deleted: Bool? = nil) {
+    public init(path: String, contents: String? = nil, hidden: Bool? = nil,
+                deleted: Bool? = nil, binary: Bool? = nil) {
         self.path = path
         self.contents = contents
         self.hidden = hidden
         self.deleted = deleted
+        self.binary = binary
     }
 }
 
@@ -93,9 +97,29 @@ public nonisolated struct QuestionVariantMutation: Encodable, Sendable {
         if let fileContentsJSON {
             try container.encode(fileContentsJSON, forKey: .fileContents)
         } else {
-            try container.encodeIfPresent(fileContents, forKey: .fileContents)
+            let files = try fileContents?.map(QuestionVariantFileMutation.init)
+            try container.encodeIfPresent(files, forKey: .fileContents)
         }
         try container.encodeIfPresent(solution, forKey: .solution)
+    }
+}
+
+/// Keeps read-only response metadata out of requests that reuse response files.
+private nonisolated struct QuestionVariantFileMutation: Encodable {
+    let path: String
+    let contents: String?
+    let hidden: Bool?
+    let deleted: Bool?
+
+    init(_ file: QuestionVariantFileContent) throws {
+        guard file.binary != true || file.deleted == true else {
+            throw EncodingError.invalidValue(file, .init(codingPath: [],
+                debugDescription: "Binary file bodies cannot be preserved through a text-file replacement."))
+        }
+        path = file.path
+        contents = file.contents
+        hidden = file.hidden
+        deleted = file.deleted
     }
 }
 

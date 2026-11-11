@@ -1,5 +1,10 @@
 # Release notes
 
+## 0.7.1
+
+- Preserve optional binary-file metadata in parent-question and variant responses.
+- Reject binary response files in textual variant replacements and omit response-only binary markers from requests.
+
 ## 0.7.0
 
 - Create project-template pads with starter-file overlays or a ZIP archive.
