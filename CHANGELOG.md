@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.7.0
+
+- Create project-template pads with starter-file overlays or a ZIP archive.
+- Discover available environments and starter code with `listLanguages()` and `getLanguage(_:)`, preserving catalogue JSON.
+- Recognize the current documented project identifiers.
+
 ## 0.6.2
 
 - Let question-seeded pads inherit the question environment without a single-file language override.
