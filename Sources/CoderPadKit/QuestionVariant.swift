@@ -9,8 +9,12 @@ public nonisolated struct QuestionVariantFileContent: Codable, Hashable, Sendabl
     /// Response metadata only; never sent as a mutation attribute.
     public var binary: Bool?
 
+    public init(path: String, contents: String? = nil, hidden: Bool? = nil, deleted: Bool? = nil) {
+        self.init(path: path, contents: contents, hidden: hidden, deleted: deleted, binary: nil)
+    }
+
     public init(path: String, contents: String? = nil, hidden: Bool? = nil,
-                deleted: Bool? = nil, binary: Bool? = nil) {
+                deleted: Bool? = nil, binary: Bool?) {
         self.path = path
         self.contents = contents
         self.hidden = hidden

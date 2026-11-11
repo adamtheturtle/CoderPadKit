@@ -4,6 +4,18 @@ import Testing
 
 @Suite("Binary starter-file response metadata")
 struct QuestionBinaryMetadataTests {
+    @Test
+    func `original initializer remains usable as a four-argument function value`() {
+        let makeFile: (String, String?, Bool?, Bool?) -> QuestionVariantFileContent =
+            QuestionVariantFileContent.init(path:contents:hidden:deleted:)
+        let file = makeFile("blank.txt", "", false, false)
+        #expect(file.path == "blank.txt")
+        #expect(file.contents == "")
+        #expect(file.binary == nil)
+        #expect(QuestionVariantFileContent(path: "legacy.txt").binary == nil)
+        #expect(QuestionVariantFileContent(path: "image.png", binary: true).binary == true)
+    }
+
     @Test(arguments: [nil, false, true] as [Bool?])
     func `binary marker retains all three states in both response models`(binary: Bool?) throws {
         var object: [String: Any] = ["path": "image.png", "hidden": true]

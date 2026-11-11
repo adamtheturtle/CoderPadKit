@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.7.2
+
+- Restore the original variant-file initializer overload for callers that reference it as a function value.
+
 ## 0.7.1
 
 - Preserve optional binary-file metadata in parent-question and variant responses.
