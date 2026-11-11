@@ -1,10 +1,24 @@
 import CoderPadKit
+import CoderPadKitMock
 import Foundation
 import Synchronization
 import Testing
 
 @Suite("Project pads and language discovery", .serialized)
 struct ProjectPadTests {
+    @Test
+    func `project demo reads back the supplied files through its environment`() async throws {
+        let client = CoderPadClient.mock(key: "project-\(UUID())")
+        let pad = try await client.createPad(PadCreate(language: "multifile_python", fileContents: [
+            .init(path: "main.py", contents: "print(1)"), .init(path: "old.py", deleted: true)
+        ]))
+        #expect(pad.language == nil)
+        #expect(pad.contents == nil)
+        let environment = try await client.padEnvironment(id: #require(pad.padEnvironmentIDs.first))
+        #expect(environment.fileContents.map(\.path) == ["main.py"])
+        #expect(environment.fileContents.first?.contents == "print(1)")
+    }
+
     @Test
     func `project overlays encode as JSON strings with empty and deleted files`() throws {
         let body = PadCreate(language: "multifile_python", fileContents: [

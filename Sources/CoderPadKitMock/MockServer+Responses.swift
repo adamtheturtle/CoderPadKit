@@ -224,13 +224,14 @@ nonisolated enum MockResponses {
         }
         let id = newPadID(state: state)
         let language = create.language ?? MockFixtures.organizationDefaultLanguage
-        let environment = MockFixtures.createdPadEnvironment(
+        var environment = MockFixtures.createdPadEnvironment(
             state: state,
             padID: id,
             language: language,
             contents: create.contents,
             questionID: create.questionID
         )
+        if let error = applyProjectPadFiles(create, language: language, environment: &environment) { return error }
         let environmentID = environment["id"] as? Int ?? state.nextEnvironmentID()
         state.createdEnvironments[environmentID] = environment
 
@@ -247,6 +248,7 @@ nonisolated enum MockResponses {
             environmentIDs: [environmentID],
             activeEnvironmentID: environmentID
         )
+        normalizeProjectPad(&pad, language: language)
         // Reflect the documented create params back into the pad body.
         pad["question_ids"] = create.questionID.map { [$0] } ?? []
         if let teamID = create.teamID {
