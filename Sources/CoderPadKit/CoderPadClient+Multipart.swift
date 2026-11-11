@@ -24,7 +24,9 @@ public extension CoderPadClient {
     /// Use structured files when also supplying an interviewer access list.
     func createPad(_ body: PadCreate, zipFile: QuestionZIPUpload) async throws -> Pad {
         guard body.allowedInterviewerEmails == nil else {
-            throw CoderPadError.decode("Use structured files to combine project creation with an interviewer access list.")
+            throw CoderPadError.decode(
+                "Use structured files to combine project creation with an interviewer access list."
+            )
         }
         let encoded = try Self.makeEncoder().encode(body)
         let values = try JSONDecoder().decode([String: JSONValue].self, from: encoded)
