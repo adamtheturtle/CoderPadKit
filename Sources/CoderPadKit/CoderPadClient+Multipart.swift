@@ -20,6 +20,34 @@ nonisolated struct StagedMultipartRequest: Sendable {
 }
 
 public extension CoderPadClient {
+    /// Creates a project pad from a ZIP archive, using the same bounds as question uploads.
+    /// Use structured files when also supplying an interviewer access list.
+    func createPad(_ body: PadCreate, zipFile: QuestionZIPUpload) async throws -> Pad {
+        guard body.allowedInterviewerEmails == nil else {
+            throw CoderPadError.decode(
+                "Use structured files to combine project creation with an interviewer access list."
+            )
+        }
+        let encoded = try Self.makeEncoder().encode(body)
+        let values = try JSONDecoder().decode([String: JSONValue].self, from: encoded)
+        let fields = try values.sorted(by: { $0.key < $1.key }).map { key, value in
+            let text: String
+            if case let .string(string) = value {
+                text = string
+            } else {
+                text = String(decoding: try Self.makeEncoder().encode(value), as: UTF8.self)
+            }
+            return MultipartFormField(name: "pad[\(key)]", value: text)
+        }
+        let request = try multipartQuestionRequest(
+            method: "POST", path: "/api/pads/", fields: fields,
+            hasAlternativeContentSource: body.contents != nil || body.fileContents != nil || body.questionID != nil,
+            zipFile: zipFile, fieldName: "pad[zip_file]"
+        )
+        defer { request.remove() }
+        return try await rest.perform(Pad.self, request: request.request)
+    }
+
     /// Creates a multi-file question from caller-provided ZIP bytes. A ZIP cannot be
     /// combined with ``QuestionCreate/contents`` or ``QuestionCreate/fileContents``.
     func createQuestion(
@@ -77,7 +105,8 @@ extension CoderPadClient {
         path: String,
         fields: [MultipartFormField],
         hasAlternativeContentSource: Bool,
-        zipFile: QuestionZIPUpload
+        zipFile: QuestionZIPUpload,
+        fieldName: String = "question[zip_file]"
     ) throws -> StagedMultipartRequest {
         guard !hasAlternativeContentSource else {
             throw QuestionMutationValidationError.mutuallyExclusiveContentSources
@@ -91,7 +120,7 @@ extension CoderPadClient {
             fields: fields,
             files: [
                 MultipartFormFile(
-                    name: "question[zip_file]",
+                    name: fieldName,
                     filename: zipFile.filename,
                     contentType: "application/zip",
                     data: zipFile.data

@@ -185,3 +185,13 @@ let settings = campaign.settings
 
 Question selections and settings are Codable, so the returned definition can also seed a new campaign request.
 The demo server retains campaign definitions after creation.
+
+### Project pads and environment discovery
+
+Use `listLanguages()` and `getLanguage("multifile_python")` to inspect environment context and starter code.
+These return the complete catalogue JSON.
+Create a project with `createPad(PadCreate(language: "multifile_python"))`, optionally passing `fileContents` overlays.
+Use `createPad(_:zipFile:)` with `QuestionZIPUpload` for an archive that replaces template files.
+Project pad responses have null language and contents.
+Read their files through `padEnvironment(id:)`.
+Use structured files when also setting an interviewer access list.

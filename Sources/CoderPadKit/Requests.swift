@@ -85,7 +85,7 @@ public nonisolated struct PadUpdate: Codable, Sendable {
 /// This is an encode-only request value. It is intentionally separate from
 /// ``QuestionCustomFile``, which describes downloadable file metadata returned by
 /// the API rather than starter-code files sent in a question mutation.
-public nonisolated struct QuestionFileContent: Encodable, Sendable {
+public nonisolated struct QuestionFileContent: Codable, Sendable {
     /// Maximum number of structured files accepted by a single mutation. Unlike a ZIP
     /// upload, the structured path has no archive framing to bound it otherwise.
     public static let maximumFileCount = 200
@@ -330,6 +330,8 @@ public nonisolated struct PadCreate: Codable, Sendable {
     public var allowUnknownLanguage: Bool
     public var ownerEmail: String?
     public var contents: String?
+    /// Starter files layered over a project template. Mutually exclusive with contents and questionID.
+    public var fileContents: [QuestionFileContent]?
     public var notes: String?
     public var isPrivate: Bool?
     public var executionEnabled: Bool?
@@ -359,6 +361,7 @@ public nonisolated struct PadCreate: Codable, Sendable {
         ownerEmail: String? = nil, contents: String? = nil, notes: String? = nil,
         isPrivate: Bool? = nil, executionEnabled: Bool? = nil, questionID: Int? = nil,
         teamID: String? = nil,
+        fileContents: [QuestionFileContent]? = nil,
         restrictInterviewerAccess: Bool? = nil,
         allowedInterviewerEmails: [String]? = nil,
         disableCoachingTips: Bool? = nil,
@@ -371,6 +374,7 @@ public nonisolated struct PadCreate: Codable, Sendable {
         self.allowUnknownLanguage = allowUnknownLanguage
         self.ownerEmail = ownerEmail
         self.contents = contents
+        self.fileContents = fileContents
         self.notes = notes
         self.isPrivate = isPrivate
         self.executionEnabled = executionEnabled
@@ -390,6 +394,7 @@ public nonisolated struct PadCreate: Codable, Sendable {
         case ownerEmail = "user_email"
         case isPrivate = "private"
         case executionEnabled = "execution_enabled"
+        case fileContents = "file_contents"
         case questionID = "question_id"
         case teamID = "team_id"
         case restrictInterviewerAccess = "restrict_interviewer_access"
@@ -482,6 +487,11 @@ extension PadCreate {
         allowUnknownLanguage = false
         ownerEmail = try container.decodeIfPresent(String.self, forKey: .ownerEmail)
         contents = try container.decodeIfPresent(String.self, forKey: .contents)
+        if let files = try container.decodeIfPresent(String.self, forKey: .fileContents) {
+            fileContents = try JSONDecoder().decode([QuestionFileContent].self, from: Data(files.utf8))
+        } else {
+            fileContents = nil
+        }
         notes = try container.decodeIfPresent(String.self, forKey: .notes)
         isPrivate = try container.decodeIfPresent(Bool.self, forKey: .isPrivate)
         executionEnabled = try decodeExecutionEnabled(from: container, forKey: .executionEnabled)
@@ -497,6 +507,10 @@ extension PadCreate {
 
     public nonisolated func encode(to encoder: any Encoder) throws {
         try validatePadContents(contents: contents, questionID: questionID)
+        try validateQuestionContents(contents: contents, fileContents: fileContents)
+        if questionID != nil, fileContents != nil {
+            throw CoderPadError.decode("questionID and fileContents are mutually exclusive.")
+        }
         let normalizedOwnerEmail = try validatedPadOwnerEmail(ownerEmail)
         let normalizedTeamID = try validatedTeamID(teamID)
         let normalizedQuestionID = try validatedPadQuestionID(questionID)
@@ -508,6 +522,9 @@ extension PadCreate {
         try container.encodeIfPresent(normalizedLanguage, forKey: .language)
         try container.encodeIfPresent(normalizedOwnerEmail, forKey: .ownerEmail)
         try container.encodeIfPresent(contents, forKey: .contents)
+        try container.encodeIfPresent(
+            encodedQuestionArray(try validatedFileContents(fileContents)), forKey: .fileContents
+        )
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encodeIfPresent(isPrivate, forKey: .isPrivate)
         try encodeExecutionEnabled(executionEnabled, into: &container, forKey: .executionEnabled)
