@@ -192,4 +192,6 @@ Use `listLanguages()` and `getLanguage("multifile_python")` to inspect environme
 These return the complete catalogue JSON.
 Create a project with `createPad(PadCreate(language: "multifile_python"))`, optionally passing `fileContents` overlays.
 Use `createPad(_:zipFile:)` with `QuestionZIPUpload` for an archive that replaces template files.
-Project pad responses have null language and contents; read their files through `padEnvironment(id:)`.
+Project pad responses have null language and contents.
+Read their files through `padEnvironment(id:)`.
+Use structured files when also setting an interviewer access list.

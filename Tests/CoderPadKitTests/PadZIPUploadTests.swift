@@ -32,6 +32,10 @@ struct PadZIPUploadTests {
                 try await client.createPad(body, zipFile: QuestionZIPUpload(data: Data([1]), filename: "project.zip"))
             }
         }
+        await #expect(throws: CoderPadError.self) {
+            try await client.createPad(PadCreate(allowedInterviewerEmails: []),
+                                        zipFile: QuestionZIPUpload(data: Data([1]), filename: "project.zip"))
+        }
         #expect(PadZIPCapture.requests.withLock { $0.count } == 1)
     }
 }

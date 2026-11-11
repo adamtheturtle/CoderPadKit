@@ -21,7 +21,11 @@ nonisolated struct StagedMultipartRequest: Sendable {
 
 public extension CoderPadClient {
     /// Creates a project pad from a ZIP archive, using the same bounds as question uploads.
+    /// Use structured files when also supplying an interviewer access list.
     func createPad(_ body: PadCreate, zipFile: QuestionZIPUpload) async throws -> Pad {
+        guard body.allowedInterviewerEmails == nil else {
+            throw CoderPadError.decode("Use structured files to combine project creation with an interviewer access list.")
+        }
         let encoded = try Self.makeEncoder().encode(body)
         let values = try JSONDecoder().decode([String: JSONValue].self, from: encoded)
         let fields = try values.sorted(by: { $0.key < $1.key }).map { key, value in
