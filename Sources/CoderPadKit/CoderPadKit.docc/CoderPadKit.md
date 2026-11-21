@@ -7,7 +7,8 @@ An unofficial Swift client for the CoderPad REST API.
 `CoderPadKit` is the lean wire layer for the [CoderPad](https://coderpad.io) REST API: typed models for pads, questions, and organizations; encode-only request bodies; a raw ``CoderPadError``; and the ``CoderPadClient`` that drives them all.
 The client wraps a generic paginated transport, so list calls follow every page, idempotent GETs retry on transient failures, and JSON decoding happens off the main actor.
 
-The library is deliberately presentation-free and locale-free: it carries the facts the API returns and leaves how to phrase or display them to you.
+The library returns data from the API.
+The client formats and localizes that data.
 The companion `CoderPadKitMock` product ships an in-process fake of the API, backed by canned fixtures, for demo modes and tests with no network.
 
 > Note: This is an unofficial client and is not affiliated with or endorsed by CoderPad.
@@ -17,7 +18,7 @@ The companion `CoderPadKitMock` product ships an in-process fake of the API, bac
 Some read-only fields exposed by the live service are absent from the published API contract.
 CoderPadKit retains the observed `PadEnvironmentFile.binary`, `Pad.restrictInterviewerAccess`, `Pad.padInterviewerNotifications`, and `Question.customDatabase` metadata with typed models.
 These fields may evolve without the guarantees of the published contract.
-`Organization.child_organizations` remains deliberately unmodelled until a non-empty response confirms its item shape.
+`Organization.child_organizations` remains deliberately unmodelled until a non-empty response confirms the fields of each record.
 
 ## Getting started
 
@@ -100,7 +101,8 @@ For self-hosted or regional deployments, pass a custom `baseURL`.
 
 ### Progressive loading
 
-The incremental list methods yield growing snapshots, so a UI can render page one after a single round-trip and append the rest as it arrives:
+The incremental list methods yield snapshots as pages arrive.
+A UI can render the first page after one round trip and append the remaining pages:
 
 ```swift
 for try await snapshot in client.listPadsIncrementally() {

@@ -75,7 +75,7 @@ Ordinary pad and list responses can omit all of these fields.
 An absent transcript is `nil`, an explicitly empty transcript is `[]`, and the unavailable-source flag remains independent.
 
 `TranscriptEntry` retains spoken and system-message kinds, optional speaker metadata, text, and timestamps in epoch milliseconds.
-`ReviewReport` retains open status strings, optional report and error content, file paths, reviewer identity, and creation/update dates. Pending and failed reviews stay available even when their report text is absent. The outline uses `JSONValue` to preserve arbitrary objects, arrays, strings, decimal numbers, Boolean values, and nulls. Optimistic pad edits preserve all analytics metadata. The mock API includes spoken transcripts, unavailable sources, and owner-only pending/error reviews on detail routes.
+`ReviewReport` retains open status strings, optional report and error content, file paths, reviewer identity, and creation/update dates. Pending and failed reviews remain available even when their report text is absent. The outline uses `JSONValue` to preserve arbitrary objects, arrays, strings, decimal numbers, Boolean values, and nulls. Optimistic pad edits preserve the analytics metadata. The mock API includes spoken transcripts, unavailable sources, and owner-only pending/error reviews on detail routes.
 
 ### Question sharing and database selection
 
@@ -92,13 +92,13 @@ Random inclusion and exclusion lists are mutually exclusive.
 `ScreenCampaignSettings` supports languages, timer, invitation expiry, ISO 8601 access windows, follow-up questions, webcam analysis, AI Assist, and coding agents.
 Omitted settings inherit team defaults, while false, zero, and empty values are sent explicitly.
 `enabledCodingAgents` is a string, and an empty string disables agents.
-Creation returns `ScreenCreatedCampaign.id`, makes one request, and surfaces feature restrictions through the usual HTTP error contract.
+Creation returns `ScreenCreatedCampaign.id`, makes one request, and reports feature restrictions through the usual HTTP error contract.
 
 ### Parent-question project files
 
 `Question.fileContents` exposes starter files with path, optional text, hidden, and deleted metadata.
 `Question.questionVariants` contains compact `QuestionVariantSummary` values, including nullable language, project template identity/slug, and display name.
-These summaries require neither full variant code nor timestamps.
+These summaries work without full variant code or timestamps.
 Starter files are separate from the downloadable attachments in `customFiles`.
 
 `QuestionFileContent(path:contents:hidden:deleted:)` supports hidden files and path-only template deletion entries.
@@ -123,7 +123,8 @@ The client's configured timeout and normal task cancellation apply.
 Use `ScreenClient.aiAssistConversations(testID:questionID:)` with an integer test ID and UUID project question ID.
 Conversations retain their identity, subject, original ISO 8601 timestamps, and ordered messages with USER/ASSISTANT roles.
 Message `outputItems` preserves structured JSON, including unknown fields, reasoning, tool calls, and text chunks.
-Missing output stays nil and explicitly empty output stays empty.
+Missing output decodes to nil.
+Explicitly empty output decodes as empty.
 Conversations are available after completion or while awaiting manual review.
 Missing project questions return HTTP 404 and unfinished sessions return HTTP 409 through the existing error contract.
 
@@ -166,7 +167,7 @@ for question in session.detailedQuestions {
 }
 ```
 
-Pending grades and missing submissions stay optional.
+Pending grades and missing submissions are optional.
 Explicit zero scores and false flags remain present.
 Restricted reports may omit questions.
 Media URLs are returned as metadata; reading a report does not download recordings, files, or project archives.
