@@ -72,7 +72,9 @@
 ## 0.5.16
 
 - Decode paged pad, question, and event responses element-by-element, so a record the per-record validation rejects is dropped from its page instead of failing it.
-  0.5.14 added several checks that reject a whole `Pad` or `Question` (the id shape, the lifecycle ordering, and nonnegative counts), while `PadsPage.pads` was a plain `[Pad]`, so any one of them meant "an error and no pads at all" for a caller whose other 49 records were fine.
+  0.5.14 added several checks that reject a whole `Pad` or `Question` (the ID format, the lifecycle ordering, and nonnegative counts).
+  At the time, `PadsPage.pads` was a plain `[Pad]`.
+  An invalid record caused the entire page to fail.
   The number dropped is logged.
   The validation is unchanged; it is no longer destructive.
 
@@ -81,7 +83,7 @@
 - Report contradictory lifecycle timestamps instead of refusing to decode the record.
   0.5.14 made `Pad` throw a `DecodingError` when `updated_at` preceded `created_at`, when `ended_at` preceded `created_at`, or when `ended_at` was set on a pad whose state was started/active/running/pending/draft, and made `Question` throw on the same `updated_at` ordering.
   Ordinary clock skew between the two writes is enough to produce one.
-  Those records decode again, and the contradictions are exposed as `Pad.lifecycleInconsistencies` / `Question.lifecycleInconsistencies` and the `lifecycleDiagnostic` sentence, matching how malformed sub-elements are already skipped, counted, and surfaced through `omitted*Diagnostic`.
+  Those records decode again, and the contradictions are exposed as `Pad.lifecycleInconsistencies` / `Question.lifecycleInconsistencies` and the `lifecycleDiagnostic` sentence, matching how malformed sub-elements are already skipped, counted, and reported through `omitted*Diagnostic`.
 
 ## 0.5.14
 
